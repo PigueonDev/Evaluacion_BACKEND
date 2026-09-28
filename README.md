@@ -15,11 +15,39 @@ Continuación del proyecto de la Evaluación #1: se mantienen **dos aplicaciones
 
 Relaciones: `Pelicula.genero -> Genero`, `Pelicula.director -> Director`, `Arriendo.cliente -> Cliente`, `Arriendo.pelicula -> Pelicula`.
 
-## Instalación en EC2 (Ubuntu)
+## Instalación en EC2
+
+### Amazon Linux 2023
+
+Comprueba primero el sistema operativo:
+
+```bash
+cat /etc/os-release
+```
+
+En Amazon Linux 2023 utiliza `dnf`:
+
+```bash
+sudo dnf update -y
+sudo dnf install -y python3 python3-pip python3-devel gcc pkg-config mariadb105-server mariadb-connector-c-devel git
+sudo systemctl enable --now mariadb
+```
+
+### Ubuntu/Debian
+
+En Ubuntu o Debian utiliza `apt`:
 
 ```bash
 sudo apt update
 sudo apt install -y python3-venv python3-dev build-essential pkg-config default-libmysqlclient-dev git mariadb-server
+sudo systemctl enable --now mariadb
+```
+
+### Instalación del proyecto
+
+Continúa con estos pasos en cualquiera de los dos sistemas:
+
+```bash
 
 # Base de datos
 sudo mysql -e "CREATE DATABASE blockbuster CHARACTER SET utf8mb4 COLLATE utf8mb4_spanish_ci;"

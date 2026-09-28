@@ -1,11 +1,13 @@
 {% extends 'base.html' %}
 {% block titulo %}Blockbuster - Películas{% endblock %}
 {% block contenido %}
+{% url 'admin:catalogoApp_pelicula_add' as agregar_url %}
+{% url 'admin:catalogoApp_pelicula_changelist' as listado_url %}
 <div class="row mt-3">
     <div class="col-md-4 h3">Mantenedor de Películas</div>
     <div class="col-md-5">{% include '_buscador.html' %}</div>
     <div class="col-md-3 text-end">
-        <a href="{% url 'admin:catalogoApp_pelicula_add' %}" class="btn btn-success"><i class="bi bi-plus-circle"></i> Agregar Película</a>
+        {% include '_acciones.html' with agregar_url=agregar_url modificar_url=listado_url eliminar_url=listado_url %}
     </div>
 </div>
 <div class="row mt-3">
