@@ -1,0 +1,43 @@
+{% extends 'base.html' %}
+{% block titulo %}Blockbuster - Películas{% endblock %}
+{% block contenido %}
+<div class="row mt-3">
+    <div class="col-md-4 h3">Mantenedor de Películas</div>
+    <div class="col-md-5">{% include '_buscador.html' %}</div>
+    <div class="col-md-3 text-end">
+        <a href="{% url 'admin:catalogoApp_pelicula_add' %}" class="btn btn-success"><i class="bi bi-plus-circle"></i> Agregar Película</a>
+    </div>
+</div>
+<div class="row mt-3">
+    <div class="col table-responsive">
+        <table class="table table-striped table-hover table-dark">
+            <thead>
+                <tr>
+                    <th>#</th><th>Título</th><th>Año</th><th>Género</th><th>Director</th>
+                    <th>Clasificación</th><th>Precio</th><th>Copias</th><th>Acciones</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for p in peliculas %}
+                <tr>
+                    <td>{{ p.id }}</td>
+                    <td>{{ p.titulo }}</td>
+                    <td>{{ p.anio }}</td>
+                    <td>{{ p.genero.nombre }}</td>
+                    <td>{{ p.director.nombre|default:"-" }}</td>
+                    <td>{{ p.get_clasificacion_display }}</td>
+                    <td>${{ p.precio_arriendo }}</td>
+                    <td>{{ p.stock }}</td>
+                    <td>
+                        <a href="{% url 'admin:catalogoApp_pelicula_change' p.pk %}" class="btn btn-sm btn-warning"><i class="bi bi-pencil-square"></i> Modificar</a>
+                        <a href="{% url 'admin:catalogoApp_pelicula_delete' p.pk %}" class="btn btn-sm btn-danger"><i class="bi bi-trash-fill"></i> Eliminar</a>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="9" class="text-center">No hay películas registradas.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

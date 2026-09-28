@@ -1,0 +1,28 @@
+{% extends 'base.html' %}
+{% block titulo %}Blockbuster - Clientes{% endblock %}
+{% block contenido %}
+<div class="row mt-3"><div class="col h3">Clientes y Arriendos</div></div>
+<div class="row mt-2">
+    <div class="col-md-4"><div class="alert alert-primary">Clientes: <b>{{ total_clientes }}</b></div></div>
+    <div class="col-md-4"><div class="alert alert-primary">Arriendos: <b>{{ total_arriendos }}</b></div></div>
+    <div class="col-md-4"><div class="alert alert-warning">Pendientes de devolución: <b>{{ pendientes }}</b></div></div>
+</div>
+<div class="row mt-2"><div class="col h5">Últimos arriendos</div></div>
+<div class="row">
+    {% for a in ultimos %}
+    <div class="col-lg-4 col-md-6 mb-3">
+        <div class="card h-100">
+            <div class="card-body">
+                <h5 class="card-title">{{ a.pelicula.titulo }}</h5>
+                <h6 class="card-subtitle mb-2 text-muted">{{ a.cliente }}</h6>
+                <p class="card-text">Arriendo: {{ a.fecha_arriendo|date:"d/m/Y" }}<br>Límite: {{ a.fecha_limite|date:"d/m/Y" }}</p>
+                <span class="badge bg-info text-dark">{{ a.get_estado_display }}</span>
+                <span class="badge bg-success">${{ a.total }}</span>
+            </div>
+        </div>
+    </div>
+    {% empty %}
+    <div class="col"><div class="alert alert-warning">No hay arriendos registrados.</div></div>
+    {% endfor %}
+</div>
+{% endblock %}

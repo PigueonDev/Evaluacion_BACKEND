@@ -1,0 +1,19 @@
+# Secretos
+.env
+
+# Entorno virtual
+venv/
+.venv/
+
+# Python
+__pycache__/
+*.py[cod]
+
+# Bases de datos locales
+db.sqlite3
+
+# Otros
+.vscode/
+.idea/
+.DS_Store
+staticfiles/
