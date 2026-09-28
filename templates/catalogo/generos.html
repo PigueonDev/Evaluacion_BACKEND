@@ -21,8 +21,12 @@
                     <td>{{ g.nombre }}</td>
                     <td>{{ g.descripcion }}</td>
                     <td>
+                        {% if user.is_staff %}
                         <a href="{% url 'admin:catalogoApp_genero_change' g.pk %}" class="btn btn-sm btn-warning"><i class="bi bi-pencil-square"></i> Modificar</a>
                         <a href="{% url 'admin:catalogoApp_genero_delete' g.pk %}" class="btn btn-sm btn-danger"><i class="bi bi-trash-fill"></i> Eliminar</a>
+                        {% else %}
+                        <span class="text-muted">Solo administración</span>
+                        {% endif %}
                     </td>
                 </tr>
                 {% empty %}

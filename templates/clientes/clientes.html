@@ -27,8 +27,12 @@
                     <td>{{ c.fecha_registro|date:"d/m/Y" }}</td>
                     <td>{% if c.activo %}Sí{% else %}No{% endif %}</td>
                     <td>
+                        {% if user.is_staff %}
                         <a href="{% url 'admin:clientesApp_cliente_change' c.pk %}" class="btn btn-sm btn-warning"><i class="bi bi-pencil-square"></i> Modificar</a>
                         <a href="{% url 'admin:clientesApp_cliente_delete' c.pk %}" class="btn btn-sm btn-danger"><i class="bi bi-trash-fill"></i> Eliminar</a>
+                        {% else %}
+                        <span class="text-muted">Solo administración</span>
+                        {% endif %}
                     </td>
                 </tr>
                 {% empty %}

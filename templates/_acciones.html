@@ -1,5 +1,17 @@
 <div class="btn-group" role="group" aria-label="Acciones del módulo">
+    {% if not user.is_staff %}
+    <span class="d-inline-block" tabindex="0" data-bs-toggle="tooltip" title="Disponible solo para administración">
+        <a href="#" class="btn btn-success disabled" aria-disabled="true"><i class="bi bi-plus-circle"></i> Agregar</a>
+    </span>
+    <span class="d-inline-block" tabindex="0" data-bs-toggle="tooltip" title="Disponible solo para administración">
+        <a href="#" class="btn btn-warning disabled" aria-disabled="true"><i class="bi bi-pencil-square"></i> Modificar</a>
+    </span>
+    <span class="d-inline-block" tabindex="0" data-bs-toggle="tooltip" title="Disponible solo para administración">
+        <a href="#" class="btn btn-danger disabled" aria-disabled="true"><i class="bi bi-trash-fill"></i> Eliminar</a>
+    </span>
+    {% else %}
     <a href="{{ agregar_url }}" class="btn btn-success"><i class="bi bi-plus-circle"></i> Agregar</a>
     <a href="{{ modificar_url }}" class="btn btn-warning"><i class="bi bi-pencil-square"></i> Modificar</a>
     <a href="{{ eliminar_url }}" class="btn btn-danger"><i class="bi bi-trash-fill"></i> Eliminar</a>
+    {% endif %}
 </div>
