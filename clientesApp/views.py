@@ -1,13 +1,24 @@
 from django.db.models import Q
 from django.shortcuts import render
+from django.utils import timezone
 from clientesApp.models import Cliente, Arriendo
 
 
+def actualizar_deudores():
+    hoy = timezone.localdate()
+    Arriendo.objects.filter(
+        fecha_limite__lt=hoy,
+        fecha_devolucion__isnull=True,
+    ).update(deudor=True, estado='R')
+
+
 def clientes_home(request):
+    actualizar_deudores()
     data = {
         'total_clientes': Cliente.objects.count(),
         'total_arriendos': Arriendo.objects.count(),
         'pendientes': Arriendo.objects.filter(estado='A').count(),
+        'deudores': Arriendo.objects.filter(deudor=True).count(),
         'ultimos': Arriendo.objects.select_related('cliente', 'pelicula')[:6],
     }
     return render(request, 'clientes/inicio.html', data)
@@ -24,6 +35,7 @@ def listar_clientes(request):
 
 
 def listar_arriendos(request):
+    actualizar_deudores()
     q = request.GET.get('q', '').strip()
     arriendos = Arriendo.objects.select_related('cliente', 'pelicula')
     if q:

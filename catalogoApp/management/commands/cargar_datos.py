@@ -23,11 +23,11 @@ class Command(BaseCommand):
             ('Quentin Tarantino', 'Estados Unidos'),
         ]}
         datos = [
-            ('Jurassic Park', 1993, 127, 'TE7', 2500, 3, 'Ciencia Ficción', 'Steven Spielberg', 'Un parque de dinosaurios clonados sale mal.'),
-            ('Inception', 2010, 148, '14', 3000, 2, 'Ciencia Ficción', 'Christopher Nolan', 'Un ladrón entra en los sueños para plantar una idea.'),
-            ('Interstellar', 2014, 169, 'TE7', 3000, 2, 'Ciencia Ficción', 'Christopher Nolan', 'Un grupo de astronautas viaja por un agujero de gusano.'),
+            ('Jurassic Park', 1993, 127, 'TE7', 2500, 1, 'Ciencia Ficción', 'Steven Spielberg', 'Un parque de dinosaurios clonados sale mal.'),
+            ('Inception', 2010, 148, '14', 3000, 1, 'Ciencia Ficción', 'Christopher Nolan', 'Un ladrón entra en los sueños para plantar una idea.'),
+            ('Interstellar', 2014, 169, 'TE7', 3000, 1, 'Ciencia Ficción', 'Christopher Nolan', 'Un grupo de astronautas viaja por un agujero de gusano.'),
             ('El Laberinto del Fauno', 2006, 118, '14', 2500, 1, 'Drama', 'Guillermo del Toro', 'Una niña descubre un mundo fantástico en plena posguerra.'),
-            ('Pulp Fiction', 1994, 154, '18', 2500, 2, 'Acción', 'Quentin Tarantino', 'Historias cruzadas de criminales en Los Ángeles.'),
+            ('Pulp Fiction', 1994, 154, '18', 2500, 1, 'Acción', 'Quentin Tarantino', 'Historias cruzadas de criminales en Los Ángeles.'),
             ('Tiburón', 1975, 124, '14', 2000, 1, 'Terror', 'Steven Spielberg', 'Un tiburón blanco aterroriza una playa.'),
         ]
         peliculas = []
@@ -35,6 +35,9 @@ class Command(BaseCommand):
             p, _ = Pelicula.objects.get_or_create(titulo=t, anio=a, defaults=dict(
                 duracion=dur, clasificacion=cl, precio_arriendo=pr, stock=st, sinopsis=s,
                 genero=generos[g], director=directores[d]))
+            if p.stock != st:
+                p.stock = st
+                p.save(update_fields=['stock'])
             peliculas.append(p)
 
         clientes = []

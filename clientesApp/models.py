@@ -30,7 +30,16 @@ class Arriendo(models.Model):
     fecha_limite = models.DateField(default=timezone.localdate, verbose_name="Fecha límite de devolución")
     fecha_devolucion = models.DateField(null=True, blank=True, verbose_name="Fecha de devolución")
     estado = models.CharField(max_length=1, choices=estados, default='A', verbose_name="Estado")
+    deudor = models.BooleanField(default=False, verbose_name="Cliente deudor")
     total = models.PositiveIntegerField(default=0, verbose_name="Total a pagar")
+
+    def save(self, *args, **kwargs):
+        if self.fecha_devolucion:
+            self.deudor = False
+        elif timezone.localdate() > self.fecha_limite:
+            self.deudor = True
+            self.estado = 'R'
+        super().save(*args, **kwargs)
 
     def __str__(self):
         return f"Arriendo #{self.pk}: {self.pelicula.titulo} - {self.cliente}"

@@ -19,6 +19,6 @@ class ClienteAdmin(admin.ModelAdmin):
 
 @admin.register(Arriendo)
 class ArriendoAdmin(admin.ModelAdmin):
-    list_display = ("id", "cliente", "pelicula", "fecha_arriendo", "fecha_limite", "fecha_devolucion", "estado", "total")
+    list_display = ("id", "cliente", "pelicula", "fecha_arriendo", "fecha_limite", "fecha_devolucion", "estado", "deudor", "total")
     search_fields = ("cliente__nombre", "cliente__paterno", "cliente__run", "pelicula__titulo")
-    list_filter = ("estado", "fecha_arriendo")
+    list_filter = ("estado", "deudor", "fecha_arriendo")
