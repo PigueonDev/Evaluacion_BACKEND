@@ -7,7 +7,7 @@ User=ec2-user
 Group=ec2-user
 WorkingDirectory=/var/www/negocio
 EnvironmentFile=/var/www/negocio/.env
-ExecStart=/var/www/negocio/.venv/bin/gunicorn --workers 3 --bind unix:/run/laserena.sock laserena.wsgi:application
+ExecStart=/var/www/negocio/.venv/bin/gunicorn --workers 3 --bind 127.0.0.1:8000 laserena.wsgi:application
 Restart=always
 
 [Install]
