@@ -195,13 +195,13 @@ Rutas principales:
 
 ```bash
 sudo dnf update -y
-sudo dnf install -y python3.11 python3.11-pip git mariadb105-server nginx
+sudo dnf install -y python3 python3-pip git mariadb105-server nginx
 sudo systemctl enable --now mariadb
 sudo systemctl enable --now nginx
 
 git clone URL_DEL_REPOSITORIO
 cd gestion_municipal_delegacion
-python3.11 -m venv .venv
+python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
 python manage.py migrate
@@ -237,7 +237,7 @@ Comandos sugeridos para evidenciar:
 
 ```bash
 cat /etc/os-release
-python3.11 --version
+python3 --version
 git --version
 source .venv/bin/activate
 python manage.py showmigrations

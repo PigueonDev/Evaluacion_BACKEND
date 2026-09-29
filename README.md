@@ -5,7 +5,7 @@
 Proyecto Django con dos aplicaciones (`institucional` y `servicios`) para registrar delegaciones, funcionarios, actividades, evidencias, compromisos y períodos de medición. El catálogo JSON se conserva como fuente de carga inicial, pero la aplicación consulta la base de datos mediante Django ORM.
 
 ## Requisitos
-- Python 3.11 o superior
+- Python 3.9 o superior
 - SQLite para desarrollo local o MariaDB/MySQL para EC2
 
 ## Instalación y ejecución
@@ -53,7 +53,7 @@ Copia `.env.example` como `.env`. Para MariaDB/MySQL usa `DB_ENGINE=mysql` y com
 
 ```bash
 sudo dnf update -y
-sudo dnf install -y python3.11 python3.11-pip git mariadb105-server nginx
+sudo dnf install -y python3 python3-pip git mariadb105-server nginx
 sudo systemctl enable --now mariadb
 sudo mysql_secure_installation
 mysql -u root -p
@@ -64,7 +64,7 @@ En MariaDB crea una base y un usuario de aplicación, luego configura `.env` con
 ```bash
 git clone URL_DEL_REPOSITORIO
 cd gestion_municipal_delegacion
-python3.11 -m venv .venv
+python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
 python manage.py migrate
