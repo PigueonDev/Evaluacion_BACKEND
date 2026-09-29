@@ -5,9 +5,9 @@ After=network.target
 [Service]
 User=ec2-user
 Group=ec2-user
-WorkingDirectory=/home/ec2-user/gestion_municipal_delegacion
-EnvironmentFile=/home/ec2-user/gestion_municipal_delegacion/.env
-ExecStart=/home/ec2-user/gestion_municipal_delegacion/.venv/bin/gunicorn --workers 3 --bind unix:/run/laserena.sock laserena.wsgi:application
+WorkingDirectory=/var/www/negocio
+EnvironmentFile=/var/www/negocio/.env
+ExecStart=/var/www/negocio/.venv/bin/gunicorn --workers 3 --bind unix:/run/laserena.sock laserena.wsgi:application
 Restart=always
 
 [Install]
