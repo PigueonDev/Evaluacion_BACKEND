@@ -92,3 +92,6 @@ sudo systemctl status laserena nginx
 La matriz inicial de trazabilidad está en `docs/MATRIZ_TRAZABILIDAD.md`. Debes complementarla con los commits, pruebas y capturas de tu equipo.
 
 No hay modelos ni migraciones: el contenido se lee en las vistas y se envía al template por contexto.
+
+
+PROFE TUVE QUE CAMBIAR DE IDEA PORQUE LA ORIGINAL ERA UN BLOCKBUSTER TODO ORDINARIO DE HECHO ESTA EL BACKUP AHI GUARDADO XD
