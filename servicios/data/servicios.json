@@ -1,0 +1,148 @@
+{
+  "introduccion": {
+    "titulo": "Trámites y servicios para la comunidad",
+    "bajada": "Catálogo informativo de atenciones municipales. Los datos se publican desde un archivo JSON y se procesan en el servidor, sin base de datos."
+  },
+  "categorias": [
+    "todos",
+    "permisos",
+    "social",
+    "salud",
+    "territorio",
+    "cultura"
+  ],
+  "servicios": [
+    {
+      "slug": "permiso-circulacion",
+      "nombre": "Permiso de circulación",
+      "categoria": "permisos",
+      "unidad": "Dirección de Tránsito y Transporte Público",
+      "horario": "Lunes a viernes, 08:30 a 13:30",
+      "lugar": "Edificio Consistorial y puntos de pago habilitados",
+      "descripcion": "Renovación y pago del permiso de circulación de vehículos motorizados inscritos o con domicilio en la comuna.",
+      "requisitos": [
+        "Cédula de identidad del propietario",
+        "Padrón del vehículo",
+        "SOAP vigente",
+        "Revisión técnica al día cuando corresponda"
+      ],
+      "costo": "Según tasación fiscal del año en curso",
+      "online": true
+    },
+    {
+      "slug": "patente-comercial",
+      "nombre": "Patente comercial y municipal",
+      "categoria": "permisos",
+      "unidad": "Dirección de Rentas Municipales",
+      "horario": "Lunes a viernes, 08:30 a 14:00",
+      "lugar": "Oficina de patentes, Edificio Consistorial",
+      "descripcion": "Otorgamiento, renovación y transferencia de patentes para el ejercicio de actividades comerciales en la comuna.",
+      "requisitos": [
+        "Inicio de actividades en SII",
+        "Informe sanitario cuando aplique",
+        "Informe de obras y recepción municipal",
+        "Cédula de identidad o personería"
+      ],
+      "costo": "Según giro, superficie y ordenanza local",
+      "online": false
+    },
+    {
+      "slug": "licencia-conducir",
+      "nombre": "Licencia de conducir",
+      "categoria": "permisos",
+      "unidad": "Dirección de Tránsito",
+      "horario": "Según agendamiento",
+      "lugar": "Departamento de Licencias de Conducir",
+      "descripcion": "Otorgamiento, renovación y duplicado de licencias de conducir clases B, C y profesionales, con exámenes teóricos, prácticos y médicos.",
+      "requisitos": [
+        "Cédula de identidad vigente",
+        "Examen médico y psicotécnico",
+        "Aprobación de exámenes municipal",
+        "Residencia en la comuna cuando corresponda"
+      ],
+      "costo": "Derechos municipales vigentes",
+      "online": true
+    },
+    {
+      "slug": "registro-social-hogares",
+      "nombre": "Orientación Registro Social de Hogares",
+      "categoria": "social",
+      "unidad": "Dirección de Desarrollo Comunitario (DIDECO)",
+      "horario": "Lunes a viernes, 08:30 a 13:30",
+      "lugar": "Oficinas DIDECO y sedes territoriales",
+      "descripcion": "Acompañamiento para actualización de datos, incorporación de integrantes y orientación sobre programas sociales comunales.",
+      "requisitos": [
+        "Cédula de identidad",
+        "Documentos de residencia",
+        "Certificados de integrantes del hogar si se solicitan"
+      ],
+      "costo": "Sin costo",
+      "online": true
+    },
+    {
+      "slug": "atencion-cesfam",
+      "nombre": "Orientación de atención primaria de salud",
+      "categoria": "salud",
+      "unidad": "Dirección de Salud Municipal",
+      "horario": "Según CESFAM de cabecera",
+      "lugar": "Red de CESFAM, CECOSF y SAPU comunal",
+      "descripcion": "Información sobre inscripción, controles, estaciones médicas y dispositivos de cuidados impulsados por la gestión 2025-2026.",
+      "requisitos": [
+        "Cédula de identidad",
+        "Previsión de salud",
+        "Domicilio en el sector del establecimiento"
+      ],
+      "costo": "Según previsión y prestación",
+      "online": false
+    },
+    {
+      "slug": "aseo-ornato",
+      "nombre": "Aseo, ornato y retiro de escombros",
+      "categoria": "territorio",
+      "unidad": "Dirección de Aseo y Ornato",
+      "horario": "Mesa de partes y canal digital comunal",
+      "lugar": "Territorio comunal",
+      "descripcion": "Solicitudes de retiro de residuos voluminosos, mantenimiento de áreas verdes, luminarias y limpieza de espacios públicos.",
+      "requisitos": [
+        "Identificación del solicitante",
+        "Dirección exacta y sector",
+        "Descripción del requerimiento o fotografía orientativa"
+      ],
+      "costo": "Sin costo en retiro programado; tarifas especiales según volumen",
+      "online": true
+    },
+    {
+      "slug": "permiso-edificacion",
+      "nombre": "Permiso de edificación y obras menores",
+      "categoria": "territorio",
+      "unidad": "Dirección de Obras Municipales (DOM)",
+      "horario": "Lunes a viernes, 08:30 a 14:00",
+      "lugar": "Dirección de Obras Municipales",
+      "descripcion": "Ingreso y seguimiento de permisos de edificación, recepciones finales y regularizaciones conforme a la OGUC y al plan regulador comunal.",
+      "requisitos": [
+        "Formulario DOM",
+        "Planos firmados por profesional competente",
+        "Certificados de informaciones previas",
+        "Pago de derechos municipales"
+      ],
+      "costo": "Según presupuesto de obra y derechos DOM",
+      "online": false
+    },
+    {
+      "slug": "cultura-teatro",
+      "nombre": "Programación cultural y Teatro Municipal",
+      "categoria": "cultura",
+      "unidad": "Corporación Cultural / Cultura Municipal",
+      "horario": "Según cartelera mensual",
+      "lugar": "Teatro Municipal de La Serena y recintos patrimoniales",
+      "descripcion": "Información de talleres, cartelera, uso de recintos y actividades de patrimonio, astronomía cultural y festivales locales.",
+      "requisitos": [
+        "Inscripción en la actividad",
+        "Cédula de identidad en talleres con cupo",
+        "Autorización de apoderado si es menor de edad"
+      ],
+      "costo": "Actividades gratuitas y otras con valor de entrada",
+      "online": true
+    }
+  ]
+}

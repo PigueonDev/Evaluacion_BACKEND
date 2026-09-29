@@ -1,0 +1,255 @@
+:root {
+    --rojo-municipal: #b40000;
+    --rojo-oscuro: #780000;
+    --negro-municipal: #090909;
+    --naranja-municipal: #d86b00;
+    --amarillo-municipal: #ffc400;
+    --gris-fondo: #f5f5f5;
+}
+
+body {
+    background: #fff;
+    color: #262626;
+    font-family: "Segoe UI", Tahoma, sans-serif;
+}
+
+.barra-utilitaria {
+    background: var(--negro-municipal);
+    color: #fff;
+    font-size: 0.78rem;
+}
+
+.enlaces-utilitarios,
+.redes-sociales {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.2rem;
+}
+
+.enlaces-utilitarios a {
+    border-right: 1px solid #454545;
+    color: #fff;
+    padding: 0.3rem 0.75rem;
+    text-decoration: none;
+}
+
+.enlaces-utilitarios a:hover,
+.redes-sociales a:hover {
+    color: var(--amarillo-municipal);
+}
+
+.enlaces-utilitarios .emergencias {
+    background: var(--amarillo-municipal);
+    border-radius: 0.15rem;
+    color: var(--negro-municipal);
+    font-weight: 700;
+}
+
+.redes-sociales a {
+    color: #fff;
+    font-size: 1rem;
+    font-weight: 700;
+    padding: 0.2rem 0.35rem;
+    text-decoration: none;
+}
+
+.encabezado-oficial {
+    background: var(--rojo-municipal);
+}
+
+.logo-municipio {
+    width: 46px;
+    height: 46px;
+    object-fit: contain;
+    border-radius: 0;
+    border: 2px solid #fff;
+    background: #fff;
+}
+
+.texto-superior,
+.texto-inferior {
+    color: #fff;
+    font-size: 0.85rem;
+}
+
+.barra-nav {
+    background: var(--rojo-municipal);
+    border-top: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.franja-herramientas {
+    background: #fff;
+}
+
+.buscador-municipal {
+    width: min(100%, 420px);
+}
+
+.buscador-municipal input {
+    border: 1px solid #d9dfe5;
+    border-radius: 0.35rem;
+    color: #333;
+    font-size: 1.05rem;
+    padding: 0.7rem 1rem;
+    width: 100%;
+}
+
+.boton-whatsapp {
+    background: #198754;
+    border-radius: 0.35rem;
+    color: #fff;
+    font-weight: 700;
+    padding: 0.7rem 2.5rem;
+    text-decoration: none;
+}
+
+.boton-whatsapp:hover {
+    background: #146c43;
+    color: #fff;
+}
+
+.accesos-rapidos {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.35rem;
+}
+
+.accesos-rapidos a {
+    background: var(--naranja-municipal);
+    border-radius: 0.35rem;
+    box-shadow: 0 3px 0 #a34e00;
+    color: #fff;
+    flex: 1 1 180px;
+    font-size: 0.9rem;
+    padding: 0.75rem 1rem;
+    text-align: center;
+    text-decoration: none;
+}
+
+.accesos-rapidos a:hover {
+    background: #b85600;
+    color: #fff;
+}
+
+.barra-nav .nav-link {
+    color: #fff;
+}
+
+.barra-nav .nav-link:hover,
+.barra-nav .nav-link.active {
+    background: var(--negro-municipal);
+    color: #fff;
+}
+
+.portada {
+    background: var(--rojo-municipal);
+}
+
+.texto-portada {
+    color: #e9f1f7;
+}
+
+.badge-oro {
+    display: inline-block;
+    background: var(--amarillo-municipal);
+    color: var(--negro-municipal);
+    border-radius: 999px;
+    padding: 0.35rem 0.85rem;
+    font-weight: 600;
+}
+
+.sombra-foto {
+    box-shadow: 0 18px 40px rgba(0, 0, 0, 0.22);
+}
+
+.tarjeta-info {
+    background: #fff;
+    border-left: 6px solid var(--rojo-municipal);
+    padding: 1.5rem;
+    border-radius: 0.75rem;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
+}
+
+.fondo-suave {
+    background: var(--gris-fondo);
+}
+
+.borde-oro {
+    border-top: 4px solid var(--rojo-municipal);
+}
+
+.numero-pilar {
+    color: var(--rojo-municipal);
+    font-weight: 700;
+    letter-spacing: 0.08em;
+}
+
+.lista-valores {
+    padding-left: 1.1rem;
+}
+
+.lista-valores li {
+    margin-bottom: 0.4rem;
+}
+
+.hito {
+    background: #fff;
+    border-radius: 0.75rem;
+    padding: 1rem 1.2rem;
+    margin-bottom: 0.75rem;
+    border: 1px solid #dedede;
+}
+
+.perfil-alcaldia {
+    border: 0;
+    border-top: 5px solid var(--rojo-municipal);
+    background: #fff;
+}
+
+.pie-oficial {
+    background: var(--negro-municipal);
+    color: #f1f1f1;
+}
+
+.pie-oficial a {
+    color: var(--amarillo-municipal);
+    text-decoration: none;
+}
+
+.pie-oficial a:hover {
+    text-decoration: underline;
+}
+
+.btn-primary {
+    --bs-btn-bg: var(--rojo-municipal);
+    --bs-btn-border-color: var(--rojo-municipal);
+    --bs-btn-hover-bg: var(--rojo-oscuro);
+    --bs-btn-hover-border-color: var(--rojo-oscuro);
+}
+
+.btn-outline-primary {
+    --bs-btn-color: var(--rojo-municipal);
+    --bs-btn-border-color: var(--rojo-municipal);
+    --bs-btn-hover-bg: var(--rojo-municipal);
+    --bs-btn-hover-border-color: var(--rojo-municipal);
+}
+
+.btn-warning {
+    --bs-btn-bg: var(--naranja-municipal);
+    --bs-btn-border-color: var(--naranja-municipal);
+    --bs-btn-hover-bg: #ad5200;
+    --bs-btn-hover-border-color: #ad5200;
+    --bs-btn-color: #fff;
+}
+
+.btn-success {
+    --bs-btn-bg: var(--naranja-municipal);
+    --bs-btn-border-color: var(--naranja-municipal);
+    --bs-btn-hover-bg: #ad5200;
+    --bs-btn-hover-border-color: #ad5200;
+}
+
+.text-primary {
+    color: var(--rojo-municipal) !important;
+}

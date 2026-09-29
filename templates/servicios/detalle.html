@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block titulo %}{{ servicio.nombre }} · Servicios{% endblock %}
+
+{% block contenido %}
+<section class="container py-5">
+    <nav aria-label="breadcrumb" class="mb-3">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="{% url 'institucional:inicio' %}">Inicio</a></li>
+            <li class="breadcrumb-item"><a href="{% url 'servicios:catalogo' %}">Servicios</a></li>
+            <li class="breadcrumb-item active" aria-current="page">{{ servicio.nombre }}</li>
+        </ol>
+    </nav>
+
+    <div class="row g-4">
+        <div class="col-lg-8">
+            <span class="badge text-bg-primary">{{ servicio.categoria }}</span>
+            <h2 class="mt-2">{{ servicio.nombre }}</h2>
+            <p class="lead">{{ servicio.descripcion }}</p>
+
+            <dl class="row">
+                <dt class="col-sm-4">Unidad responsable</dt>
+                <dd class="col-sm-8">{{ servicio.unidad }}</dd>
+                <dt class="col-sm-4">Horario</dt>
+                <dd class="col-sm-8">{{ servicio.horario }}</dd>
+                <dt class="col-sm-4">Lugar de atención</dt>
+                <dd class="col-sm-8">{{ servicio.lugar }}</dd>
+                <dt class="col-sm-4">Costo</dt>
+                <dd class="col-sm-8">{{ servicio.costo }}</dd>
+                <dt class="col-sm-4">Trámite en línea</dt>
+                <dd class="col-sm-8">
+                    {% if servicio.online %}
+                        Disponible con reserva o pago digital
+                    {% else %}
+                        Atención preferentemente presencial
+                    {% endif %}
+                </dd>
+            </dl>
+
+            <h3 class="h5">Requisitos</h3>
+            <ul>
+                {% for requisito in servicio.requisitos %}
+                <li>{{ requisito }}</li>
+                {% endfor %}
+            </ul>
+        </div>
+        <div class="col-lg-4">
+            <img src="{% static 'img/atencion_ciudadana.png' %}" alt="Mesa de atención de trámites" class="img-fluid rounded-4 sombra-foto mb-4">
+            {% if relacionados %}
+            <div class="card">
+                <div class="card-body">
+                    <h3 class="h6">Otros servicios de la misma categoría</h3>
+                    <ul class="list-unstyled mb-0">
+                        {% for item in relacionados %}
+                        <li class="mb-2"><a href="{% url 'servicios:detalle' item.slug %}">{{ item.nombre }}</a></li>
+                        {% endfor %}
+                    </ul>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</section>
+{% endblock %}

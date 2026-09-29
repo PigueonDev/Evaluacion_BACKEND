@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+
+{% block titulo %}Actividades · SGR{% endblock %}
+
+{% block contenido %}
+<section class="container py-5">
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
+        <div><p class="text-uppercase small text-secondary mb-1">Registro individual</p><h2>Actividades</h2></div>
+        <div class="d-flex gap-2"><a class="btn btn-success" href="#agregar">Agregar</a><a class="btn btn-outline-dark" href="{% url 'admin:servicios_actividad_changelist' %}">Modificar y eliminar</a><a class="btn btn-primary" href="#buscar">Buscar</a></div>
+    </div>
+    <div class="btn-group mb-4" role="group"><a class="btn btn-outline-secondary {% if not estado_activo %}active{% endif %}" href="{% url 'servicios:actividades' %}">Todas</a><a class="btn btn-outline-secondary {% if estado_activo == 'pendiente' %}active{% endif %}" href="?estado=pendiente">Pendientes</a><a class="btn btn-outline-secondary {% if estado_activo == 'validada' %}active{% endif %}" href="?estado=validada">Validadas</a><a class="btn btn-outline-secondary {% if estado_activo == 'rechazada' %}active{% endif %}" href="?estado=rechazada">Rechazadas</a></div>
+    <div class="table-responsive"><table class="table table-hover align-middle"><thead><tr><th>Código</th><th>Fecha</th><th>Funcionario</th><th>Ítem</th><th>Descripción</th><th>Estado</th></tr></thead><tbody>
+    {% for actividad in actividades %}<tr><td><code>{{ actividad.codigo_evidencia }}</code></td><td>{{ actividad.fecha }}</td><td>{{ actividad.funcionario.nombre_completo }}</td><td>{{ actividad.item.nombre }}</td><td>{{ actividad.descripcion|truncatewords:12 }}</td><td>{{ actividad.get_estado_display }}</td></tr>{% empty %}<tr><td colspan="6">No hay actividades para este filtro.</td></tr>{% endfor %}
+    </tbody></table></div>
+</section>
+{% endblock %}

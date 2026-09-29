@@ -1,0 +1,88 @@
+{
+  "municipio": {
+    "nombre": "Ilustre Municipalidad de La Serena",
+    "comuna": "La Serena",
+    "region": "Región de Coquimbo",
+    "pais": "Chile",
+    "fundacion": 1544,
+    "lema": "Capital regional, ciudad patrimonio y de oportunidades",
+    "descripcion": "La Serena es la segunda ciudad más antigua de Chile y capital de la Región de Coquimbo. El municipio articula el desarrollo comunal, la participación ciudadana y la prestación de servicios cercanos a vecinas y vecinos, con foco en seguridad, salud, recuperación de espacios públicos y calidad de vida."
+  },
+  "mision": "Entregar a la comunidad de forma cercana y amable un servicio oportuno y de calidad, promoviendo la participación ciudadana de los actores locales para el desarrollo de la comuna, sus habitantes, la Municipalidad y sus funcionarios y funcionarias.",
+  "vision": "Ser un municipio que promueva la participación ciudadana y el desarrollo comunal, con un personal informado, creíble y amable, que conforme equipos de trabajo capacitados y eficientes, atienda las necesidades de las personas y entregue soluciones a la comunidad.",
+  "valores": [
+    "Cercanía y trato amable",
+    "Transparencia y probidad",
+    "Participación ciudadana",
+    "Eficiencia en el servicio",
+    "Equidad territorial"
+  ],
+  "pilares": [
+    {
+      "titulo": "Seguridad y prevención",
+      "texto": "Presencia territorial, coordinación con servicios públicos y fortalecimiento de la prevención en barrios."
+    },
+    {
+      "titulo": "Salud primaria",
+      "texto": "Mejorar cobertura y oportunidad de la atención en CESFAM, SAPU y dispositivos de cuidados."
+    },
+    {
+      "titulo": "Espacios públicos",
+      "texto": "Recuperar plazas, veredas, luminarias y áreas verdes para una ciudad más habitable."
+    },
+    {
+      "titulo": "Turismo y patrimonio",
+      "texto": "Potenciar la identidad serenense, la marca destino y la gobernanza turística 2026-2030."
+    }
+  ],
+  "hitos": [
+    {
+      "anio": 2025,
+      "titulo": "Cuenta Pública comunal",
+      "detalle": "La alcaldesa presentó la hoja de ruta con énfasis en ordenamiento, transparencia financiera y recuperación urbana."
+    },
+    {
+      "anio": 2026,
+      "titulo": "Cartera de proyectos comunales",
+      "detalle": "Se proyecta una cartera de iniciativas en infraestructura, conectividad, seguridad y calidad de vida para distintos sectores de la comuna."
+    },
+    {
+      "anio": 2026,
+      "titulo": "Agenda turística 2026-2030",
+      "detalle": "Constitución del Consejo Comunal de Turismo y priorización de productos con identidad local."
+    }
+  ],
+  "autoridades": [
+    {
+      "nombre": "Daniela Norambuena Borgheresi",
+      "cargo": "Alcaldesa",
+      "periodo": "2024-2028",
+      "resena": "Lidera la gestión municipal con foco en ordenamiento territorial, espacios públicos, seguridad y cercanía con organizaciones sociales."
+    },
+    {
+      "nombre": "Concejo Municipal",
+      "cargo": "Concejo Municipal",
+      "periodo": "2024-2028",
+      "resena": "Órgano colegiado que fiscaliza, aprueba el presupuesto y representa a la comunidad en las decisiones comunales."
+    },
+    {
+      "nombre": "Administración Municipal",
+      "cargo": "Administradora Municipal",
+      "periodo": "Gestión vigente",
+      "resena": "Coordina las direcciones, el cumplimiento del plan de desarrollo comunal y la operación cotidiana del municipio."
+    },
+    {
+      "nombre": "Secretaría Municipal",
+      "cargo": "Secretario Municipal",
+      "periodo": "Gestión vigente",
+      "resena": "Ministro de fe institucional, actúa en actos oficiales, concejo y documentación municipal."
+    }
+  ],
+  "contacto": {
+    "direccion": "Arturo Prat 451, La Serena",
+    "telefono": "+56 51 2 200 100",
+    "correo": "contacto@laserena.cl",
+    "web": "https://www.laserena.cl",
+    "horario": "Lunes a viernes, 08:30 a 14:00 hrs (oficina de partes y atención presencial según unidad)."
+  }
+}

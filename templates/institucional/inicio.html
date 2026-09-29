@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block titulo %}Inicio · Municipalidad de La Serena{% endblock %}
+
+{% block contenido %}
+<section class="portada">
+    <div class="container py-5">
+        <div class="row align-items-center g-4">
+            <div class="col-lg-6">
+                <span class="badge-oro mb-3">Comuna fundada en {{ municipio.fundacion }} · {{ antiguedad }} años de historia</span>
+                <h2 class="display-5 fw-semibold text-white mb-3">{{ municipio.nombre }}</h2>
+                <p class="lead texto-portada">{{ municipio.descripcion }}</p>
+                <a class="btn btn-warning btn-lg me-2" href="{% url 'institucional:autoridades' %}">Conocer autoridades</a>
+                <a class="btn btn-outline-light btn-lg" href="{% url 'servicios:catalogo' %}">Ver trámites</a>
+            </div>
+            <div class="col-lg-6">
+                <img src="{% static 'img/faro_la_serena.png' %}" alt="Imagen institucional de La Serena, Faro Monumental" class="img-fluid sombra-foto rounded-4">
+            </div>
+        </div>
+    </div>
+</section>
+
+<section class="container py-5">
+    <div class="container">
+        <h3 class="mb-4">Delegaciones municipales</h3>
+        <div class="row g-4">
+            {% for delegacion in delegaciones %}
+            <div class="col-md-6 col-xl-3">
+                <div class="card h-100 borde-oro">
+                    <div class="card-body">
+                        <span class="numero-pilar">0{{ forloop.counter }}</span>
+                        <h4 class="h5 mt-2">{{ delegacion.nombre }}</h4>
+                        <p class="small text-secondary">{{ delegacion.territorio }}</p>
+                        <p class="mb-0">{{ delegacion.enfoque }}</p>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</section>
+
+<section class="container py-5">
+    <div class="row g-4">
+        <div class="col-md-6">
+            <article class="tarjeta-info h-100">
+                <h3>Misión</h3>
+                <p>{{ municipio.mision }}</p>
+            </article>
+        </div>
+        <div class="col-md-6">
+            <article class="tarjeta-info h-100">
+                <h3>Visión</h3>
+                <p>{{ municipio.vision }}</p>
+            </article>
+        </div>
+    </div>
+</section>
+{% endblock %}

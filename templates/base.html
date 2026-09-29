@@ -1,0 +1,118 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{% block titulo %}Municipalidad de La Serena{% endblock %}</title>
+    <link rel="stylesheet" href="{% static 'css/bootstrap.min.css' %}">
+    <link rel="stylesheet" href="{% static 'css/estilos.css' %}?v=20260929">
+</head>
+<body class="d-flex flex-column min-vh-100">
+    <div class="barra-utilitaria">
+        <div class="container d-flex flex-wrap justify-content-between align-items-center gap-2">
+            <div class="enlaces-utilitarios">
+                <a href="#transparencia">ⓘ Solicita información</a>
+                <a href="#transparencia">☑ Transparencia activa</a>
+                <a href="#lobby">▣ Plataforma Ley del Lobby</a>
+                <a class="emergencias" href="tel:1457">☎ Emergencias 1457</a>
+            </div>
+            <div class="redes-sociales" aria-label="Redes sociales">
+                <a href="#facebook" aria-label="Facebook">f</a>
+                <a href="#instagram" aria-label="Instagram">◎</a>
+                <a href="#youtube" aria-label="YouTube">▶</a>
+                <a href="#x" aria-label="X">X</a>
+                <a href="#tiktok" aria-label="TikTok">♪</a>
+                <a href="#whatsapp" aria-label="WhatsApp">◉</a>
+            </div>
+        </div>
+    </div>
+    <header class="encabezado-oficial">
+        <div class="container py-2 d-flex flex-wrap align-items-center gap-3">
+            <img src="{% static 'img/escudo_la_serena.png' %}" alt="Escudo institucional de La Serena" class="logo-municipio">
+            <div>
+                <h1 class="h4 mb-0 text-white">La Serena</h1>
+                <p class="mb-0 texto-inferior">Ilustre Municipalidad</p>
+            </div>
+        </div>
+        <nav class="navbar navbar-expand-lg navbar-dark barra-nav">
+            <div class="container">
+                <a class="navbar-brand d-lg-none" href="{% url 'institucional:inicio' %}">Inicio</a>
+                <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#menuPrincipal" aria-controls="menuPrincipal" aria-expanded="false" aria-label="Abrir menú">
+                    <span class="navbar-toggler-icon"></span>
+                </button>
+                <div class="collapse navbar-collapse" id="menuPrincipal">
+                    <ul class="navbar-nav me-auto mb-2 mb-lg-0">
+                        <li class="nav-item">
+                            <a class="nav-link {% if pagina_activa == 'inicio' %}active{% endif %}" href="{% url 'institucional:inicio' %}">Inicio</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link {% if pagina_activa == 'autoridades' %}active{% endif %}" href="{% url 'institucional:autoridades' %}">Autoridades</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link {% if pagina_activa == 'servicios' %}active{% endif %}" href="{% url 'servicios:catalogo' %}">Servicios ciudadanos</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link {% if pagina_activa == 'dashboard' %}active{% endif %}" href="{% url 'servicios:dashboard' %}">Panel SGR</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link {% if pagina_activa == 'actividades' %}active{% endif %}" href="{% url 'servicios:actividades' %}">Actividades</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link {% if pagina_activa == 'agenda' %}active{% endif %}" href="{% url 'servicios:agenda' %}">Agenda</a>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        </nav>
+    </header>
+
+    <section class="franja-herramientas" aria-label="Herramientas municipales">
+        <div class="container d-flex flex-wrap justify-content-between align-items-center gap-3 py-3">
+            <form class="buscador-municipal" action="#buscar" method="get">
+                <label class="visually-hidden" for="busqueda">Buscar en el sitio</label>
+                <input id="busqueda" type="search" placeholder="Buscador...">
+            </form>
+            <a class="boton-whatsapp" href="#whatsapp">◉ Consulta por WhatsApp IA</a>
+        </div>
+        <div class="container accesos-rapidos pb-3">
+            <a href="#linea-directa">✉ Línea Directa Municipal</a>
+            <a href="#admision">▣ Admisión Laboral</a>
+            <a href="#juzgados">▣ Calendario Juzgados</a>
+            <a href="#concejo">▣ Concejo Online</a>
+            <a href="#patrocinio">▣ Solicitud de Patrocinio</a>
+        </div>
+    </section>
+
+    <main class="flex-grow-1">
+        {% block contenido %}{% endblock %}
+    </main>
+
+    <footer class="pie-oficial mt-auto">
+        <div class="container py-4">
+            <div class="row g-3">
+                <div class="col-md-5">
+                    <h2 class="h6 text-uppercase">Municipalidad de La Serena</h2>
+                    <p class="mb-1">Arturo Prat 451, La Serena</p>
+                    <p class="mb-1">Región de Coquimbo, Chile</p>
+                </div>
+                <div class="col-md-4">
+                    <h2 class="h6 text-uppercase">Navegación</h2>
+                    <ul class="list-unstyled mb-0">
+                        <li><a href="{% url 'institucional:inicio' %}">Presentación institucional</a></li>
+                        <li><a href="{% url 'institucional:autoridades' %}">Alcaldía y concejo</a></li>
+                        <li><a href="{% url 'servicios:catalogo' %}">Catálogo de servicios</a></li>
+                    </ul>
+                </div>
+                <div class="col-md-3">
+                    <h2 class="h6 text-uppercase">Datos</h2>
+                    <p class="mb-0 small">Sistema de Gestión de Resultados · datos ficticios para demostración académica.</p>
+                </div>
+            </div>
+            <hr class="border-light opacity-25">
+            <p class="small mb-0">&copy; 2026 Ilustre Municipalidad de La Serena · Sitio académico desarrollado con Django.</p>
+        </div>
+    </footer>
+    <script src="{% static 'js/bootstrap.bundle.min.js' %}"></script>
+</body>
+</html>

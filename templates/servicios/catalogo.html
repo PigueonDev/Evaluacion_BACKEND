@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block titulo %}Servicios ciudadanos · Municipalidad de La Serena{% endblock %}
+
+{% block contenido %}
+<section class="container py-5">
+    <div class="row g-4 align-items-center mb-4">
+        <div class="col-lg-7">
+            <p class="text-uppercase small text-secondary mb-1">Aplicación de servicios</p>
+            <h2>{{ introduccion.titulo }}</h2>
+            <p>{{ introduccion.bajada }}</p>
+            <p class="mb-0">Mostrando <strong>{{ total }}</strong> de {{ total_general }} servicios publicados.</p>
+        </div>
+        <div class="col-lg-5">
+            <img src="{% static 'img/atencion_ciudadana.png' %}" alt="Atención de trámites municipales" class="img-fluid rounded-4 sombra-foto">
+        </div>
+    </div>
+
+    <form method="get" class="mb-4">
+        <label for="categoria" class="form-label">Filtrar por categoría</label>
+        <div class="d-flex flex-wrap gap-2">
+            {% for categoria in categorias %}
+                <a class="btn {% if categoria_activa == categoria %}btn-primary{% else %}btn-outline-primary{% endif %}" href="?categoria={{ categoria }}">
+                    {{ categoria|capfirst }}
+                </a>
+            {% endfor %}
+        </div>
+    </form>
+
+    <div class="row g-4">
+        {% for servicio in servicios %}
+        <div class="col-md-6 col-xl-4">
+            <article class="card h-100">
+                <div class="card-body d-flex flex-column">
+                    <span class="badge text-bg-secondary align-self-start mb-2">{{ servicio.categoria }}</span>
+                    <h3 class="h5">{{ servicio.nombre }}</h3>
+                    <p>{{ servicio.descripcion|truncatewords:22 }}</p>
+                    <p class="small text-secondary mb-3">{{ servicio.unidad }}</p>
+                            <div class="d-flex flex-wrap gap-2 mt-auto">
+                                <a class="btn btn-outline-primary" href="{% url 'servicios:detalle' servicio.slug %}">Ver ficha</a>
+                                <a class="btn btn-success" href="#agregar">Agregar</a>
+                                <a class="btn btn-warning" href="#modificar">Modificar</a>
+                                <a class="btn btn-danger" href="#eliminar">Eliminar</a>
+                                <a class="btn btn-secondary" href="#buscar">Buscar</a>
+                            </div>
+                </div>
+            </article>
+        </div>
+        {% empty %}
+        <div class="col-12">
+            <div class="alert alert-warning">No hay servicios para la categoría seleccionada.</div>
+        </div>
+        {% endfor %}
+    </div>
+</section>
+{% endblock %}

@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+
+{% block titulo %}Panel SGR · Municipalidad de La Serena{% endblock %}
+
+{% block contenido %}
+<section class="container py-5">
+    <div class="d-flex flex-wrap justify-content-between align-items-end gap-3 mb-4">
+        <div>
+            <p class="text-uppercase small text-secondary mb-1">Sistema de Gestión de Resultados</p>
+            <h2 class="mb-1">Panel de gestión territorial</h2>
+            <p class="mb-0">{% if periodo %}Período activo: {{ periodo.nombre }}{% else %}Sin período abierto{% endif %}</p>
+        </div>
+        <a class="btn btn-dark" href="{% url 'admin:index' %}">Administrar datos</a>
+    </div>
+
+    <div class="row g-3 mb-5">
+        <div class="col-sm-6 col-lg-3"><div class="card h-100"><div class="card-body"><span class="text-secondary small">Funcionarios activos</span><strong class="d-block display-6">{{ total_funcionarios }}</strong></div></div></div>
+        <div class="col-sm-6 col-lg-3"><div class="card h-100"><div class="card-body"><span class="text-secondary small">Actividades registradas</span><strong class="d-block display-6">{{ total_actividades }}</strong></div></div></div>
+        <div class="col-sm-6 col-lg-3"><div class="card h-100"><div class="card-body"><span class="text-secondary small">Actividades validadas</span><strong class="d-block display-6 text-success">{{ actividades_validadas }}</strong></div></div></div>
+        <div class="col-sm-6 col-lg-3"><div class="card h-100"><div class="card-body"><span class="text-secondary small">Compromisos pendientes</span><strong class="d-block display-6 text-warning">{{ compromisos_pendientes }}</strong></div></div></div>
+    </div>
+
+    <div class="row g-4">
+        <div class="col-lg-6">
+            <h3 class="h5">Delegaciones y compromisos</h3>
+            <div class="table-responsive"><table class="table table-striped align-middle"><thead><tr><th>Delegación</th><th>Territorio</th><th>Compromisos</th></tr></thead><tbody>
+            {% for delegacion in delegaciones %}<tr><td>{{ delegacion.nombre }}</td><td>{{ delegacion.territorio }}</td><td>{{ delegacion.total_compromisos }}</td></tr>{% empty %}<tr><td colspan="3">No hay delegaciones cargadas.</td></tr>{% endfor %}
+            </tbody></table></div>
+        </div>
+        <div class="col-lg-6">
+            <h3 class="h5">Actividades recientes</h3>
+            <div class="table-responsive"><table class="table table-striped align-middle"><thead><tr><th>Fecha</th><th>Funcionario</th><th>Ítem</th><th>Estado</th></tr></thead><tbody>
+            {% for actividad in actividades_recientes %}<tr><td>{{ actividad.fecha }}</td><td>{{ actividad.funcionario.nombre_completo }}</td><td>{{ actividad.item.codigo }}</td><td><span class="badge text-bg-secondary">{{ actividad.get_estado_display }}</span></td></tr>{% empty %}<tr><td colspan="4">Aún no hay actividades.</td></tr>{% endfor %}
+            </tbody></table></div>
+        </div>
+    </div>
+</section>
+{% endblock %}
