@@ -4,57 +4,131 @@
 {% block titulo %}Inicio · Municipalidad de La Serena{% endblock %}
 
 {% block contenido %}
-<section class="portada">
-    <div class="container py-5">
-        <div class="row align-items-center g-4">
-            <div class="col-lg-6">
-                <span class="badge-oro mb-3">Comuna fundada en {{ municipio.fundacion }} · {{ antiguedad }} años de historia</span>
-                <h2 class="display-5 fw-semibold text-white mb-3">{{ municipio.nombre }}</h2>
+<section class="portada" style="--imagen-portada: url('{% static 'img/faro_la_serena.png' %}')">
+    <div class="container portada-contenido">
+        <div class="row">
+            <div class="col-lg-7">
+                <span class="badge-oro mb-3">Fundada en {{ municipio.fundacion }} · {{ antiguedad }} años de historia</span>
+                <h1 class="portada-titulo">{{ municipio.nombre|default:"Ilustre Municipalidad de La Serena" }}</h1>
                 <p class="lead texto-portada">{{ municipio.descripcion }}</p>
-                <a class="btn btn-warning btn-lg me-2" href="{% url 'institucional:autoridades' %}">Conocer autoridades</a>
-                <a class="btn btn-outline-light btn-lg" href="{% url 'servicios:catalogo' %}">Ver trámites</a>
-            </div>
-            <div class="col-lg-6">
-                <img src="{% static 'img/faro_la_serena.png' %}" alt="Imagen institucional de La Serena, Faro Monumental" class="img-fluid sombra-foto rounded-4">
+                <div class="d-flex flex-wrap gap-2 mt-4">
+                    <a class="btn btn-warning btn-lg" href="{% url 'servicios:catalogo' %}">Ver trámites y servicios <svg class="icono"><use href="#i-arrow"/></svg></a>
+                    <a class="btn btn-outline-light btn-lg" href="{% url 'institucional:autoridades' %}">Conocer autoridades</a>
+                </div>
             </div>
         </div>
     </div>
 </section>
 
+<section class="container accesos-rapidos" aria-label="Accesos rápidos">
+    <a href="#linea-directa"><svg><use href="#i-mail"/></svg><span>Línea Directa Municipal</span></a>
+    <a href="#admision"><svg><use href="#i-briefcase"/></svg><span>Admisión Laboral</span></a>
+    <a href="#juzgados"><svg><use href="#i-calendar"/></svg><span>Calendario Juzgados</span></a>
+    <a href="#concejo"><svg><use href="#i-video"/></svg><span>Concejo Online</span></a>
+    <a href="#patrocinio"><svg><use href="#i-hand"/></svg><span>Solicitud de Patrocinio</span></a>
+    <a href="#whatsapp" class="acceso-whatsapp"><svg><use href="#i-whatsapp"/></svg><span>Consulta por WhatsApp</span></a>
+</section>
+
 <section class="container py-5">
+    <div class="row g-3 cifras">
+        <div class="col-6 col-lg-3"><div class="cifra"><strong>{{ antiguedad }}</strong><span>años de historia</span></div></div>
+        <div class="col-6 col-lg-3"><div class="cifra"><strong>{{ delegaciones|length }}</strong><span>delegaciones territoriales</span></div></div>
+        <div class="col-6 col-lg-3"><div class="cifra"><strong>{{ total_servicios }}</strong><span>servicios publicados</span></div></div>
+        <div class="col-6 col-lg-3"><div class="cifra"><strong>{{ total_funcionarios }}</strong><span>funcionarios en terreno</span></div></div>
+    </div>
+</section>
+
+{% if servicios_destacados %}
+<section class="fondo-suave py-5">
     <div class="container">
-        <h3 class="mb-4">Delegaciones municipales</h3>
+        <div class="titulo-seccion">
+            <div>
+                <span class="antetitulo">Trámites en línea</span>
+                <h2>Servicios más consultados</h2>
+            </div>
+            <a class="enlace-flecha" href="{% url 'servicios:catalogo' %}">Ver todos <svg class="icono"><use href="#i-arrow"/></svg></a>
+        </div>
         <div class="row g-4">
-            {% for delegacion in delegaciones %}
-            <div class="col-md-6 col-xl-3">
-                <div class="card h-100 borde-oro">
-                    <div class="card-body">
-                        <span class="numero-pilar">0{{ forloop.counter }}</span>
-                        <h4 class="h5 mt-2">{{ delegacion.nombre }}</h4>
-                        <p class="small text-secondary">{{ delegacion.territorio }}</p>
-                        <p class="mb-0">{{ delegacion.enfoque }}</p>
-                    </div>
-                </div>
+            {% for servicio in servicios_destacados %}
+            <div class="col-md-6 col-lg-4">
+                <a class="tarjeta-servicio" href="{% url 'servicios:detalle' servicio.slug %}">
+                    <span class="tarjeta-icono"><svg><use href="#i-doc"/></svg></span>
+                    <span class="d-block">
+                        <span class="etiqueta-categoria">{{ servicio.categoria }}</span>
+                        <span class="d-block fw-bold mt-1">{{ servicio.nombre }}</span>
+                        <span class="d-block small text-secondary mt-1">{{ servicio.unidad }}</span>
+                    </span>
+                </a>
             </div>
             {% endfor %}
         </div>
     </div>
 </section>
+{% endif %}
 
 <section class="container py-5">
+    <div class="titulo-seccion">
+        <div>
+            <span class="antetitulo">Gestión territorial</span>
+            <h2>Delegaciones municipales</h2>
+        </div>
+        <a class="enlace-flecha" href="{% url 'servicios:dashboard' %}">Ver panel de gestión <svg class="icono"><use href="#i-arrow"/></svg></a>
+    </div>
     <div class="row g-4">
-        <div class="col-md-6">
-            <article class="tarjeta-info h-100">
-                <h3>Misión</h3>
-                <p>{{ municipio.mision }}</p>
+        {% for delegacion in delegaciones %}
+        <div class="col-md-6 col-xl-4">
+            <article class="tarjeta-delegacion h-100">
+                <div class="d-flex align-items-start gap-3">
+                    <span class="numero-pilar">{{ forloop.counter|stringformat:"02d" }}</span>
+                    <div>
+                        <h3 class="h5 mb-1">{{ delegacion.nombre }}</h3>
+                        <p class="small text-secondary mb-2">{{ delegacion.territorio }}</p>
+                    </div>
+                </div>
+                <p class="mb-3">{{ delegacion.enfoque }}</p>
+                <ul class="list-unstyled small mb-0 datos-contacto">
+                    {% if delegacion.direccion %}<li><svg class="icono"><use href="#i-pin"/></svg>{{ delegacion.direccion }}</li>{% endif %}
+                    {% if delegacion.telefono %}<li><svg class="icono"><use href="#i-phone"/></svg>{{ delegacion.telefono }}</li>{% endif %}
+                    {% if delegacion.correo %}<li><svg class="icono"><use href="#i-mail"/></svg>{{ delegacion.correo }}</li>{% endif %}
+                </ul>
             </article>
         </div>
-        <div class="col-md-6">
-            <article class="tarjeta-info h-100">
-                <h3>Visión</h3>
-                <p>{{ municipio.vision }}</p>
-            </article>
+        {% empty %}
+        <div class="col-12"><div class="alert alert-light border">Aún no hay delegaciones registradas.</div></div>
+        {% endfor %}
+    </div>
+</section>
+
+{% if municipio %}
+<section class="fondo-suave py-5">
+    <div class="container">
+        <div class="row g-4">
+            <div class="col-md-6">
+                <article class="tarjeta-info h-100">
+                    <span class="antetitulo">Nuestra misión</span>
+                    <h2 class="h3">Misión</h2>
+                    <p class="mb-0">{{ municipio.mision }}</p>
+                </article>
+            </div>
+            <div class="col-md-6">
+                <article class="tarjeta-info h-100">
+                    <span class="antetitulo">Hacia dónde vamos</span>
+                    <h2 class="h3">Visión</h2>
+                    <p class="mb-0">{{ municipio.vision }}</p>
+                </article>
+            </div>
         </div>
+    </div>
+</section>
+{% endif %}
+
+<section class="banda-emergencia">
+    <div class="container d-flex flex-wrap justify-content-between align-items-center gap-3 py-4">
+        <div>
+            <p class="mb-0 fw-bold fs-5">¿Tienes una emergencia en la comuna?</p>
+            <p class="mb-0">Seguridad Ciudadana atiende las 24 horas, todos los días del año.</p>
+        </div>
+        <a class="btn btn-dark btn-lg" href="tel:1457"><svg class="icono"><use href="#i-phone"/></svg>Llamar al 1457</a>
     </div>
 </section>
 {% endblock %}
