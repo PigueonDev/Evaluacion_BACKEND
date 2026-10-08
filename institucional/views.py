@@ -1,4 +1,3 @@
-import os
 from urllib.parse import urlencode
 
 from django.conf import settings
@@ -80,7 +79,7 @@ class AccesoView(auth_views.LoginView):
 def panel(request):
     base = settings.PHPMYADMIN_URL
     usa_mysql = settings.DATABASES["default"]["ENGINE"].endswith("mysql")
-    db = settings.DATABASES["default"]["NAME"] if usa_mysql else os.getenv("DB_NAME", "sgr_laserena")
+    db = settings.PHPMYADMIN_DB
 
     grupos = []
     for titulo, modelos in RECURSOS_ADMINISTRABLES:

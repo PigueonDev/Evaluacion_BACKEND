@@ -88,5 +88,6 @@ LOGOUT_REDIRECT_URL = "institucional:inicio"
 # phpMyAdmin se publica en el mismo dominio (ver deploy/nginx.conf) para que
 # Nginx pueda validar la sesión de Django antes de permitir el acceso.
 PHPMYADMIN_URL = os.getenv("PHPMYADMIN_URL", "/phpmyadmin/")
+PHPMYADMIN_DB = os.getenv("DB_NAME", "sgr_laserena")
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"

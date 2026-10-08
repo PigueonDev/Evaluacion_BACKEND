@@ -30,7 +30,7 @@ class AccesoFuncionariosTest(TestCase):
 		respuesta = self.client.get(reverse("institucional:panel"))
 		self.assertRedirects(respuesta, f"{reverse('institucional:acceso')}?next={reverse('institucional:panel')}")
 
-	@override_settings(PHPMYADMIN_URL="/phpmyadmin/")
+	@override_settings(PHPMYADMIN_URL="/phpmyadmin/", PHPMYADMIN_DB="sgr_laserena")
 	def test_panel_enlaza_tablas_en_phpmyadmin(self):
 		self.client.force_login(self.staff)
 		respuesta = self.client.get(reverse("institucional:panel"))
