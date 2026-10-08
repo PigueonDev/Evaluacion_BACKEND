@@ -7,7 +7,7 @@
 
 <section class="container py-5">
     <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
-        <span class="periodo-activo"><svg class="icono"><use href="#i-calendar"/></svg>{% if periodo %}Período activo: <strong>{{ periodo.nombre }}</strong> ({{ periodo.fecha_inicio|date:"d/m/Y" }} – {{ periodo.fecha_termino|date:"d/m/Y" }}){% else %}Sin período abierto{% endif %}</span>
+        <span class="periodo-activo"><svg class="icono"><use href="#i-calendar"/></svg><span>{% if periodo %}Período activo: <strong>{{ periodo.nombre }}</strong> ({{ periodo.fecha_inicio|date:"d/m/Y" }} – {{ periodo.fecha_termino|date:"d/m/Y" }}){% else %}Sin período abierto{% endif %}</span></span>
         {% if user.is_staff %}
         <a class="btn btn-dark" href="{% url 'institucional:panel' %}"><svg class="icono"><use href="#i-gear"/></svg>Administrar datos</a>
         {% endif %}
