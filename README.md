@@ -52,7 +52,7 @@ sudo mkdir -p /usr/share/phpmyadmin
 sudo tar xzf phpMyAdmin-latest-all-languages.tar.gz --strip-components=1 -C /usr/share/phpmyadmin
 sudo cp /usr/share/phpmyadmin/config.sample.inc.php /usr/share/phpmyadmin/config.inc.php
 # Edita config.inc.php y define $cfg['blowfish_secret'] con 32 caracteres aleatorios.
-sudo mkdir -p /usr/share/phpmyadmin/tmp && sudo chown -R nginx:nginx /usr/share/phpmyadmin/tmp
+sudo mkdir -p /usr/share/phpmyadmin/tmp && sudo chown -R apache:apache /usr/share/phpmyadmin/tmp
 sudo cp deploy/nginx.conf /etc/nginx/conf.d/laserena.conf
 sudo nginx -t && sudo systemctl reload nginx
 ```
