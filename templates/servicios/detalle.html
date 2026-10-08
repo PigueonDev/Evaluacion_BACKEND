@@ -4,62 +4,44 @@
 {% block titulo %}{{ servicio.nombre }} · Servicios{% endblock %}
 
 {% block contenido %}
-<section class="container py-5">
-    <nav aria-label="breadcrumb" class="mb-3">
-        <ol class="breadcrumb">
-            <li class="breadcrumb-item"><a href="{% url 'institucional:inicio' %}">Inicio</a></li>
-            <li class="breadcrumb-item"><a href="{% url 'servicios:catalogo' %}">Servicios</a></li>
-            <li class="breadcrumb-item active" aria-current="page">{{ servicio.nombre }}</li>
-        </ol>
-    </nav>
+{% url 'servicios:catalogo' as url_catalogo %}
+{% include "includes/cabecera.html" with antetitulo=servicio.categoria titulo=servicio.nombre seccion="Servicios" seccion_url=url_catalogo %}
 
+<section class="container py-5">
     <div class="row g-4">
         <div class="col-lg-8">
-            <span class="badge text-bg-primary">{{ servicio.categoria }}</span>
-            <h2 class="mt-2">{{ servicio.nombre }}</h2>
-            <p class="lead">{{ servicio.descripcion }}</p>
-
-            <dl class="row">
-                <dt class="col-sm-4">Unidad responsable</dt>
-                <dd class="col-sm-8">{{ servicio.unidad }}</dd>
-                <dt class="col-sm-4">Horario</dt>
-                <dd class="col-sm-8">{{ servicio.horario }}</dd>
-                <dt class="col-sm-4">Lugar de atención</dt>
-                <dd class="col-sm-8">{{ servicio.lugar }}</dd>
-                <dt class="col-sm-4">Costo</dt>
-                <dd class="col-sm-8">{{ servicio.costo }}</dd>
-                <dt class="col-sm-4">Trámite en línea</dt>
-                <dd class="col-sm-8">
-                    {% if servicio.online %}
-                        Disponible con reserva o pago digital
-                    {% else %}
-                        Atención preferentemente presencial
+            <article class="tarjeta-info">
+                <h2 class="h4">Descripción del servicio</h2>
+                <p class="lead">{{ servicio.descripcion }}</p>
+                <dl class="ficha-datos">
+                    <div><dt>Unidad responsable</dt><dd>{{ servicio.unidad }}</dd></div>
+                    <div><dt>Categoría</dt><dd>{{ servicio.categoria }}</dd></div>
+                    <div><dt>Lugar de atención</dt><dd>Arturo Prat 451, La Serena</dd></div>
+                    <div><dt>Horario</dt><dd>Lunes a viernes, 08:30 a 14:00 h</dd></div>
+                </dl>
+                <div class="d-flex flex-wrap gap-2">
+                    <a class="btn btn-primary" href="{% url 'servicios:catalogo' %}">Volver al catálogo</a>
+                    {% if user.is_staff %}
+                    <a class="btn btn-outline-secondary" href="{% url 'admin:servicios_servicio_change' servicio.pk %}">Modificar servicio</a>
                     {% endif %}
-                </dd>
-            </dl>
-
-            <h3 class="h5">Requisitos</h3>
-            <ul>
-                {% for requisito in servicio.requisitos %}
-                <li>{{ requisito }}</li>
-                {% endfor %}
-            </ul>
-        </div>
-        <div class="col-lg-4">
-            <img src="{% static 'img/atencion_ciudadana.png' %}" alt="Mesa de atención de trámites" class="img-fluid rounded-4 sombra-foto mb-4">
-            {% if relacionados %}
-            <div class="card">
-                <div class="card-body">
-                    <h3 class="h6">Otros servicios de la misma categoría</h3>
-                    <ul class="list-unstyled mb-0">
-                        {% for item in relacionados %}
-                        <li class="mb-2"><a href="{% url 'servicios:detalle' item.slug %}">{{ item.nombre }}</a></li>
-                        {% endfor %}
-                    </ul>
                 </div>
+            </article>
+        </div>
+        <aside class="col-lg-4">
+            <div class="foto-marco mb-4">
+                <img src="{% static 'img/atencion_ciudadana.png' %}" alt="Mesa de atención de trámites" class="img-fluid">
+            </div>
+            {% if relacionados %}
+            <div class="tarjeta-lateral">
+                <h2 class="h6 text-uppercase">Servicios relacionados</h2>
+                <ul class="list-unstyled mb-0">
+                    {% for item in relacionados %}
+                    <li><a href="{% url 'servicios:detalle' item.slug %}"><svg class="icono"><use href="#i-arrow"/></svg>{{ item.nombre }}</a></li>
+                    {% endfor %}
+                </ul>
             </div>
             {% endif %}
-        </div>
+        </aside>
     </div>
 </section>
 {% endblock %}

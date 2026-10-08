@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block titulo %}Acceso funcionarios · Municipalidad de La Serena{% endblock %}
+
+{% block contenido %}
+<section class="acceso-fondo" style="--imagen-portada: url('{% static 'img/edificio_municipal.png' %}')">
+    <div class="container py-5">
+        <div class="row justify-content-center">
+            <div class="col-md-8 col-lg-5">
+                <div class="tarjeta-acceso">
+                    <div class="text-center mb-4">
+                        <img src="{% static 'img/escudo_la_serena.png' %}" alt="Escudo de La Serena" class="logo-acceso">
+                        <h1 class="h4 mt-3 mb-1">Acceso funcionarios</h1>
+                        <p class="text-secondary small mb-0">Ingresa con tu cuenta de personal municipal para administrar delegaciones, servicios y demás recursos en phpMyAdmin.</p>
+                    </div>
+
+                    {% if form.non_field_errors %}
+                    <div class="alert alert-danger small">{% for error in form.non_field_errors %}{{ error }}{% endfor %}</div>
+                    {% endif %}
+
+                    <form method="post" novalidate>
+                        {% csrf_token %}
+                        <input type="hidden" name="next" value="{{ next }}">
+                        <div class="mb-3">
+                            <label class="form-label fw-semibold" for="{{ form.username.id_for_label }}">Usuario</label>
+                            <div class="campo-icono">
+                                <svg class="icono"><use href="#i-user"/></svg>
+                                <input class="form-control form-control-lg{% if form.username.errors %} is-invalid{% endif %}" type="text" name="{{ form.username.html_name }}" id="{{ form.username.id_for_label }}" value="{{ form.username.value|default:'' }}" autocomplete="username" autofocus required>
+                            </div>
+                        </div>
+                        <div class="mb-4">
+                            <label class="form-label fw-semibold" for="{{ form.password.id_for_label }}">Contraseña</label>
+                            <div class="campo-icono">
+                                <svg class="icono"><use href="#i-lock"/></svg>
+                                <input class="form-control form-control-lg{% if form.password.errors %} is-invalid{% endif %}" type="password" name="{{ form.password.html_name }}" id="{{ form.password.id_for_label }}" autocomplete="current-password" required>
+                            </div>
+                        </div>
+                        <button class="btn btn-primary btn-lg w-100" type="submit">Iniciar sesión</button>
+                    </form>
+
+                    <p class="small text-secondary text-center mt-4 mb-0">Solo cuentas con permiso de personal (<em>staff</em>). Las cuentas se crean con <code>python manage.py createsuperuser</code>.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+{% endblock %}

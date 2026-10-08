@@ -4,56 +4,61 @@
 {% block titulo %}Autoridades · Municipalidad de La Serena{% endblock %}
 
 {% block contenido %}
+{% include "includes/cabecera.html" with antetitulo="Municipio" titulo="Alcaldía y equipo de gobierno comunal" bajada="Autoridades y unidades territoriales que conducen la gestión de la comuna." %}
+
 <section class="container py-5">
-    <div class="row g-4 align-items-center mb-5">
-        <div class="col-md-7">
-            <p class="text-uppercase small text-secondary mb-1">Aplicación institucional</p>
-            <h2>Alcaldía y equipo de gobierno comunal</h2>
-            <p>Autoridades y unidades territoriales administradas mediante el modelo institucional.</p>
-            <p class="mb-0">Total de registros publicados: <strong>{{ total_autoridades }}</strong></p>
+    <div class="row g-4 align-items-stretch mb-5">
+        <div class="col-lg-7">
+            {% if alcaldia %}
+            <article class="perfil-alcaldia h-100">
+                <span class="badge-oro">Máxima autoridad comunal</span>
+                <h2 class="mt-3 mb-1">{{ alcaldia.nombre }}</h2>
+                <p class="lead text-primary fw-semibold mb-3">{{ alcaldia.cargo }} · {{ alcaldia.periodo }}</p>
+                <p class="mb-0">{{ alcaldia.resena }}</p>
+            </article>
+            {% endif %}
         </div>
-        <div class="col-md-5">
-            <img src="{% static 'img/edificio_municipal.png' %}" alt="Edificio consistorial de La Serena" class="img-fluid rounded-4 sombra-foto">
-        </div>
-    </div>
-
-    {% if alcaldia %}
-    <article class="card mb-4 perfil-alcaldia">
-        <div class="card-body p-4">
-            <span class="badge text-bg-warning text-dark">Máxima autoridad comunal</span>
-            <h3 class="mt-3">{{ alcaldia.nombre }}</h3>
-            <p class="lead mb-2">{{ alcaldia.cargo }} · {{ alcaldia.periodo }}</p>
-            <p class="mb-0">{{ alcaldia.resena }}</p>
-        </div>
-    </article>
-    {% endif %}
-
-    <h3 class="mb-3">Otras autoridades del municipio</h3>
-    <div class="row g-4">
-        {% for persona in concejo %}
-        <div class="col-md-6">
-            <div class="card h-100">
-                <div class="card-body">
-                    <h4 class="h5">{{ persona.nombre }}</h4>
-                    <p class="text-secondary mb-2">{{ persona.cargo }} · {{ persona.periodo }}</p>
-                    <p class="mb-0">{{ persona.resena }}</p>
-                </div>
+        <div class="col-lg-5">
+            <div class="foto-marco h-100">
+                <img src="{% static 'img/edificio_municipal.png' %}" alt="Edificio consistorial de La Serena" class="img-fluid">
+                <span class="foto-leyenda"><strong>{{ total_autoridades }}</strong> autoridades publicadas</span>
             </div>
         </div>
-        {% empty %}
-        <p>No hay autoridades adicionales publicadas.</p>
-        {% endfor %}
     </div>
 
-    <h3 class="mt-5 mb-3">Delegaciones activas</h3>
-    <div class="row g-3">
-        {% for delegacion in delegaciones %}
-        <div class="col-md-6 col-lg-4"><div class="card h-100"><div class="card-body">
-            <h4 class="h6">{{ delegacion.nombre }}</h4>
-            <p class="small mb-1">{{ delegacion.territorio }}</p>
-            <p class="small mb-0">{{ delegacion.enfoque }}</p>
-        </div></div></div>
+    <div class="titulo-seccion"><div><span class="antetitulo">Concejo municipal</span><h2>Otras autoridades del municipio</h2></div></div>
+    <div class="row g-4">
+        {% for persona in concejo %}
+        <div class="col-md-6 col-lg-4">
+            <article class="tarjeta-persona h-100">
+                <span class="avatar">{{ persona.nombre|slice:":1" }}</span>
+                <div>
+                    <h3 class="h6 mb-1">{{ persona.nombre }}</h3>
+                    <p class="small text-primary fw-semibold mb-2">{{ persona.cargo }} · {{ persona.periodo }}</p>
+                    <p class="small mb-0 text-secondary">{{ persona.resena }}</p>
+                </div>
+            </article>
+        </div>
+        {% empty %}
+        <div class="col-12"><div class="alert alert-light border">No hay autoridades adicionales publicadas.</div></div>
         {% endfor %}
+    </div>
+</section>
+
+<section class="fondo-suave py-5">
+    <div class="container">
+        <div class="titulo-seccion"><div><span class="antetitulo">Territorio</span><h2>Delegaciones activas</h2></div></div>
+        <div class="row g-3">
+            {% for delegacion in delegaciones %}
+            <div class="col-md-6 col-lg-4">
+                <article class="tarjeta-delegacion h-100">
+                    <h3 class="h6 mb-1"><svg class="icono text-primary"><use href="#i-building"/></svg>{{ delegacion.nombre }}</h3>
+                    <p class="small text-secondary mb-2">{{ delegacion.territorio }}</p>
+                    <p class="small mb-0">{{ delegacion.enfoque }}</p>
+                </article>
+            </div>
+            {% endfor %}
+        </div>
     </div>
 </section>
 {% endblock %}

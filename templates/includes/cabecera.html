@@ -1,0 +1,14 @@
+<section class="cabecera-pagina">
+    <div class="container">
+        <nav aria-label="Ruta de navegación">
+            <ol class="breadcrumb">
+                <li class="breadcrumb-item"><a href="{% url 'institucional:inicio' %}">Inicio</a></li>
+                {% if seccion %}<li class="breadcrumb-item"><a href="{{ seccion_url }}">{{ seccion }}</a></li>{% endif %}
+                <li class="breadcrumb-item active" aria-current="page">{{ titulo }}</li>
+            </ol>
+        </nav>
+        {% if antetitulo %}<span class="antetitulo antetitulo-claro">{{ antetitulo }}</span>{% endif %}
+        <h1>{{ titulo }}</h1>
+        {% if bajada %}<p class="mb-0">{{ bajada }}</p>{% endif %}
+    </div>
+</section>

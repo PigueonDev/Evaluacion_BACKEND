@@ -1,22 +1,26 @@
-from django.db.models import Count
+from django.db.models import Count, Q
 from django.shortcuts import get_object_or_404, render
 
 from institucional.models import Delegacion, Funcionario
 
-from .models import Actividad, Compromiso, Periodo, Servicio
+from .models import Actividad, Compromiso, Meta, Periodo, Servicio
 
 
 def catalogo(request):
     categoria = request.GET.get("categoria", "todos").strip() or "todos"
+    busqueda = request.GET.get("q", "").strip()
     servicios = Servicio.objects.filter(activo=True)
     if categoria != "todos":
         servicios = servicios.filter(categoria__iexact=categoria)
+    if busqueda:
+        servicios = servicios.filter(Q(nombre__icontains=busqueda) | Q(descripcion__icontains=busqueda) | Q(unidad__icontains=busqueda))
     categorias = Servicio.objects.filter(activo=True).values_list("categoria", flat=True).distinct().order_by("categoria")
     contexto = {
         "introduccion": {"titulo": "Servicios y gestión territorial", "bajada": "Catálogo administrable de servicios municipales."},
         "servicios": servicios,
         "categorias": ["todos", *categorias],
         "categoria_activa": categoria,
+        "busqueda": busqueda,
         "total": servicios.count(),
         "total_general": Servicio.objects.filter(activo=True).count(),
         "pagina_activa": "servicios",
@@ -33,8 +37,12 @@ def detalle(request, slug: str):
 def dashboard(request):
     actividades = Actividad.objects.select_related("funcionario", "item", "periodo")
     compromisos = Compromiso.objects.select_related("responsable", "delegacion")
+    periodo = Periodo.objects.filter(estado="abierto").first()
+    metas = Meta.objects.select_related("item", "periodo", "funcionario", "cargo")
+    if periodo:
+        metas = metas.filter(periodo=periodo)
     contexto = {
-        "periodo": Periodo.objects.filter(estado="abierto").first(),
+        "periodo": periodo,
         "delegaciones": Delegacion.objects.filter(activa=True).annotate(total_compromisos=Count("compromisos")),
         "total_funcionarios": Funcionario.objects.filter(activo=True).count(),
         "total_actividades": actividades.count(),
@@ -42,6 +50,7 @@ def dashboard(request):
         "compromisos_pendientes": compromisos.exclude(estado="realizado").count(),
         "actividades_recientes": actividades[:8],
         "compromisos_recientes": compromisos[:8],
+        "metas": [{"meta": meta, "cumplimiento": meta.cumplimiento, "semaforo": meta.semaforo()} for meta in metas],
         "pagina_activa": "dashboard",
     }
     return render(request, "servicios/dashboard.html", contexto)
@@ -50,14 +59,22 @@ def dashboard(request):
 def actividades(request):
     queryset = Actividad.objects.select_related("funcionario", "item", "periodo")
     estado = request.GET.get("estado", "").strip()
+    busqueda = request.GET.get("q", "").strip()
     if estado:
         queryset = queryset.filter(estado=estado)
-    return render(request, "servicios/actividades.html", {"actividades": queryset, "estado_activo": estado, "pagina_activa": "actividades"})
+    if busqueda:
+        queryset = queryset.filter(Q(descripcion__icontains=busqueda) | Q(funcionario__nombre_completo__icontains=busqueda) | Q(item__nombre__icontains=busqueda))
+    contexto = {"actividades": queryset, "estado_activo": estado, "busqueda": busqueda, "pagina_activa": "actividades"}
+    return render(request, "servicios/actividades.html", contexto)
 
 
 def agenda(request):
     compromisos = Compromiso.objects.select_related("responsable", "delegacion")
     estado = request.GET.get("estado", "").strip()
+    busqueda = request.GET.get("q", "").strip()
     if estado:
         compromisos = compromisos.filter(estado=estado)
-    return render(request, "servicios/agenda.html", {"compromisos": compromisos, "estado_activo": estado, "pagina_activa": "agenda"})
+    if busqueda:
+        compromisos = compromisos.filter(Q(descripcion__icontains=busqueda) | Q(solicitante__icontains=busqueda) | Q(delegacion__nombre__icontains=busqueda))
+    contexto = {"compromisos": compromisos, "estado_activo": estado, "busqueda": busqueda, "pagina_activa": "agenda"}
+    return render(request, "servicios/agenda.html", contexto)

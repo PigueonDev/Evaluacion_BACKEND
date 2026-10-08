@@ -3,14 +3,56 @@
 {% block titulo %}Agenda colectiva · SGR{% endblock %}
 
 {% block contenido %}
+{% include "includes/cabecera.html" with antetitulo="Compromisos territoriales" titulo="Agenda colectiva" bajada="Seguimiento de los compromisos asumidos con la comunidad por cada delegación." %}
+
 <section class="container py-5">
-    <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
-        <div><p class="text-uppercase small text-secondary mb-1">Compromisos territoriales</p><h2>Agenda colectiva</h2></div>
-        <div class="d-flex gap-2"><a class="btn btn-success" href="#agregar">Agregar</a><a class="btn btn-outline-dark" href="{% url 'admin:servicios_compromiso_changelist' %}">Modificar y eliminar</a><a class="btn btn-primary" href="#buscar">Buscar</a></div>
+    <div class="barra-filtros mb-4">
+        <form method="get" class="buscador-interno" role="search">
+            <input type="hidden" name="estado" value="{{ estado_activo }}">
+            <label class="visually-hidden" for="q-agenda">Buscar compromiso</label>
+            <svg class="icono"><use href="#i-search"/></svg>
+            <input id="q-agenda" name="q" type="search" value="{{ busqueda }}" placeholder="Buscar por solicitante, delegación o descripción">
+            <button class="btn btn-primary" type="submit">Buscar</button>
+        </form>
+        <div class="d-flex flex-wrap justify-content-between gap-2">
+            <div class="d-flex flex-wrap gap-2">
+                <a class="chip {% if not estado_activo %}activo{% endif %}" href="?q={{ busqueda|urlencode }}">Todos</a>
+                <a class="chip {% if estado_activo == 'pendiente' %}activo{% endif %}" href="?estado=pendiente&q={{ busqueda|urlencode }}">Pendientes</a>
+                <a class="chip {% if estado_activo == 'proceso' %}activo{% endif %}" href="?estado=proceso&q={{ busqueda|urlencode }}">En proceso</a>
+                <a class="chip {% if estado_activo == 'realizado' %}activo{% endif %}" href="?estado=realizado&q={{ busqueda|urlencode }}">Realizados</a>
+            </div>
+            {% if user.is_staff %}
+            <div class="d-flex gap-2">
+                <a class="btn btn-success btn-sm" href="{% url 'admin:servicios_compromiso_add' %}"><svg class="icono"><use href="#i-plus"/></svg>Agregar</a>
+                <a class="btn btn-outline-dark btn-sm" href="{% url 'admin:servicios_compromiso_changelist' %}">Modificar y eliminar</a>
+            </div>
+            {% endif %}
+        </div>
     </div>
-    <div class="btn-group mb-4" role="group"><a class="btn btn-outline-secondary {% if not estado_activo %}active{% endif %}" href="{% url 'servicios:agenda' %}">Todos</a><a class="btn btn-outline-secondary {% if estado_activo == 'pendiente' %}active{% endif %}" href="?estado=pendiente">Pendientes</a><a class="btn btn-outline-secondary {% if estado_activo == 'proceso' %}active{% endif %}" href="?estado=proceso">En proceso</a><a class="btn btn-outline-secondary {% if estado_activo == 'realizado' %}active{% endif %}" href="?estado=realizado">Realizados</a></div>
-    <div class="table-responsive"><table class="table table-hover align-middle"><thead><tr><th>Fecha</th><th>Solicitante</th><th>Delegación</th><th>Responsable</th><th>Descripción</th><th>Estado</th></tr></thead><tbody>
-    {% for compromiso in compromisos %}<tr class="{% if compromiso.vencido %}table-danger{% endif %}"><td>{{ compromiso.fecha_comprometida }}</td><td>{{ compromiso.solicitante }}</td><td>{{ compromiso.delegacion.nombre }}</td><td>{{ compromiso.responsable.nombre_completo }}</td><td>{{ compromiso.descripcion|truncatewords:12 }}</td><td>{{ compromiso.get_estado_display }}{% if compromiso.vencido %} · Vencido{% endif %}</td></tr>{% empty %}<tr><td colspan="6">No hay compromisos para este filtro.</td></tr>{% endfor %}
-    </tbody></table></div>
+
+    <div class="panel-tabla">
+        <div class="table-responsive">
+            <table class="table tabla-municipal table-hover align-middle mb-0">
+                <thead><tr><th>Fecha</th><th>Solicitante</th><th>Delegación</th><th>Responsable</th><th>Descripción</th><th>Estado</th></tr></thead>
+                <tbody>
+                {% for compromiso in compromisos %}
+                <tr class="{% if compromiso.vencido %}fila-vencida{% endif %}">
+                    <td class="text-nowrap">{{ compromiso.fecha_comprometida|date:"d/m/Y" }}</td>
+                    <td>{{ compromiso.solicitante }}</td>
+                    <td>{{ compromiso.delegacion.nombre }}</td>
+                    <td>{{ compromiso.responsable.nombre_completo }}</td>
+                    <td class="text-secondary">{{ compromiso.descripcion|truncatewords:12 }}</td>
+                    <td class="text-nowrap">
+                        <span class="estado estado-{{ compromiso.estado }}">{{ compromiso.get_estado_display }}</span>
+                        {% if compromiso.vencido %}<span class="estado estado-rechazada">Vencido</span>{% endif %}
+                    </td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="6" class="text-secondary">No hay compromisos para este filtro.</td></tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
 </section>
 {% endblock %}
