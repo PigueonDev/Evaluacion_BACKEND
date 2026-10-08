@@ -46,6 +46,7 @@ TEMPLATES = [
                 "django.template.context_processors.request",
                 "django.contrib.auth.context_processors.auth",
                 "django.contrib.messages.context_processors.messages",
+                "laserena.context_processors.administracion",
             ],
         },
     },
@@ -80,6 +81,12 @@ WHITENOISE_USE_FINDERS = True
 WHITENOISE_AUTOREFRESH = True
 MEDIA_URL = "/media/"
 MEDIA_ROOT = BASE_DIR / "media"
-LOGIN_URL = "/admin/login/"
+LOGIN_URL = "institucional:acceso"
+LOGIN_REDIRECT_URL = "institucional:panel"
+LOGOUT_REDIRECT_URL = "institucional:inicio"
+
+# phpMyAdmin se publica en el mismo dominio (ver deploy/nginx.conf) para que
+# Nginx pueda validar la sesión de Django antes de permitir el acceso.
+PHPMYADMIN_URL = os.getenv("PHPMYADMIN_URL", "/phpmyadmin/")
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"

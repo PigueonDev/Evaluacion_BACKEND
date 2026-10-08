@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+
+{% block titulo %}Administración · Municipalidad de La Serena{% endblock %}
+
+{% block contenido %}
+{% include "includes/cabecera.html" with antetitulo="Acceso funcionarios" titulo="Panel de administración" bajada="Modifica los recursos del sitio: sedes, servicios, funcionarios, actividades y más." %}
+
+<section class="container py-5">
+    <div class="destacado-phpmyadmin mb-5">
+        <span class="kpi-icono grande"><svg><use href="#i-database"/></svg></span>
+        <div class="flex-grow-1">
+            <h2 class="h4 mb-1">phpMyAdmin</h2>
+            <p class="mb-0">Administra directamente la base de datos <code>{{ base_datos }}</code> en MariaDB: agrega nuevas sedes, edita servicios o corrige registros.</p>
+        </div>
+        <div class="d-flex flex-wrap gap-2">
+            <a class="btn btn-warning btn-lg" href="{{ phpmyadmin_bd }}" target="_blank" rel="noopener"><svg class="icono"><use href="#i-external"/></svg>Abrir phpMyAdmin</a>
+            <a class="btn btn-outline-light btn-lg" href="{% url 'admin:index' %}">Django Admin</a>
+        </div>
+    </div>
+
+    {% if not usa_mysql %}
+    <div class="alert alert-warning d-flex gap-2 align-items-start">
+        <svg class="icono mt-1"><use href="#i-info"/></svg>
+        <div>Este entorno usa <strong>SQLite</strong> (desarrollo local), por lo que phpMyAdmin no tendrá estas tablas. En EC2 configura <code>DB_ENGINE=mysql</code> en <code>.env</code>. Mientras tanto puedes usar los botones de Django Admin.</div>
+    </div>
+    {% endif %}
+
+    {% for grupo in grupos %}
+    <div class="titulo-seccion"><div><span class="antetitulo">Recursos</span><h2>{{ grupo.titulo }}</h2></div></div>
+    <div class="row g-4 mb-5">
+        {% for recurso in grupo.recursos %}
+        <div class="col-md-6 col-xl-4">
+            <article class="tarjeta-recurso h-100">
+                <div class="d-flex justify-content-between align-items-start gap-2">
+                    <h3 class="h5 mb-1">{{ recurso.nombre }}</h3>
+                    <span class="contador" title="Registros">{{ recurso.total }}</span>
+                </div>
+                <p class="small text-secondary mb-2">{{ recurso.descripcion }}</p>
+                <p class="small mb-3"><svg class="icono"><use href="#i-database"/></svg><code>{{ recurso.tabla }}</code></p>
+                <div class="mt-auto">
+                    <span class="d-block small fw-semibold text-uppercase text-secondary mb-1">phpMyAdmin</span>
+                    <div class="d-flex flex-wrap gap-2 mb-2">
+                        <a class="btn btn-primary btn-sm" href="{{ recurso.phpmyadmin_ver }}" target="_blank" rel="noopener"><svg class="icono"><use href="#i-list"/></svg>Ver registros</a>
+                        <a class="btn btn-success btn-sm" href="{{ recurso.phpmyadmin_agregar }}" target="_blank" rel="noopener"><svg class="icono"><use href="#i-plus"/></svg>Agregar nuevo</a>
+                    </div>
+                    <span class="d-block small fw-semibold text-uppercase text-secondary mb-1">Django Admin</span>
+                    <div class="d-flex flex-wrap gap-2">
+                        <a class="btn btn-outline-secondary btn-sm" href="{{ recurso.admin_ver }}">Listar</a>
+                        <a class="btn btn-outline-secondary btn-sm" href="{{ recurso.admin_agregar }}">Agregar</a>
+                    </div>
+                </div>
+            </article>
+        </div>
+        {% endfor %}
+    </div>
+    {% endfor %}
+</section>
+{% endblock %}

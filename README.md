@@ -15,7 +15,6 @@ En PowerShell, desde la carpeta del proyecto:
 py -3 -m venv .venv
 .\.venv\Scripts\Activate.ps1
 python -m pip install -r requirements.txt
-python generar_estaticos.py
 python manage.py migrate
 python manage.py cargar_datos_demo
 python manage.py createsuperuser
@@ -34,7 +33,31 @@ Abrir http://127.0.0.1:8000/
 | `/servicios/dashboard/` | servicios | Panel SGR |
 | `/servicios/actividades/` | servicios | Actividades y filtros |
 | `/servicios/agenda/` | servicios | Agenda colectiva |
+| `/acceso/` | institucional | Login "Acceso funcionarios" (solo cuentas staff) |
+| `/administracion/` | institucional | Panel con accesos a phpMyAdmin y Django Admin por tabla |
+| `/acceso/verificar/` | institucional | Verificación de sesión usada por Nginx para proteger phpMyAdmin |
 | `/admin/` | Django | Administración CRUD |
+
+## Acceso funcionarios y phpMyAdmin
+
+En la esquina superior derecha de todas las páginas está el botón **Acceso funcionarios**. Al iniciar sesión con una cuenta staff (por ejemplo, la creada con `createsuperuser`) se abre el panel `/administracion/`, que muestra cada recurso (sedes/delegaciones, funcionarios, servicios, actividades, etc.) con botones para **ver registros** o **agregar nuevo** directamente en phpMyAdmin, además de los equivalentes en Django Admin.
+
+La URL de phpMyAdmin se configura con `PHPMYADMIN_URL` en `.env` (por defecto `/phpmyadmin/`). En EC2, `deploy/nginx.conf` publica phpMyAdmin en `/phpmyadmin/` y usa `auth_request` contra `/acceso/verificar/`: sin sesión staff en Django, Nginx redirige al login.
+
+```bash
+sudo dnf install -y php php-fpm php-mysqlnd php-mbstring php-xml php-json
+sudo systemctl enable --now php-fpm
+cd /tmp && curl -LO https://www.phpmyadmin.net/downloads/phpMyAdmin-latest-all-languages.tar.gz
+sudo mkdir -p /usr/share/phpmyadmin
+sudo tar xzf phpMyAdmin-latest-all-languages.tar.gz --strip-components=1 -C /usr/share/phpmyadmin
+sudo cp /usr/share/phpmyadmin/config.sample.inc.php /usr/share/phpmyadmin/config.inc.php
+# Edita config.inc.php y define $cfg['blowfish_secret'] con 32 caracteres aleatorios.
+sudo mkdir -p /usr/share/phpmyadmin/tmp && sudo chown -R nginx:nginx /usr/share/phpmyadmin/tmp
+sudo cp deploy/nginx.conf /etc/nginx/conf.d/laserena.conf
+sudo nginx -t && sudo systemctl reload nginx
+```
+
+phpMyAdmin seguirá pidiendo el usuario de MariaDB (por ejemplo `sgr_user`), por lo que el acceso queda protegido por dos capas: la sesión de Django y las credenciales de la base de datos.
 
 ## Librería externa
 Además de Django se usa **WhiteNoise** para servir archivos estáticos y **Pillow** para generar las imágenes institucionales locales.
