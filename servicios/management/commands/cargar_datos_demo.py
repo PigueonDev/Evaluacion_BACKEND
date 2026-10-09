@@ -2,6 +2,7 @@ import json
 from datetime import date
 from pathlib import Path
 
+from django.contrib.auth import get_user_model
 from django.core.management.base import BaseCommand
 
 from institucional.models import Autoridad, Cargo, Delegacion, Funcionario, Municipio
@@ -101,6 +102,22 @@ class Command(BaseCommand):
         item = ItemMedicion.objects.get(codigo="ACT-001")
         cargo.funciones.add(item)
         delegacion = Delegacion.objects.get(slug="centro")
+        usuario = get_user_model()
+        gestor, creado = usuario.objects.get_or_create(
+            username="gestor",
+            defaults={
+                "email": "gestor@demo.laserena.cl",
+                "is_staff": True,
+                "is_superuser": True,
+            },
+        )
+        if creado:
+            gestor.set_password("gestor-demo")
+            gestor.save()
+        elif not gestor.is_staff:
+            gestor.is_staff = True
+            gestor.is_superuser = True
+            gestor.save()
         funcionario, _ = Funcionario.objects.update_or_create(
             identificador="DEMO-001",
             defaults={
@@ -108,6 +125,7 @@ class Command(BaseCommand):
                 "correo": "demo@ejemplo.cl",
                 "delegacion": delegacion,
                 "cargo": cargo,
+                "usuario": gestor,
             },
         )
         Meta.objects.update_or_create(

@@ -139,7 +139,21 @@ body {
 .barra-nav .nav-link:hover,
 .barra-nav .nav-link.active {
     background: var(--negro-municipal);
+    box-shadow: inset 0 -3px 0 var(--amarillo-municipal);
     color: #fff;
+}
+
+.barra-nav .btn-salir {
+    background: transparent;
+    border: 0;
+    width: 100%;
+    text-align: left;
+}
+
+@media (min-width: 992px) {
+    .barra-nav .btn-salir {
+        width: auto;
+    }
 }
 
 .portada {

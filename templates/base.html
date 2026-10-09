@@ -6,7 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>{% block titulo %}Municipalidad de La Serena{% endblock %}</title>
     <link rel="stylesheet" href="{% static 'css/bootstrap.min.css' %}">
-    <link rel="stylesheet" href="{% static 'css/estilos.css' %}?v=20260929">
+    <link rel="stylesheet" href="{% static 'css/estilos.css' %}?v=20261009">
 </head>
 <body class="d-flex flex-column min-vh-100">
     <div class="barra-utilitaria">
@@ -37,11 +37,38 @@
         </div>
         <nav class="navbar navbar-expand-lg navbar-dark barra-nav">
             <div class="container">
-                <a class="navbar-brand d-lg-none" href="{% url 'institucional:inicio' %}">Inicio</a>
+                <a class="navbar-brand d-lg-none" href="{% if area_administrativa %}{% url 'servicios:dashboard' %}{% else %}{% url 'institucional:inicio' %}{% endif %}">{% if area_administrativa %}Panel SGR{% else %}Inicio{% endif %}</a>
                 <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#menuPrincipal" aria-controls="menuPrincipal" aria-expanded="false" aria-label="Abrir menú">
                     <span class="navbar-toggler-icon"></span>
                 </button>
                 <div class="collapse navbar-collapse" id="menuPrincipal">
+                    {% if area_administrativa %}
+                    <ul class="navbar-nav me-auto mb-2 mb-lg-0">
+                        <li class="nav-item">
+                            <a class="nav-link {% if pagina_activa == 'dashboard' %}active{% endif %}" href="{% url 'servicios:dashboard' %}">Panel SGR</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link {% if pagina_activa == 'actividades' %}active{% endif %}" href="{% url 'servicios:actividades' %}">Actividades</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link {% if pagina_activa == 'agenda' %}active{% endif %}" href="{% url 'servicios:agenda' %}">Agenda</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="{% url 'admin:index' %}">Administración</a>
+                        </li>
+                    </ul>
+                    <ul class="navbar-nav mb-2 mb-lg-0">
+                        <li class="nav-item">
+                            <a class="nav-link" href="{% url 'institucional:inicio' %}">Sitio ciudadano</a>
+                        </li>
+                        <li class="nav-item">
+                            <form method="post" action="{% url 'servicios:salir' %}">
+                                {% csrf_token %}
+                                <button class="nav-link btn-salir" type="submit">Cerrar sesión</button>
+                            </form>
+                        </li>
+                    </ul>
+                    {% else %}
                     <ul class="navbar-nav me-auto mb-2 mb-lg-0">
                         <li class="nav-item">
                             <a class="nav-link {% if pagina_activa == 'inicio' %}active{% endif %}" href="{% url 'institucional:inicio' %}">Inicio</a>
@@ -52,21 +79,23 @@
                         <li class="nav-item">
                             <a class="nav-link {% if pagina_activa == 'servicios' %}active{% endif %}" href="{% url 'servicios:catalogo' %}">Servicios ciudadanos</a>
                         </li>
+                    </ul>
+                    <ul class="navbar-nav mb-2 mb-lg-0">
                         <li class="nav-item">
-                            <a class="nav-link {% if pagina_activa == 'dashboard' %}active{% endif %}" href="{% url 'servicios:dashboard' %}">Panel SGR</a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link {% if pagina_activa == 'actividades' %}active{% endif %}" href="{% url 'servicios:actividades' %}">Actividades</a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link {% if pagina_activa == 'agenda' %}active{% endif %}" href="{% url 'servicios:agenda' %}">Agenda</a>
+                            {% if user.is_staff %}
+                            <a class="nav-link" href="{% url 'servicios:dashboard' %}">Área administrativa</a>
+                            {% else %}
+                            <a class="nav-link {% if pagina_activa == 'ingreso' %}active{% endif %}" href="{% url 'servicios:ingreso' %}">Área administrativa</a>
+                            {% endif %}
                         </li>
                     </ul>
+                    {% endif %}
                 </div>
             </div>
         </nav>
     </header>
 
+    {% if not area_administrativa %}
     <section class="franja-herramientas" aria-label="Herramientas municipales">
         <div class="container d-flex flex-wrap justify-content-between align-items-center gap-3 py-3">
             <form class="buscador-municipal" action="#buscar" method="get">
@@ -83,6 +112,7 @@
             <a href="#patrocinio">▣ Solicitud de Patrocinio</a>
         </div>
     </section>
+    {% endif %}
 
     <main class="flex-grow-1">
         {% block contenido %}{% endblock %}

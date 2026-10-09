@@ -80,6 +80,7 @@ WHITENOISE_USE_FINDERS = True
 WHITENOISE_AUTOREFRESH = True
 MEDIA_URL = "/media/"
 MEDIA_ROOT = BASE_DIR / "media"
-LOGIN_URL = "/admin/login/"
+LOGIN_URL = "/servicios/ingreso/"
+LOGIN_REDIRECT_URL = "/servicios/dashboard/"
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"

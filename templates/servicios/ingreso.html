@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+
+{% block titulo %}Ingreso administrativo · Municipalidad de La Serena{% endblock %}
+
+{% block contenido %}
+<section class="container py-5">
+    <div class="row justify-content-center">
+        <div class="col-md-8 col-lg-5">
+            <article class="card border-0 sombra-foto">
+                <div class="card-body p-4 p-md-5">
+                    <p class="text-uppercase small text-secondary mb-1">Personal municipal</p>
+                    <h2 class="h3 mb-2">Área administrativa</h2>
+                    <p class="mb-4">Estas ventanas no forman parte del sitio que ve la ciudadanía. Ingresa para abrir el panel de gestión.</p>
+                    <ul class="list-unstyled d-flex flex-wrap gap-2 mb-4">
+                        <li><span class="badge text-bg-dark">Panel SGR</span></li>
+                        <li><span class="badge text-bg-dark">Actividades</span></li>
+                        <li><span class="badge text-bg-dark">Agenda</span></li>
+                        <li><span class="badge text-bg-dark">Administración</span></li>
+                    </ul>
+                    {% if sin_permiso %}
+                    <div class="alert alert-warning">Necesitas una cuenta del área administrativa.</div>
+                    {% endif %}
+                    {% if form.non_field_errors %}
+                    <div class="alert alert-danger">
+                        {% for error in form.non_field_errors %}{{ error }}{% endfor %}
+                    </div>
+                    {% endif %}
+                    <form method="post" novalidate>
+                        {% csrf_token %}
+                        <div class="mb-3">
+                            <label class="form-label" for="{{ form.username.id_for_label }}">Usuario</label>
+                            {{ form.username }}
+                        </div>
+                        <div class="mb-4">
+                            <label class="form-label" for="{{ form.password.id_for_label }}">Contraseña</label>
+                            {{ form.password }}
+                        </div>
+                        <button class="btn btn-danger w-100" type="submit">Ingresar</button>
+                    </form>
+                </div>
+            </article>
+        </div>
+    </div>
+</section>
+{% endblock %}
