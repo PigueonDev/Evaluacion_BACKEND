@@ -9,6 +9,7 @@ from django.shortcuts import render
 from django.urls import reverse
 
 from laserena.permisos import es_staff, solo_personal
+from laserena.seguridad import ip_cliente
 from servicios.models import Actividad, Compromiso, ItemMedicion, Meta, Periodo, Servicio
 
 from .models import Autoridad, Cargo, Delegacion, Funcionario, Municipio
@@ -70,16 +71,9 @@ def autoridades(request):
     return render(request, "institucional/autoridades.html", contexto)
 
 
-def _ip_cliente(request):
-    ip = request.META.get("REMOTE_ADDR", "")
-    if ip in ("127.0.0.1", "::1"):
-        ip = request.META.get("HTTP_X_REAL_IP", ip)
-    return ip
-
-
 def _clave_intentos(request):
     usuario = request.POST.get("username", "")[:150].lower()
-    return f"login-fallido:{_ip_cliente(request)}:{usuario}"
+    return f"login-fallido:{ip_cliente(request)}:{usuario}"
 
 
 class AccesoView(auth_views.LoginView):

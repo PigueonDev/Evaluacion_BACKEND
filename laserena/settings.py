@@ -1,8 +1,10 @@
 """Configuración del Sistema de Gestión de Resultados municipal."""
 
 import os
+import sys
 from pathlib import Path
 
+from django.core.exceptions import ImproperlyConfigured
 from dotenv import load_dotenv
 
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -10,6 +12,8 @@ load_dotenv(BASE_DIR / ".env")
 
 SECRET_KEY = os.getenv("SECRET_KEY", "dev-only-change-me")
 DEBUG = os.getenv("DEBUG", "True").lower() == "true"
+if not DEBUG and SECRET_KEY in ("", "dev-only-change-me", "cambia-esta-clave"):
+    raise ImproperlyConfigured("Define un SECRET_KEY propio en .env antes de ejecutar con DEBUG=False.")
 ALLOWED_HOSTS = [host.strip() for host in os.getenv("ALLOWED_HOSTS", "127.0.0.1,localhost,testserver").split(",") if host.strip()]
 
 INSTALLED_APPS = [
@@ -30,6 +34,7 @@ MIDDLEWARE = [
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
+    "laserena.seguridad.CabecerasSeguridadMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
 ]
@@ -69,6 +74,13 @@ if os.getenv("DB_ENGINE", "sqlite").lower() == "mysql":
 else:
     DATABASES = {"default": {"ENGINE": "django.db.backends.sqlite3", "NAME": BASE_DIR / "db.sqlite3"}}
 
+AUTH_PASSWORD_VALIDATORS = [
+    {"NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator"},
+    {"NAME": "django.contrib.auth.password_validation.MinimumLengthValidator", "OPTIONS": {"min_length": 10}},
+    {"NAME": "django.contrib.auth.password_validation.CommonPasswordValidator"},
+    {"NAME": "django.contrib.auth.password_validation.NumericPasswordValidator"},
+]
+
 LANGUAGE_CODE = "es-cl"
 TIME_ZONE = "America/Santiago"
 USE_I18N = True
@@ -81,6 +93,8 @@ WHITENOISE_USE_FINDERS = True
 WHITENOISE_AUTOREFRESH = True
 MEDIA_URL = "/media/"
 MEDIA_ROOT = BASE_DIR / "media"
+# Con Nginx delante, Django solo autoriza y Nginx entrega el archivo (X-Accel-Redirect).
+MEDIA_X_ACCEL = os.getenv("MEDIA_X_ACCEL", str(not DEBUG)).lower() == "true"
 LOGIN_URL = "institucional:acceso"
 LOGIN_REDIRECT_URL = "institucional:panel"
 LOGOUT_REDIRECT_URL = "institucional:inicio"
@@ -115,3 +129,24 @@ if os.getenv("HTTPS", "False").lower() == "true":
     SESSION_COOKIE_SECURE = True
     CSRF_COOKIE_SECURE = True
     SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+    SECURE_SSL_REDIRECT = True
+    # La subconsulta auth_request de Nginx no debe recibir redirecciones.
+    SECURE_REDIRECT_EXEMPT = [r"^acceso/verificar/$"]
+    SECURE_HSTS_SECONDS = 30 * 24 * 60 * 60
+
+FILE_UPLOAD_PERMISSIONS = 0o640
+DATA_UPLOAD_MAX_NUMBER_FIELDS = 500
+
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "formatters": {"simple": {"format": "{asctime} {levelname} {name} {message}", "style": "{"}},
+    "handlers": {"consola": {"class": "logging.StreamHandler", "formatter": "simple"}},
+    "loggers": {
+        "laserena.seguridad": {"handlers": ["consola"], "level": "INFO", "propagate": False},
+        "django.security": {"handlers": ["consola"], "level": "WARNING", "propagate": False},
+    },
+}
+
+if sys.argv[1:2] == ["test"]:
+    LOGGING["loggers"]["laserena.seguridad"]["level"] = "CRITICAL"
