@@ -1,11 +1,20 @@
 from django.db import models
 from django.core.exceptions import ValidationError
+from django.core.validators import FileExtensionValidator
 from django.contrib.auth import get_user_model
 from django.utils import timezone
 import uuid
 
 
 User = get_user_model()
+
+EXTENSIONES_EVIDENCIA = ["pdf", "jpg", "jpeg", "png", "webp"]
+TAMANO_MAXIMO_EVIDENCIA = 5 * 1024 * 1024
+
+
+def validar_tamano_evidencia(archivo):
+	if archivo.size > TAMANO_MAXIMO_EVIDENCIA:
+		raise ValidationError("La evidencia no puede superar los 5 MB.")
 
 
 class Servicio(models.Model):
@@ -135,7 +144,10 @@ class Actividad(models.Model):
 class Evidencia(models.Model):
 	ESTADOS = [("pendiente", "Pendiente"), ("aprobada", "Aprobada"), ("rechazada", "Rechazada"), ("correccion", "Solicita corrección")]
 	actividad = models.ForeignKey(Actividad, on_delete=models.CASCADE, related_name="evidencias")
-	archivo = models.FileField(upload_to="evidencias/%Y/%m/")
+	archivo = models.FileField(
+		upload_to="evidencias/%Y/%m/",
+		validators=[FileExtensionValidator(EXTENSIONES_EVIDENCIA), validar_tamano_evidencia],
+	)
 	autor = models.ForeignKey(User, on_delete=models.PROTECT, related_name="evidencias_cargadas")
 	estado = models.CharField(max_length=20, choices=ESTADOS, default="pendiente")
 	observacion = models.TextField(blank=True)

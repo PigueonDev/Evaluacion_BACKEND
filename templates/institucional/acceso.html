@@ -15,7 +15,9 @@
                         <p class="text-secondary small mb-0">Ingresa con tu cuenta de personal municipal para administrar delegaciones, servicios y demás recursos en phpMyAdmin.</p>
                     </div>
 
-                    {% if form.non_field_errors %}
+                    {% if bloqueado %}
+                    <div class="alert alert-danger small">Demasiados intentos fallidos. Espera 15 minutos antes de volver a intentarlo.</div>
+                    {% elif form.non_field_errors %}
                     <div class="alert alert-danger small">{% for error in form.non_field_errors %}{{ error }}{% endfor %}</div>
                     {% endif %}
 

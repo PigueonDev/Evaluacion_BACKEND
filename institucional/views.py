@@ -3,11 +3,13 @@ from urllib.parse import urlencode
 from django.conf import settings
 from django.contrib.admin.forms import AdminAuthenticationForm
 from django.contrib.auth import views as auth_views
-from django.contrib.auth.decorators import user_passes_test
+from django.core.cache import cache
 from django.http import HttpResponse
 from django.shortcuts import render
 from django.urls import reverse
 
+from laserena.permisos import es_staff, solo_personal
+from laserena.seguridad import ip_cliente
 from servicios.models import Actividad, Compromiso, ItemMedicion, Meta, Periodo, Servicio
 
 from .models import Autoridad, Cargo, Delegacion, Funcionario, Municipio
@@ -31,8 +33,8 @@ RECURSOS_ADMINISTRABLES = [
 ]
 
 
-def es_staff(user):
-    return user.is_active and user.is_staff
+MAXIMO_INTENTOS_LOGIN = 5
+BLOQUEO_LOGIN_SEGUNDOS = 15 * 60
 
 
 def _url_phpmyadmin(base, db, ruta, tabla=None):
@@ -69,13 +71,33 @@ def autoridades(request):
     return render(request, "institucional/autoridades.html", contexto)
 
 
+def _clave_intentos(request):
+    usuario = request.POST.get("username", "")[:150].lower()
+    return f"login-fallido:{ip_cliente(request)}:{usuario}"
+
+
 class AccesoView(auth_views.LoginView):
     template_name = "institucional/acceso.html"
     authentication_form = AdminAuthenticationForm
     redirect_authenticated_user = True
 
+    def post(self, request, *args, **kwargs):
+        if cache.get(_clave_intentos(request), 0) >= MAXIMO_INTENTOS_LOGIN:
+            contexto = self.get_context_data(form=self.get_form_class()(request), bloqueado=True)
+            return self.render_to_response(contexto, status=429)
+        return super().post(request, *args, **kwargs)
 
-@user_passes_test(es_staff)
+    def form_invalid(self, form):
+        clave = _clave_intentos(self.request)
+        cache.set(clave, cache.get(clave, 0) + 1, BLOQUEO_LOGIN_SEGUNDOS)
+        return super().form_invalid(form)
+
+    def form_valid(self, form):
+        cache.delete(_clave_intentos(self.request))
+        return super().form_valid(form)
+
+
+@solo_personal
 def panel(request):
     base = settings.PHPMYADMIN_URL
     usa_mysql = settings.DATABASES["default"]["ENGINE"].endswith("mysql")

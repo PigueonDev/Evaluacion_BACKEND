@@ -83,10 +83,10 @@
                         <li class="nav-item"><a class="nav-link {% if pagina_activa == 'inicio' %}active{% endif %}" href="{% url 'institucional:inicio' %}">Inicio</a></li>
                         <li class="nav-item"><a class="nav-link {% if pagina_activa == 'autoridades' %}active{% endif %}" href="{% url 'institucional:autoridades' %}">Municipio</a></li>
                         <li class="nav-item"><a class="nav-link {% if pagina_activa == 'servicios' %}active{% endif %}" href="{% url 'servicios:catalogo' %}">Servicios ciudadanos</a></li>
+                        {% if user.is_staff %}
                         <li class="nav-item"><a class="nav-link {% if pagina_activa == 'dashboard' %}active{% endif %}" href="{% url 'servicios:dashboard' %}">Panel SGR</a></li>
                         <li class="nav-item"><a class="nav-link {% if pagina_activa == 'actividades' %}active{% endif %}" href="{% url 'servicios:actividades' %}">Actividades</a></li>
                         <li class="nav-item"><a class="nav-link {% if pagina_activa == 'agenda' %}active{% endif %}" href="{% url 'servicios:agenda' %}">Agenda</a></li>
-                        {% if user.is_staff %}
                         <li class="nav-item"><a class="nav-link {% if pagina_activa == 'panel' %}active{% endif %}" href="{% url 'institucional:panel' %}">Administración</a></li>
                         {% endif %}
                     </ul>
@@ -132,7 +132,7 @@
                         <li><a href="{% url 'institucional:inicio' %}">Presentación institucional</a></li>
                         <li><a href="{% url 'institucional:autoridades' %}">Alcaldía y concejo</a></li>
                         <li><a href="{% url 'servicios:catalogo' %}">Catálogo de servicios</a></li>
-                        <li><a href="{% url 'servicios:dashboard' %}">Panel de gestión territorial</a></li>
+                        {% if user.is_staff %}<li><a href="{% url 'servicios:dashboard' %}">Panel de gestión territorial</a></li>{% endif %}
                         <li><a href="{% url 'institucional:acceso' %}">Acceso funcionarios</a></li>
                     </ul>
                 </div>

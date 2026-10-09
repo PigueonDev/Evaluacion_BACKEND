@@ -2,19 +2,20 @@ from django.db.models import Count, Q
 from django.shortcuts import get_object_or_404, render
 
 from institucional.models import Delegacion, Funcionario
+from laserena.permisos import parametro_permitido, solo_personal, texto_busqueda
 
 from .models import Actividad, Compromiso, Meta, Periodo, Servicio
 
 
 def catalogo(request):
-    categoria = request.GET.get("categoria", "todos").strip() or "todos"
-    busqueda = request.GET.get("q", "").strip()
+    categorias = list(Servicio.objects.filter(activo=True).values_list("categoria", flat=True).distinct().order_by("categoria"))
+    categoria = parametro_permitido(request, "categoria", categorias) or "todos"
+    busqueda = texto_busqueda(request)
     servicios = Servicio.objects.filter(activo=True)
     if categoria != "todos":
-        servicios = servicios.filter(categoria__iexact=categoria)
+        servicios = servicios.filter(categoria=categoria)
     if busqueda:
         servicios = servicios.filter(Q(nombre__icontains=busqueda) | Q(descripcion__icontains=busqueda) | Q(unidad__icontains=busqueda))
-    categorias = Servicio.objects.filter(activo=True).values_list("categoria", flat=True).distinct().order_by("categoria")
     contexto = {
         "introduccion": {"titulo": "Servicios y gestión territorial", "bajada": "Catálogo administrable de servicios municipales."},
         "servicios": servicios,
@@ -34,6 +35,7 @@ def detalle(request, slug: str):
     return render(request, "servicios/detalle.html", {"servicio": servicio, "relacionados": relacionados, "pagina_activa": "servicios"})
 
 
+@solo_personal
 def dashboard(request):
     actividades = Actividad.objects.select_related("funcionario", "item", "periodo")
     compromisos = Compromiso.objects.select_related("responsable", "delegacion")
@@ -56,10 +58,11 @@ def dashboard(request):
     return render(request, "servicios/dashboard.html", contexto)
 
 
+@solo_personal
 def actividades(request):
     queryset = Actividad.objects.select_related("funcionario", "item", "periodo")
-    estado = request.GET.get("estado", "").strip()
-    busqueda = request.GET.get("q", "").strip()
+    estado = parametro_permitido(request, "estado", dict(Actividad.ESTADOS))
+    busqueda = texto_busqueda(request)
     if estado:
         queryset = queryset.filter(estado=estado)
     if busqueda:
@@ -68,10 +71,11 @@ def actividades(request):
     return render(request, "servicios/actividades.html", contexto)
 
 
+@solo_personal
 def agenda(request):
     compromisos = Compromiso.objects.select_related("responsable", "delegacion")
-    estado = request.GET.get("estado", "").strip()
-    busqueda = request.GET.get("q", "").strip()
+    estado = parametro_permitido(request, "estado", dict(Compromiso.ESTADOS))
+    busqueda = texto_busqueda(request)
     if estado:
         compromisos = compromisos.filter(estado=estado)
     if busqueda:
