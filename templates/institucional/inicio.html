@@ -72,7 +72,7 @@
             <span class="antetitulo">Gestión territorial</span>
             <h2>Delegaciones municipales</h2>
         </div>
-        <a class="enlace-flecha" href="{% url 'servicios:dashboard' %}">Ver panel de gestión <svg class="icono"><use href="#i-arrow"/></svg></a>
+        {% if user.is_staff %}<a class="enlace-flecha" href="{% url 'servicios:dashboard' %}">Ver panel de gestión <svg class="icono"><use href="#i-arrow"/></svg></a>{% endif %}
     </div>
     <div class="row g-4">
         {% for delegacion in delegaciones %}

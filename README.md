@@ -30,11 +30,11 @@ Abrir http://127.0.0.1:8000/
 | `/autoridades/` | institucional | Autoridades y delegaciones (ORM) |
 | `/servicios/` | servicios | Catálogo filtrable (ORM) |
 | `/servicios/<slug>/` | servicios | Ficha de trámite |
-| `/servicios/dashboard/` | servicios | Panel SGR |
-| `/servicios/actividades/` | servicios | Actividades y filtros |
-| `/servicios/agenda/` | servicios | Agenda colectiva |
+| `/servicios/dashboard/` | servicios | Panel SGR (solo personal) |
+| `/servicios/actividades/` | servicios | Actividades y filtros (solo personal) |
+| `/servicios/agenda/` | servicios | Agenda colectiva (solo personal) |
 | `/acceso/` | institucional | Login "Acceso funcionarios" (solo cuentas staff) |
-| `/administracion/` | institucional | Panel con accesos a phpMyAdmin y Django Admin por tabla |
+| `/administracion/` | institucional | (Solo personal) Panel con accesos a phpMyAdmin y Django Admin por tabla |
 | `/acceso/verificar/` | institucional | Verificación de sesión usada por Nginx para proteger phpMyAdmin |
 | `/admin/` | Django | Administración CRUD |
 
@@ -58,6 +58,13 @@ sudo nginx -t && sudo systemctl reload nginx
 ```
 
 phpMyAdmin seguirá pidiendo el usuario de MariaDB (por ejemplo `sgr_user`), por lo que el acceso queda protegido por dos capas: la sesión de Django y las credenciales de la base de datos.
+
+## Seguridad
+
+- **Paneles privados:** Panel SGR, Actividades, Agenda y Administración exigen una sesión de personal (`is_staff`). Un visitante que entra por URL es enviado a `/acceso/`, y esos enlaces no se muestran en el menú, en el pie de página ni en la portada. El catálogo de servicios, las fichas y las autoridades siguen siendo públicos.
+- **Inyección SQL:** todas las consultas usan el ORM de Django, que envía los valores como parámetros y nunca los concatena al SQL. Además, los filtros `estado` y `categoria` solo aceptan valores de una lista blanca, las búsquedas se recortan a 100 caracteres y MariaDB trabaja en modo `STRICT_TRANS_TABLES`. Las pruebas de `servicios/tests.py` envían ataques típicos (`' OR '1'='1`, `DROP TABLE`, `UNION SELECT`, `SLEEP`) y comprueban que no tienen efecto.
+- **Fuerza bruta:** después de 5 intentos fallidos por IP y usuario, el login queda bloqueado 15 minutos. El contador vive en una caché de archivos (`.cache/`, o la ruta de `CACHE_DIR`) compartida entre los workers de Gunicorn.
+- **Cookies y cabeceras:** las cookies de sesión y CSRF son `HttpOnly` y `SameSite=Lax`, y la sesión dura 2 horas y se cierra al cerrar el navegador. También se envían `X-Frame-Options: DENY`, `nosniff` y `Referrer-Policy: same-origin`. Si el sitio se publica con HTTPS, define `HTTPS=True` en `.env` para marcar las cookies como `Secure`.
 
 ## Librería externa
 Además de Django se usa **WhiteNoise** para servir archivos estáticos y **Pillow** para generar las imágenes institucionales locales.
