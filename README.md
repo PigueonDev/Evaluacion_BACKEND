@@ -61,10 +61,47 @@ phpMyAdmin seguirá pidiendo el usuario de MariaDB (por ejemplo `sgr_user`), por
 
 ## Seguridad
 
-- **Paneles privados:** Panel SGR, Actividades, Agenda y Administración exigen una sesión de personal (`is_staff`). Un visitante que entra por URL es enviado a `/acceso/`, y esos enlaces no se muestran en el menú, en el pie de página ni en la portada. El catálogo de servicios, las fichas y las autoridades siguen siendo públicos.
-- **Inyección SQL:** todas las consultas usan el ORM de Django, que envía los valores como parámetros y nunca los concatena al SQL. Además, los filtros `estado` y `categoria` solo aceptan valores de una lista blanca, las búsquedas se recortan a 100 caracteres y MariaDB trabaja en modo `STRICT_TRANS_TABLES`. Las pruebas de `servicios/tests.py` envían ataques típicos (`' OR '1'='1`, `DROP TABLE`, `UNION SELECT`, `SLEEP`) y comprueban que no tienen efecto.
-- **Fuerza bruta:** después de 5 intentos fallidos por IP y usuario, el login queda bloqueado 15 minutos. El contador vive en una caché de archivos (`.cache/`, o la ruta de `CACHE_DIR`) compartida entre los workers de Gunicorn.
-- **Cookies y cabeceras:** las cookies de sesión y CSRF son `HttpOnly` y `SameSite=Lax`, y la sesión dura 2 horas y se cierra al cerrar el navegador. También se envían `X-Frame-Options: DENY`, `nosniff` y `Referrer-Policy: same-origin`. Si el sitio se publica con HTTPS, define `HTTPS=True` en `.env` para marcar las cookies como `Secure`.
+### Protecciones en la aplicación
+
+- **Paneles privados:** Panel SGR, Actividades, Agenda y Administración exigen una sesión de personal (`is_staff`). Un visitante que entra por URL es enviado a `/acceso/`, y esos enlaces no se muestran en el menú, en el pie de página ni en la portada. El catálogo, las fichas y las autoridades siguen siendo públicos.
+- **Inyección SQL:** todas las consultas usan el ORM de Django (consultas parametrizadas). Los filtros `estado` y `categoria` solo aceptan valores de una lista blanca, las búsquedas se recortan a 100 caracteres y MariaDB trabaja en modo `STRICT_TRANS_TABLES`.
+- **Fuerza bruta:** después de 5 intentos fallidos por IP y usuario, el login queda bloqueado 15 minutos. `/admin/login/` usa la misma vista, así que tampoco sirve para saltarse el bloqueo. Nginx además limita ambos logins a 10 peticiones por minuto por IP.
+- **Contraseñas:** mínimo 10 caracteres, no pueden ser solo números, ni contraseñas comunes, ni parecidas al usuario.
+- **XSS y clickjacking:** las plantillas escapan todo el contenido. La cabecera `Content-Security-Policy` solo permite scripts del propio sitio, y `X-Frame-Options: DENY` impide meter el sitio en un iframe.
+- **Evidencias privadas:** los archivos de `/media/` solo se entregan al personal con sesión. Django revisa el permiso y Nginx entrega el archivo con `X-Accel-Redirect`. Solo se aceptan PDF, JPG, PNG y WEBP de hasta 5 MB, y se bloquean rutas con `../`.
+- **Sesión y cookies:** las cookies de sesión y CSRF son `HttpOnly` y `SameSite=Lax`, y la sesión dura 2 horas y se cierra al cerrar el navegador. Las páginas vistas con sesión se envían con `Cache-Control: no-store`.
+- **Registro de accesos:** cada login exitoso, fallido y cierre de sesión queda registrado con usuario e IP. Se ven con `sudo journalctl -u laserena | grep seguridad`.
+- **Nginx:** oculta su versión, bloquea archivos ocultos (`.env`, `.git`) y bloquea las carpetas internas de phpMyAdmin (`setup`, `libraries`, `vendor`, etc.).
+- Si `DEBUG=False` y no se definió `SECRET_KEY`, la aplicación no arranca.
+
+### Endurecer el servidor EC2
+
+1. **`SECRET_KEY` propia y `.env` privado:**
+
+```bash
+python3 -c "import secrets; print(secrets.token_urlsafe(50))"   # copia el resultado en SECRET_KEY
+chmod 600 /var/www/negocio/.env
+```
+
+2. **HTTPS (lo más importante contra el robo de contraseñas):** sin HTTPS, las claves viajan sin cifrar. Let's Encrypt necesita un dominio; puedes usar uno gratis de [DuckDNS](https://www.duckdns.org) que apunte a la IP de tu EC2. En el grupo de seguridad abre el puerto 443 y luego:
+
+```bash
+sudo dnf install -y certbot python3-certbot-nginx
+sudo certbot --nginx -d tusitio.duckdns.org --redirect
+```
+
+Después agrega `HTTPS=True` y el dominio en `ALLOWED_HOSTS` dentro de `.env`, y ejecuta `sudo systemctl restart laserena`. Con eso las cookies quedan `Secure`, se activa HSTS y Django redirige todo a HTTPS.
+
+3. **phpMyAdmin:** prohíbe entrar como `root` y acorta la sesión.
+
+```bash
+echo "\$cfg['Servers'][1]['AllowRoot'] = false;" | sudo tee -a /usr/share/phpmyadmin/config.inc.php
+echo "\$cfg['LoginCookieValidity'] = 1800;" | sudo tee -a /usr/share/phpmyadmin/config.inc.php
+```
+
+4. **MariaDB:** ejecuta `sudo mysql_secure_installation` (clave de root, sin usuarios anónimos, sin base `test`). Usa `sgr_user` solo con permisos sobre `sgr_laserena` y nunca abras el puerto 3306 en el grupo de seguridad.
+5. **Grupo de seguridad:** HTTP 80 y HTTPS 443 abiertos a todos; SSH 22 solo desde **My IP**.
+6. **Actualizaciones:** `sudo dnf upgrade -y` y `pip install -U -r requirements.txt` cada cierto tiempo.
 
 ## Librería externa
 Además de Django se usa **WhiteNoise** para servir archivos estáticos y **Pillow** para generar las imágenes institucionales locales.
