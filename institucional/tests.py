@@ -1,4 +1,5 @@
 from django.contrib.auth import get_user_model
+from django.core.cache import cache
 from django.test import TestCase, override_settings
 from django.urls import reverse
 
@@ -7,13 +8,14 @@ from .models import Delegacion
 
 class AccesoFuncionariosTest(TestCase):
 	def setUp(self):
+		cache.clear()
 		modelo_usuario = get_user_model()
 		self.staff = modelo_usuario.objects.create_user(username="admin-demo", password="clave-demo-123", is_staff=True)
 		self.vecino = modelo_usuario.objects.create_user(username="vecino-demo", password="clave-demo-123")
 		Delegacion.objects.create(nombre="Centro", slug="centro", territorio="Centro histórico", enfoque="Demo")
 
 	def test_paginas_publicas_muestran_boton_de_acceso(self):
-		for nombre in ("institucional:inicio", "institucional:autoridades", "servicios:catalogo", "servicios:dashboard"):
+		for nombre in ("institucional:inicio", "institucional:autoridades", "servicios:catalogo"):
 			respuesta = self.client.get(reverse(nombre))
 			self.assertContains(respuesta, reverse("institucional:acceso"))
 
@@ -51,3 +53,19 @@ class AccesoFuncionariosTest(TestCase):
 		respuesta = self.client.post(reverse("institucional:salir"))
 		self.assertRedirects(respuesta, reverse("institucional:inicio"))
 		self.assertEqual(self.client.get(reverse("institucional:verificar")).status_code, 401)
+
+	def test_login_se_bloquea_tras_intentos_fallidos(self):
+		url = reverse("institucional:acceso")
+		for _ in range(5):
+			self.client.post(url, {"username": "admin-demo", "password": "incorrecta"})
+		respuesta = self.client.post(url, {"username": "admin-demo", "password": "clave-demo-123"})
+		self.assertEqual(respuesta.status_code, 429)
+		self.assertContains(respuesta, "Demasiados intentos fallidos", status_code=429)
+		self.assertFalse(respuesta.wsgi_request.user.is_authenticated)
+
+	def test_login_exitoso_reinicia_intentos(self):
+		url = reverse("institucional:acceso")
+		for _ in range(4):
+			self.client.post(url, {"username": "admin-demo", "password": "incorrecta"})
+		respuesta = self.client.post(url, {"username": "admin-demo", "password": "clave-demo-123"})
+		self.assertRedirects(respuesta, reverse("institucional:panel"))

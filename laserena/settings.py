@@ -63,7 +63,7 @@ if os.getenv("DB_ENGINE", "sqlite").lower() == "mysql":
             "PASSWORD": os.getenv("DB_PASSWORD", ""),
             "HOST": os.getenv("DB_HOST", "127.0.0.1"),
             "PORT": os.getenv("DB_PORT", "3306"),
-            "OPTIONS": {"charset": "utf8mb4"},
+            "OPTIONS": {"charset": "utf8mb4", "init_command": "SET sql_mode='STRICT_TRANS_TABLES'"},
         }
     }
 else:
@@ -91,3 +91,27 @@ PHPMYADMIN_URL = os.getenv("PHPMYADMIN_URL", "/phpmyadmin/")
 PHPMYADMIN_DB = os.getenv("DB_NAME", "sgr_laserena")
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
+
+# Caché compartida entre los workers de Gunicorn (necesaria para contar intentos de login fallidos).
+CACHES = {
+    "default": {
+        "BACKEND": "django.core.cache.backends.filebased.FileBasedCache",
+        "LOCATION": os.getenv("CACHE_DIR", str(BASE_DIR / ".cache")),
+    }
+}
+
+SESSION_COOKIE_HTTPONLY = True
+SESSION_COOKIE_SAMESITE = "Lax"
+SESSION_COOKIE_AGE = 2 * 60 * 60
+SESSION_EXPIRE_AT_BROWSER_CLOSE = True
+CSRF_COOKIE_HTTPONLY = True
+CSRF_COOKIE_SAMESITE = "Lax"
+X_FRAME_OPTIONS = "DENY"
+SECURE_CONTENT_TYPE_NOSNIFF = True
+SECURE_REFERRER_POLICY = "same-origin"
+
+# Activar solo cuando el sitio se sirva con certificado HTTPS.
+if os.getenv("HTTPS", "False").lower() == "true":
+    SESSION_COOKIE_SECURE = True
+    CSRF_COOKIE_SECURE = True
+    SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
