@@ -24,12 +24,16 @@
             {% if compromiso.observacion %}<div><dt>Observación</dt><dd>{{ compromiso.observacion }}</dd></div>{% endif %}
         </dl>
         <div class="d-flex flex-wrap gap-2">
+            {% if rol_sgr == 'delegado' %}
+            <a class="btn btn-outline-secondary" href="{% url 'servicios:resumen_agenda' %}">Volver al resumen</a>
+            {% else %}
             <a class="btn btn-outline-secondary" href="{% url 'servicios:agenda' %}">Volver a la agenda</a>
             {% if compromiso.activo %}<a class="btn btn-primary" href="{% url 'servicios:compromiso_editar' compromiso.pk %}">Editar</a>{% endif %}
             <form method="post" action="{% url 'servicios:compromiso_desactivar' compromiso.pk %}">
                 {% csrf_token %}
                 <button class="btn btn-outline-danger" type="submit">{% if compromiso.activo %}Desactivar{% else %}Volver a publicar{% endif %}</button>
             </form>
+            {% endif %}
         </div>
     </article>
 

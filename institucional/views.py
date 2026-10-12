@@ -8,7 +8,7 @@ from django.http import HttpResponse
 from django.shortcuts import render
 from django.urls import reverse
 
-from laserena.permisos import es_staff, solo_personal
+from laserena.permisos import es_staff, rol_usuario, solo_administracion
 from laserena.seguridad import ip_cliente
 from servicios.models import Actividad, Caso, Compromiso, ItemMedicion, Meta, Periodo, Servicio
 
@@ -97,8 +97,19 @@ class AccesoView(auth_views.LoginView):
         cache.delete(_clave_intentos(self.request))
         return super().form_valid(form)
 
+    def get_success_url(self):
+        destinos = {
+            "funcionario": "servicios:actividades",
+            "delegado": "servicios:resumen_agenda",
+            "consulta": "servicios:consulta",
+        }
+        rol = rol_usuario(self.request.user)
+        if rol in destinos:
+            return reverse(destinos[rol])
+        return super().get_success_url()
 
-@solo_personal
+
+@solo_administracion
 def panel(request):
     base = settings.PHPMYADMIN_URL
     usa_mysql = settings.DATABASES["default"]["ENGINE"].endswith("mysql")
@@ -134,4 +145,6 @@ def panel(request):
 
 def verificar_acceso(request):
     """Subconsulta de Nginx (auth_request) que protege la ruta de phpMyAdmin."""
+    if rol_usuario(request.user):
+        return HttpResponse(status=401)
     return HttpResponse(status=204 if es_staff(request.user) else 401)

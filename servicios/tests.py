@@ -165,6 +165,14 @@ class MantenedoresCristhopherTest(TestCase):
 		self.ajeno = Funcionario.objects.create(
 			usuario=self.otro, identificador="F-N", nombre_completo="Luis Norte", delegacion=self.norte, cargo=self.cargo,
 		)
+		self.delegado_user = modelo.objects.create_user(username="delegado-centro", password="clave-demo-123", is_staff=True)
+		self.consulta_user = modelo.objects.create_user(username="consulta-centro", password="clave-demo-123", is_staff=True)
+		Funcionario.objects.create(
+			usuario=self.delegado_user, identificador="F-D", nombre_completo="Jefa Centro", delegacion=self.centro, cargo=self.cargo, rol="delegado",
+		)
+		Funcionario.objects.create(
+			usuario=self.consulta_user, identificador="F-Q", nombre_completo="Consulta Centro", delegacion=self.centro, cargo=self.cargo, rol="consulta",
+		)
 		self.item = ItemMedicion.objects.create(codigo="SPR-001", nombre="Ítem sprint")
 		self.periodo = Periodo.objects.create(nombre="Sprint 2026", fecha_inicio=date(2026, 1, 1), fecha_termino=date(2026, 12, 31))
 		self.cerrado = Periodo.objects.create(
@@ -377,6 +385,7 @@ class MantenedoresCristhopherTest(TestCase):
 			delegacion=self.norte, responsable=self.ajeno, origen="Externo", solicitante="Ajeno norte",
 			territorio="Norte", descripcion="No debe verse", fecha_comprometida=hoy - timedelta(days=1), estado="pendiente",
 		)
+		self.client.force_login(self.delegado_user)
 		resumen = self.client.get(reverse("servicios:resumen_agenda"))
 		self.assertEqual(resumen.context["pendientes"], 2)
 		self.assertEqual(resumen.context["realizados"], 1)
@@ -395,6 +404,7 @@ class MantenedoresCristhopherTest(TestCase):
 			funcionario=self.ajeno, periodo=self.periodo, item=self.item,
 			descripcion="Actividad secreta del norte", accion="Ocultar", estado="pendiente", fecha=date(2026, 5, 2),
 		)
+		self.client.force_login(self.consulta_user)
 		consulta = self.client.get(reverse("servicios:consulta"), {"estado": "pendiente", "item": str(self.item.pk), "desde": "2026-05-01"})
 		self.assertContains(consulta, "Actividad visible del centro")
 		self.assertNotContains(consulta, "Actividad secreta del norte")
@@ -407,3 +417,53 @@ class MantenedoresCristhopherTest(TestCase):
 		self.assertNotContains(detalle, reverse("servicios:actividad_editar", args=[visible.pk]))
 		ajena = Actividad.objects.get(descripcion="Actividad secreta del norte")
 		self.assertEqual(self.client.get(reverse("servicios:consulta_actividad", args=[ajena.pk])).status_code, 404)
+
+	def test_cada_rol_abre_solo_sus_pantallas(self):
+		inicio = self.client.get(reverse("institucional:inicio"))
+		self.assertContains(inicio, reverse("servicios:actividades"))
+		self.assertNotContains(inicio, reverse("servicios:resumen_agenda"))
+		self.assertNotContains(inicio, reverse("servicios:consulta"))
+		self.assertEqual(self.client.get(reverse("servicios:resumen_agenda")).status_code, 403)
+		self.assertEqual(self.client.get(reverse("servicios:consulta")).status_code, 403)
+		self.assertEqual(self.client.get(reverse("institucional:panel")).status_code, 403)
+
+		self.client.post(reverse("servicios:compromiso_nuevo"), self._datos_compromiso(solicitante="Para el delegado"))
+		compromiso = Compromiso.objects.get(solicitante="Para el delegado")
+		self.client.force_login(self.delegado_user)
+		resumen = self.client.get(reverse("servicios:resumen_agenda"))
+		self.assertEqual(resumen.status_code, 200)
+		self.assertGreaterEqual(resumen.context["pendientes"], 1)
+		self.assertContains(resumen, "Ana Centro")
+		self.assertNotContains(resumen, "Consulta operativa")
+		detalle = self.client.get(reverse("servicios:compromiso_detalle", args=[compromiso.pk]))
+		self.assertEqual(detalle.status_code, 200)
+		self.assertContains(detalle, "Historial de estados")
+		self.assertNotContains(detalle, "Editar")
+		self.assertEqual(self.client.get(reverse("servicios:consulta")).status_code, 403)
+		self.assertEqual(self.client.get(reverse("servicios:actividad_nueva")).status_code, 403)
+		self.assertEqual(self.client.post(reverse("servicios:compromiso_editar", args=[compromiso.pk]), self._datos_compromiso()).status_code, 403)
+		menu = self.client.get(reverse("institucional:inicio"))
+		self.assertContains(menu, reverse("servicios:resumen_agenda"))
+		self.assertNotContains(menu, reverse("servicios:consulta"))
+		self.assertNotContains(menu, reverse("servicios:actividades"))
+
+		self.client.force_login(self.consulta_user)
+		self.assertEqual(self.client.get(reverse("servicios:consulta")).status_code, 200)
+		for nombre in (
+			"servicios:actividades",
+			"servicios:actividad_nueva",
+			"servicios:casos",
+			"servicios:caso_nuevo",
+			"servicios:agenda",
+			"servicios:compromiso_nuevo",
+			"servicios:resumen_agenda",
+			"servicios:dashboard",
+			"institucional:panel",
+		):
+			self.assertEqual(self.client.get(reverse(nombre)).status_code, 403, nombre)
+		self.assertEqual(self.client.post(reverse("servicios:actividad_nueva"), self._datos_actividad()).status_code, 403)
+		self.assertEqual(self.client.get("/admin/").status_code, 403)
+		menu = self.client.get(reverse("institucional:inicio"))
+		self.assertContains(menu, reverse("servicios:consulta"))
+		self.assertNotContains(menu, reverse("servicios:actividades"))
+		self.assertNotContains(menu, reverse("servicios:resumen_agenda"))

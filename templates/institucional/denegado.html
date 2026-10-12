@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+
+{% block titulo %}Acceso no autorizado{% endblock %}
+
+{% block contenido %}
+<section class="container py-5">
+    <article class="tarjeta-info">
+        <h1 class="h3">Esta pantalla no corresponde a tu perfil</h1>
+        <p class="text-secondary">El funcionario registra y publica. El delegado o la jefatura resume su delegación. El usuario de consulta solo filtra, sin modificar datos.</p>
+        {% if rol_sgr == 'funcionario' %}
+        <a class="btn btn-primary" href="{% url 'servicios:actividades' %}">Ir a actividades</a>
+        {% elif rol_sgr == 'delegado' %}
+        <a class="btn btn-primary" href="{% url 'servicios:resumen_agenda' %}">Ir al resumen</a>
+        {% elif rol_sgr == 'consulta' %}
+        <a class="btn btn-primary" href="{% url 'servicios:consulta' %}">Ir a la consulta</a>
+        {% else %}
+        <a class="btn btn-primary" href="{% url 'institucional:inicio' %}">Volver al inicio</a>
+        {% endif %}
+    </article>
+</section>
+{% endblock %}

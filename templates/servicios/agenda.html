@@ -36,7 +36,7 @@
             </div>
             <div class="d-flex flex-wrap gap-2">
                 <a class="btn btn-success btn-sm" href="{% url 'servicios:compromiso_nuevo' %}"><svg class="icono"><use href="#i-plus"/></svg>Publicar compromiso</a>
-                <a class="btn btn-outline-dark btn-sm" href="{% url 'servicios:resumen_agenda' %}">Resumen</a>
+                {% if not rol_sgr %}<a class="btn btn-outline-dark btn-sm" href="{% url 'servicios:resumen_agenda' %}">Resumen</a>{% endif %}
             </div>
         </div>
     </div>
