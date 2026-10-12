@@ -59,6 +59,8 @@ a {
     color: #fff;
     font-size: 0.8rem;
     padding: 0.35rem 0;
+    position: relative;
+    z-index: 1030;
 }
 
 .enlaces-utilitarios,
@@ -127,11 +129,28 @@ a {
     color: #fff;
 }
 
+.menu-sesion .dropdown-menu {
+    z-index: 1040;
+}
+
 .dropdown-menu .dropdown-item {
     display: flex;
     align-items: center;
     font-size: 0.9rem;
     padding: 0.5rem 1rem;
+}
+
+.barra-nav .cerrar-sesion {
+    background: transparent;
+    border: 0;
+    color: #fff;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.barra-nav .cerrar-sesion:hover,
+.barra-nav .cerrar-sesion:focus {
+    color: var(--amarillo-municipal);
 }
 
 /* Encabezado */

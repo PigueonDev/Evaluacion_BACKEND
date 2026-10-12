@@ -10,7 +10,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap">
     <link rel="stylesheet" href="{% static 'css/bootstrap.min.css' %}">
-    <link rel="stylesheet" href="{% static 'css/estilos.css' %}?v=20261012">
+    <link rel="stylesheet" href="{% static 'css/estilos.css' %}?v=20261012b">
 </head>
 <body class="d-flex flex-column min-vh-100">
     {% include "includes/iconos.html" %}
@@ -33,8 +33,8 @@
                     <a href="#tiktok" aria-label="TikTok"><svg class="icono"><use href="#i-tiktok"/></svg></a>
                 </div>
                 {% if user.is_authenticated and user.is_staff %}
-                <div class="dropdown">
-                    <button class="boton-acceso dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                <div class="dropdown menu-sesion">
+                    <button class="boton-acceso dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Menú de {{ user.get_short_name|default:user.username }}">
                         <svg class="icono"><use href="#i-user"/></svg>{{ user.get_short_name|default:user.username }}
                     </button>
                     <ul class="dropdown-menu dropdown-menu-end shadow">
@@ -103,6 +103,16 @@
                         <li class="nav-item"><a class="nav-link {% if pagina_activa == 'panel' %}active{% endif %}" href="{% url 'institucional:panel' %}">Administración</a></li>
                         {% endif %}
                     </ul>
+                    {% if user.is_authenticated and user.is_staff %}
+                    <ul class="navbar-nav ms-lg-auto">
+                        <li class="nav-item">
+                            <form method="post" action="{% url 'institucional:salir' %}">
+                                {% csrf_token %}
+                                <button class="nav-link cerrar-sesion" type="submit">Cerrar sesión</button>
+                            </form>
+                        </li>
+                    </ul>
+                    {% endif %}
                 </div>
             </div>
         </nav>

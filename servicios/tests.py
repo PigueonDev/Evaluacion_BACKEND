@@ -420,6 +420,8 @@ class MantenedoresCristhopherTest(TestCase):
 
 	def test_cada_rol_abre_solo_sus_pantallas(self):
 		inicio = self.client.get(reverse("institucional:inicio"))
+		self.assertContains(inicio, "Cerrar sesión")
+		self.assertContains(inicio, reverse("institucional:salir"))
 		self.assertContains(inicio, reverse("servicios:actividades"))
 		self.assertNotContains(inicio, reverse("servicios:resumen_agenda"))
 		self.assertNotContains(inicio, reverse("servicios:consulta"))
@@ -443,9 +445,17 @@ class MantenedoresCristhopherTest(TestCase):
 		self.assertEqual(self.client.get(reverse("servicios:actividad_nueva")).status_code, 403)
 		self.assertEqual(self.client.post(reverse("servicios:compromiso_editar", args=[compromiso.pk]), self._datos_compromiso()).status_code, 403)
 		menu = self.client.get(reverse("institucional:inicio"))
+		self.assertContains(menu, "Cerrar sesión")
+		self.assertContains(menu, reverse("institucional:salir"))
 		self.assertContains(menu, reverse("servicios:resumen_agenda"))
 		self.assertNotContains(menu, reverse("servicios:consulta"))
 		self.assertNotContains(menu, reverse("servicios:actividades"))
+		salida = self.client.post(reverse("institucional:salir"))
+		self.assertRedirects(salida, reverse("institucional:acceso"))
+		self.assertRedirects(
+			self.client.get(reverse("servicios:resumen_agenda")),
+			f"{reverse('institucional:acceso')}?next={reverse('servicios:resumen_agenda')}",
+		)
 
 		self.client.force_login(self.consulta_user)
 		self.assertEqual(self.client.get(reverse("servicios:consulta")).status_code, 200)
@@ -464,6 +474,8 @@ class MantenedoresCristhopherTest(TestCase):
 		self.assertEqual(self.client.post(reverse("servicios:actividad_nueva"), self._datos_actividad()).status_code, 403)
 		self.assertEqual(self.client.get("/admin/").status_code, 403)
 		menu = self.client.get(reverse("institucional:inicio"))
+		self.assertContains(menu, "Cerrar sesión")
+		self.assertContains(menu, reverse("institucional:salir"))
 		self.assertContains(menu, reverse("servicios:consulta"))
 		self.assertNotContains(menu, reverse("servicios:actividades"))
 		self.assertNotContains(menu, reverse("servicios:resumen_agenda"))
