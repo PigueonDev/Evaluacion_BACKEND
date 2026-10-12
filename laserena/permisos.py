@@ -18,3 +18,21 @@ def parametro_permitido(request, nombre, permitidos):
 
 def texto_busqueda(request, nombre="q"):
     return request.GET.get(nombre, "").strip()[:LARGO_MAXIMO_BUSQUEDA]
+
+
+def perfil_funcionario(user):
+    """Perfil SGR del usuario, si tiene funcionario asociado."""
+    if not getattr(user, "is_authenticated", False):
+        return None
+    return getattr(user, "perfil_sgr", None)
+
+
+def acotar_ambito(queryset, user, campo):
+    """Limita la consulta a la delegación del funcionario.
+
+    El personal sin perfil (administración) mantiene el ámbito municipal completo.
+    """
+    perfil = perfil_funcionario(user)
+    if perfil is None:
+        return queryset
+    return queryset.filter(**{campo: perfil.delegacion_id})

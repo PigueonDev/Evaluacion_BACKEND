@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+
+{% block titulo %}{{ titulo }} · SGR{% endblock %}
+
+{% block contenido %}
+{% url 'servicios:agenda' as url_agenda %}
+{% include "includes/cabecera.html" with antetitulo="Agenda colectiva" titulo=titulo bajada="El compromiso se publica en la delegación autorizada. El cierre solo puede quedar como Realizado." seccion="Agenda" seccion_url=url_agenda %}
+
+<section class="container py-5">
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+            <article class="tarjeta-info">
+                {% if compromiso %}
+                <p class="mb-3">Estado actual: <span class="estado estado-{{ compromiso.estado }}">{{ compromiso.get_estado_display }}</span></p>
+                {% endif %}
+                <form method="post" novalidate>
+                    {% csrf_token %}
+                    {% include "servicios/includes/campos.html" %}
+                    <div class="d-flex flex-wrap gap-2">
+                        <button class="btn btn-primary" type="submit">{% if compromiso %}Guardar cambios{% else %}Publicar compromiso{% endif %}</button>
+                        <a class="btn btn-outline-secondary" href="{% url 'servicios:agenda' %}">Volver a la agenda</a>
+                    </div>
+                </form>
+            </article>
+        </div>
+    </div>
+</section>
+{% endblock %}

@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+
+{% block titulo %}Buscar por código · SGR{% endblock %}
+
+{% block contenido %}
+{% url 'servicios:actividades' as url_actividades %}
+{% include "includes/cabecera.html" with antetitulo="Evidencia" titulo="Consultar código" bajada="El código solo se muestra si tu permiso alcanza la delegación de la actividad." seccion="Actividades" seccion_url=url_actividades %}
+
+<section class="container py-5">
+    <article class="tarjeta-info mb-4">
+        <form method="get" class="row g-3 align-items-end" role="search">
+            <div class="col-md-8">
+                <label class="form-label fw-semibold" for="codigo">Código de evidencia</label>
+                <input class="form-control" id="codigo" name="codigo" value="{{ codigo }}" placeholder="Pega el identificador completo" autocomplete="off">
+            </div>
+            <div class="col-md-4">
+                <button class="btn btn-primary w-100" type="submit">Buscar en mi ámbito</button>
+            </div>
+        </form>
+    </article>
+
+    {% if aviso %}
+    <div class="alert alert-warning">{{ aviso }}</div>
+    {% endif %}
+
+    {% if actividad %}
+    <article class="tarjeta-info">
+        <p class="text-secondary mb-2">Actividad encontrada</p>
+        <p class="codigo-evidencia mb-3">{{ actividad.codigo_evidencia }}</p>
+        <p class="mb-1"><strong>{{ actividad.funcionario.nombre_completo }}</strong> · {{ actividad.fecha|date:"d/m/Y" }}</p>
+        <p class="text-secondary">{{ actividad.descripcion }}</p>
+        <a class="btn btn-primary" href="{% url 'servicios:actividad_detalle' actividad.pk %}">Abrir la actividad</a>
+    </article>
+    {% endif %}
+</section>
+{% endblock %}

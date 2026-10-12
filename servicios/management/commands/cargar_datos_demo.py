@@ -5,7 +5,7 @@ from pathlib import Path
 from django.core.management.base import BaseCommand
 
 from institucional.models import Autoridad, Cargo, Delegacion, Funcionario, Municipio
-from servicios.models import Actividad, Compromiso, ItemMedicion, Meta, Periodo, Servicio
+from servicios.models import Actividad, Caso, Compromiso, Gestion, ItemMedicion, Meta, Periodo, Servicio
 
 
 class Command(BaseCommand):
@@ -122,6 +122,24 @@ class Command(BaseCommand):
             item=item,
             descripcion="Operativo territorial de demostración",
             defaults={"accion": "Orientación y coordinación ficticia", "estado": "validada"},
+        )
+        caso, _ = Caso.objects.get_or_create(
+            identificacion="CASO-DEMO-001",
+            defaults={
+                "nombre": "Persona usuaria de demostración",
+                "delegacion": delegacion,
+                "observacion": "Caso ficticio para mostrar hasta tres gestiones.",
+            },
+        )
+        actividad_demo = Actividad.objects.filter(funcionario=funcionario, descripcion="Operativo territorial de demostración").first()
+        Gestion.objects.get_or_create(
+            caso=caso,
+            numero=1,
+            defaults={
+                "fecha": date(2026, 3, 12),
+                "descripcion": "Primera orientación de demostración",
+                "actividad": actividad_demo,
+            },
         )
         Compromiso.objects.get_or_create(
             delegacion=delegacion,

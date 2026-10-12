@@ -10,7 +10,7 @@ from django.urls import reverse
 
 from laserena.permisos import es_staff, solo_personal
 from laserena.seguridad import ip_cliente
-from servicios.models import Actividad, Compromiso, ItemMedicion, Meta, Periodo, Servicio
+from servicios.models import Actividad, Caso, Compromiso, ItemMedicion, Meta, Periodo, Servicio
 
 from .models import Autoridad, Cargo, Delegacion, Funcionario, Municipio
 
@@ -25,6 +25,7 @@ RECURSOS_ADMINISTRABLES = [
     ("Sistema de Gestión de Resultados", [
         (Servicio, "Servicios", "Catálogo de servicios y trámites ciudadanos."),
         (Actividad, "Actividades", "Actividades registradas con código de evidencia."),
+        (Caso, "Casos de atención", "Casos de atención social y sus gestiones."),
         (Compromiso, "Compromisos", "Compromisos de la agenda colectiva."),
         (Meta, "Metas", "Metas y ponderadores por período."),
         (Periodo, "Períodos", "Períodos de medición y umbrales del semáforo."),

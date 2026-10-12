@@ -7,26 +7,37 @@
 
 <section class="container py-5">
     <div class="barra-filtros mb-4">
-        <form method="get" class="buscador-interno" role="search">
+        <form method="get" class="row g-2 align-items-end">
             <input type="hidden" name="estado" value="{{ estado_activo }}">
-            <label class="visually-hidden" for="q-agenda">Buscar compromiso</label>
-            <svg class="icono"><use href="#i-search"/></svg>
-            <input id="q-agenda" name="q" type="search" value="{{ busqueda }}" placeholder="Buscar por solicitante, delegación o descripción">
-            <button class="btn btn-primary" type="submit">Buscar</button>
+            <div class="col-md-5">
+                <label class="visually-hidden" for="q-agenda">Buscar compromiso</label>
+                <input class="form-control" id="q-agenda" name="q" type="search" value="{{ busqueda }}" placeholder="Buscar por solicitante, delegación o descripción">
+            </div>
+            <div class="col-md-4">
+                <label class="form-label fw-semibold mb-1" for="responsable">Responsable</label>
+                <select class="form-select" id="responsable" name="responsable">
+                    <option value="">Todos los responsables</option>
+                    {% for funcionario in responsables %}
+                    <option value="{{ funcionario.pk }}" {% if responsable_activo == funcionario.pk|stringformat:"s" %}selected{% endif %}>{{ funcionario.nombre_completo }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-3">
+                <button class="btn btn-primary w-100" type="submit">Filtrar</button>
+            </div>
         </form>
         <div class="d-flex flex-wrap justify-content-between gap-2">
             <div class="d-flex flex-wrap gap-2">
-                <a class="chip {% if not estado_activo %}activo{% endif %}" href="?q={{ busqueda|urlencode }}">Todos</a>
-                <a class="chip {% if estado_activo == 'pendiente' %}activo{% endif %}" href="?estado=pendiente&q={{ busqueda|urlencode }}">Pendientes</a>
-                <a class="chip {% if estado_activo == 'proceso' %}activo{% endif %}" href="?estado=proceso&q={{ busqueda|urlencode }}">En proceso</a>
-                <a class="chip {% if estado_activo == 'realizado' %}activo{% endif %}" href="?estado=realizado&q={{ busqueda|urlencode }}">Realizados</a>
+                <a class="chip {% if not estado_activo %}activo{% endif %}" href="?responsable={{ responsable_activo }}&q={{ busqueda|urlencode }}">Todos</a>
+                <a class="chip {% if estado_activo == 'ingresado' %}activo{% endif %}" href="?estado=ingresado&responsable={{ responsable_activo }}&q={{ busqueda|urlencode }}">Ingresados</a>
+                <a class="chip {% if estado_activo == 'pendiente' %}activo{% endif %}" href="?estado=pendiente&responsable={{ responsable_activo }}&q={{ busqueda|urlencode }}">Pendientes</a>
+                <a class="chip {% if estado_activo == 'proceso' %}activo{% endif %}" href="?estado=proceso&responsable={{ responsable_activo }}&q={{ busqueda|urlencode }}">En proceso</a>
+                <a class="chip {% if estado_activo == 'realizado' %}activo{% endif %}" href="?estado=realizado&responsable={{ responsable_activo }}&q={{ busqueda|urlencode }}">Realizados</a>
             </div>
-            {% if user.is_staff %}
-            <div class="d-flex gap-2">
-                <a class="btn btn-success btn-sm" href="{% url 'admin:servicios_compromiso_add' %}"><svg class="icono"><use href="#i-plus"/></svg>Agregar</a>
-                <a class="btn btn-outline-dark btn-sm" href="{% url 'admin:servicios_compromiso_changelist' %}">Modificar y eliminar</a>
+            <div class="d-flex flex-wrap gap-2">
+                <a class="btn btn-success btn-sm" href="{% url 'servicios:compromiso_nuevo' %}"><svg class="icono"><use href="#i-plus"/></svg>Publicar compromiso</a>
+                <a class="btn btn-outline-dark btn-sm" href="{% url 'servicios:resumen_agenda' %}">Resumen</a>
             </div>
-            {% endif %}
         </div>
     </div>
 
@@ -38,7 +49,7 @@
                 {% for compromiso in compromisos %}
                 <tr class="{% if compromiso.vencido %}fila-vencida{% endif %}">
                     <td class="text-nowrap">{{ compromiso.fecha_comprometida|date:"d/m/Y" }}</td>
-                    <td>{{ compromiso.solicitante }}</td>
+                    <td><a href="{% url 'servicios:compromiso_detalle' compromiso.pk %}">{{ compromiso.solicitante }}</a></td>
                     <td>{{ compromiso.delegacion.nombre }}</td>
                     <td>{{ compromiso.responsable.nombre_completo }}</td>
                     <td class="text-secondary">{{ compromiso.descripcion|truncatewords:12 }}</td>

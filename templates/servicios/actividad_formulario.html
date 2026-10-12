@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+
+{% block titulo %}{{ titulo }} · SGR{% endblock %}
+
+{% block contenido %}
+{% url 'servicios:actividades' as url_actividades %}
+{% include "includes/cabecera.html" with antetitulo="Registro individual" titulo=titulo bajada="La actividad queda pendiente de verificación. El identificador lo genera el sistema al guardar." seccion="Actividades" seccion_url=url_actividades %}
+
+<section class="container py-5">
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+            <article class="tarjeta-info">
+                {% if not hay_periodo_abierto %}
+                <div class="alert alert-warning">No hay un período abierto. No se puede registrar la actividad hasta que exista uno.</div>
+                {% endif %}
+                {% if actividad %}
+                <p class="mb-4">Identificador <span class="codigo-evidencia">{{ actividad.codigo_evidencia }}</span></p>
+                {% endif %}
+                <form method="post" novalidate>
+                    {% csrf_token %}
+                    {% include "servicios/includes/campos.html" %}
+                    <div class="d-flex flex-wrap gap-2">
+                        <button class="btn btn-primary" type="submit">Guardar actividad</button>
+                        <a class="btn btn-outline-secondary" href="{% url 'servicios:actividades' %}">Volver al listado</a>
+                    </div>
+                </form>
+            </article>
+        </div>
+    </div>
+</section>
+{% endblock %}

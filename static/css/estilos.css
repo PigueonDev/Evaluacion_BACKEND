@@ -1051,6 +1051,17 @@ a {
     color: var(--rojo-municipal) !important;
 }
 
+.codigo-evidencia {
+    background: var(--rojo-claro);
+    border-radius: 0.5rem;
+    color: var(--rojo-oscuro);
+    display: inline-block;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 0.95rem;
+    padding: 0.45rem 0.8rem;
+    word-break: break-all;
+}
+
 @media (max-width: 991.98px) {
     .encabezado-oficial {
         position: static;

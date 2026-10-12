@@ -3,8 +3,10 @@ from django.contrib import admin
 from .models import (
 	Actividad,
 	Auditoria,
+	Caso,
 	Compromiso,
 	Evidencia,
+	Gestion,
 	HistorialCompromiso,
 	ItemMedicion,
 	Meta,
@@ -50,6 +52,21 @@ class ActividadAdmin(admin.ModelAdmin):
 	readonly_fields = ("codigo_evidencia", "creada_en")
 
 
+@admin.register(Caso)
+class CasoAdmin(admin.ModelAdmin):
+	list_display = ("identificacion", "nombre", "delegacion", "activo")
+	list_filter = ("activo", "delegacion")
+	search_fields = ("identificacion", "nombre")
+	readonly_fields = ("creado_en",)
+
+
+@admin.register(Gestion)
+class GestionAdmin(admin.ModelAdmin):
+	list_display = ("caso", "numero", "fecha", "activa")
+	list_filter = ("activa", "numero")
+	search_fields = ("caso__identificacion", "caso__nombre", "descripcion")
+
+
 @admin.register(Evidencia)
 class EvidenciaAdmin(admin.ModelAdmin):
 	list_display = ("actividad", "autor", "estado", "cargada_en")
@@ -68,8 +85,8 @@ class ValidacionAdmin(admin.ModelAdmin):
 
 @admin.register(Compromiso)
 class CompromisoAdmin(admin.ModelAdmin):
-	list_display = ("solicitante", "responsable", "delegacion", "fecha_comprometida", "estado")
-	list_filter = ("estado", "delegacion", "fecha_comprometida")
+	list_display = ("solicitante", "responsable", "delegacion", "fecha_comprometida", "estado", "activo")
+	list_filter = ("estado", "activo", "delegacion", "fecha_comprometida")
 	search_fields = ("solicitante", "territorio", "descripcion")
 
 

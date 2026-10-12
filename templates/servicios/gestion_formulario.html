@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+
+{% block titulo %}{{ titulo }} · SGR{% endblock %}
+
+{% block contenido %}
+{% url 'servicios:caso_detalle' caso.pk as url_caso %}
+{% include "includes/cabecera.html" with antetitulo=caso.identificacion titulo=titulo bajada="Un caso admite como máximo tres gestiones. La misma actividad no puede contarse en más de una." seccion=caso.nombre seccion_url=url_caso %}
+
+<section class="container py-5">
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+            <article class="tarjeta-info">
+                <form method="post" novalidate>
+                    {% csrf_token %}
+                    {% include "servicios/includes/campos.html" %}
+                    <div class="d-flex flex-wrap gap-2">
+                        <button class="btn btn-primary" type="submit">Guardar gestión</button>
+                        <a class="btn btn-outline-secondary" href="{{ url_caso }}">Volver al caso</a>
+                    </div>
+                </form>
+            </article>
+        </div>
+    </div>
+</section>
+{% endblock %}

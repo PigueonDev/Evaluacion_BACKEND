@@ -10,7 +10,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap">
     <link rel="stylesheet" href="{% static 'css/bootstrap.min.css' %}">
-    <link rel="stylesheet" href="{% static 'css/estilos.css' %}?v=20261008">
+    <link rel="stylesheet" href="{% static 'css/estilos.css' %}?v=20261012">
 </head>
 <body class="d-flex flex-column min-vh-100">
     {% include "includes/iconos.html" %}
@@ -86,7 +86,9 @@
                         {% if user.is_staff %}
                         <li class="nav-item"><a class="nav-link {% if pagina_activa == 'dashboard' %}active{% endif %}" href="{% url 'servicios:dashboard' %}">Panel SGR</a></li>
                         <li class="nav-item"><a class="nav-link {% if pagina_activa == 'actividades' %}active{% endif %}" href="{% url 'servicios:actividades' %}">Actividades</a></li>
+                        <li class="nav-item"><a class="nav-link {% if pagina_activa == 'casos' %}active{% endif %}" href="{% url 'servicios:casos' %}">Casos</a></li>
                         <li class="nav-item"><a class="nav-link {% if pagina_activa == 'agenda' %}active{% endif %}" href="{% url 'servicios:agenda' %}">Agenda</a></li>
+                        <li class="nav-item"><a class="nav-link {% if pagina_activa == 'consulta' %}active{% endif %}" href="{% url 'servicios:consulta' %}">Consulta</a></li>
                         <li class="nav-item"><a class="nav-link {% if pagina_activa == 'panel' %}active{% endif %}" href="{% url 'institucional:panel' %}">Administración</a></li>
                         {% endif %}
                     </ul>
@@ -98,7 +100,7 @@
     {% if messages %}
     <div class="container mt-3">
         {% for message in messages %}
-        <div class="alert alert-{{ message.tags|default:'info' }} alert-dismissible fade show" role="alert">
+        <div class="alert alert-{% if 'error' in message.tags %}danger{% elif 'warning' in message.tags %}warning{% elif 'success' in message.tags %}success{% else %}info{% endif %} alert-dismissible fade show" role="alert">
             {{ message }}
             <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Cerrar"></button>
         </div>
@@ -133,6 +135,7 @@
                         <li><a href="{% url 'institucional:autoridades' %}">Alcaldía y concejo</a></li>
                         <li><a href="{% url 'servicios:catalogo' %}">Catálogo de servicios</a></li>
                         {% if user.is_staff %}<li><a href="{% url 'servicios:dashboard' %}">Panel de gestión territorial</a></li>{% endif %}
+                        {% if user.is_staff %}<li><a href="{% url 'servicios:consulta' %}">Consulta operativa</a></li>{% endif %}
                         <li><a href="{% url 'institucional:acceso' %}">Acceso funcionarios</a></li>
                     </ul>
                 </div>

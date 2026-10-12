@@ -1,0 +1,108 @@
+{% extends "base.html" %}
+
+{% block titulo %}Consulta operativa · SGR{% endblock %}
+
+{% block contenido %}
+{% include "includes/cabecera.html" with antetitulo="Usuario de consulta" titulo="Consulta operativa" bajada="Filtra por delegación, funcionario, cargo, período, ítem, estado y fechas. El filtro se conserva al abrir el detalle. Esta pantalla no modifica registros." %}
+
+<section class="container py-5">
+    <form method="get" class="barra-filtros mb-4">
+        <div class="row g-3">
+            <div class="col-md-4 col-lg-3">
+                <label class="form-label fw-semibold" for="delegacion">Delegación</label>
+                <select class="form-select" id="delegacion" name="delegacion">
+                    <option value="">Todas las autorizadas</option>
+                    {% for delegacion in delegaciones %}
+                    <option value="{{ delegacion.pk }}" {% if delegacion_activa == delegacion.pk|stringformat:"s" %}selected{% endif %}>{{ delegacion.nombre }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-4 col-lg-3">
+                <label class="form-label fw-semibold" for="funcionario">Funcionario</label>
+                <select class="form-select" id="funcionario" name="funcionario">
+                    <option value="">Todos</option>
+                    {% for funcionario in funcionarios %}
+                    <option value="{{ funcionario.pk }}" {% if funcionario_activo == funcionario.pk|stringformat:"s" %}selected{% endif %}>{{ funcionario.nombre_completo }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-4 col-lg-3">
+                <label class="form-label fw-semibold" for="cargo">Cargo</label>
+                <select class="form-select" id="cargo" name="cargo">
+                    <option value="">Todos</option>
+                    {% for cargo in cargos %}
+                    <option value="{{ cargo.pk }}" {% if cargo_activo == cargo.pk|stringformat:"s" %}selected{% endif %}>{{ cargo.nombre }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-4 col-lg-3">
+                <label class="form-label fw-semibold" for="periodo">Período</label>
+                <select class="form-select" id="periodo" name="periodo">
+                    <option value="">Todos</option>
+                    {% for periodo in periodos %}
+                    <option value="{{ periodo.pk }}" {% if periodo_activo == periodo.pk|stringformat:"s" %}selected{% endif %}>{{ periodo.nombre }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-4 col-lg-3">
+                <label class="form-label fw-semibold" for="item">Ítem</label>
+                <select class="form-select" id="item" name="item">
+                    <option value="">Todos</option>
+                    {% for item in items %}
+                    <option value="{{ item.pk }}" {% if item_activo == item.pk|stringformat:"s" %}selected{% endif %}>{{ item.codigo }} — {{ item.nombre }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-4 col-lg-3">
+                <label class="form-label fw-semibold" for="estado">Estado</label>
+                <select class="form-select" id="estado" name="estado">
+                    <option value="">Todos</option>
+                    {% for valor, etiqueta in estados %}
+                    <option value="{{ valor }}" {% if estado_activo == valor %}selected{% endif %}>{{ etiqueta }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-4 col-lg-3">
+                <label class="form-label fw-semibold" for="desde">Desde</label>
+                <input class="form-control" id="desde" name="desde" type="date" value="{{ desde }}">
+            </div>
+            <div class="col-md-4 col-lg-3">
+                <label class="form-label fw-semibold" for="hasta">Hasta</label>
+                <input class="form-control" id="hasta" name="hasta" type="date" value="{{ hasta }}">
+            </div>
+            <div class="col-md-8 col-lg-6">
+                <label class="form-label fw-semibold" for="q-consulta">Texto</label>
+                <input class="form-control" id="q-consulta" name="q" type="search" value="{{ busqueda }}" placeholder="Descripción, acción o funcionario">
+            </div>
+            <div class="col-md-4 col-lg-3 d-flex align-items-end gap-2">
+                <button class="btn btn-primary" type="submit">Filtrar</button>
+                <a class="btn btn-outline-secondary" href="{% url 'servicios:consulta' %}">Limpiar</a>
+            </div>
+        </div>
+    </form>
+
+    <p class="text-secondary">{{ total }} actividad{{ total|pluralize:"es" }} en el ámbito autorizado.</p>
+
+    <div class="panel-tabla">
+        <div class="table-responsive">
+            <table class="table tabla-municipal table-hover align-middle mb-0">
+                <thead><tr><th>Fecha</th><th>Funcionario</th><th>Delegación</th><th>Ítem</th><th>Descripción</th><th>Estado</th></tr></thead>
+                <tbody>
+                {% for actividad in actividades %}
+                <tr>
+                    <td class="text-nowrap">{{ actividad.fecha|date:"d/m/Y" }}</td>
+                    <td>{{ actividad.funcionario.nombre_completo }}</td>
+                    <td>{{ actividad.funcionario.delegacion.nombre }}</td>
+                    <td><code>{{ actividad.item.codigo }}</code></td>
+                    <td><a href="{% url 'servicios:consulta_actividad' actividad.pk %}?{{ consulta_query }}">{{ actividad.descripcion|truncatewords:12 }}</a></td>
+                    <td><span class="estado estado-{{ actividad.estado }}">{{ actividad.get_estado_display }}</span></td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="6" class="text-secondary">No hay actividades que cumplan el filtro dentro de tu ámbito.</td></tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</section>
+{% endblock %}
