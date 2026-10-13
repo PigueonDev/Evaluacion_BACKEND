@@ -21,31 +21,30 @@
                 <a class="chip {% if estado_activo == 'validada' %}activo{% endif %}" href="?estado=validada&q={{ busqueda|urlencode }}">Validadas</a>
                 <a class="chip {% if estado_activo == 'rechazada' %}activo{% endif %}" href="?estado=rechazada&q={{ busqueda|urlencode }}">Rechazadas</a>
             </div>
-            {% if user.is_staff %}
-            <div class="d-flex gap-2">
-                <a class="btn btn-success btn-sm" href="{% url 'admin:servicios_actividad_add' %}"><svg class="icono"><use href="#i-plus"/></svg>Agregar</a>
-                <a class="btn btn-outline-dark btn-sm" href="{% url 'admin:servicios_actividad_changelist' %}">Modificar y eliminar</a>
+            <div class="d-flex flex-wrap gap-2">
+                <a class="btn btn-success btn-sm" href="{% url 'servicios:actividad_nueva' %}"><svg class="icono"><use href="#i-plus"/></svg>Registrar actividad</a>
+                <a class="btn btn-outline-dark btn-sm" href="{% url 'servicios:actividad_codigo' %}">Buscar por código</a>
             </div>
-            {% endif %}
         </div>
     </div>
 
     <div class="panel-tabla">
         <div class="table-responsive">
             <table class="table tabla-municipal table-hover align-middle mb-0">
-                <thead><tr><th>Código</th><th>Fecha</th><th>Funcionario</th><th>Ítem</th><th>Descripción</th><th>Estado</th></tr></thead>
+                <thead><tr><th>Código</th><th>Fecha</th><th>Funcionario</th><th>Ítem</th><th>Descripción</th><th>Estado</th><th></th></tr></thead>
                 <tbody>
                 {% for actividad in actividades %}
                 <tr>
-                    <td><code class="small">{{ actividad.codigo_evidencia|truncatechars:13 }}</code></td>
+                    <td><a href="{% url 'servicios:actividad_detalle' actividad.pk %}"><code class="small">{{ actividad.codigo_evidencia|truncatechars:13 }}</code></a></td>
                     <td class="text-nowrap">{{ actividad.fecha|date:"d/m/Y" }}</td>
                     <td>{{ actividad.funcionario.nombre_completo }}</td>
                     <td>{{ actividad.item.nombre }}</td>
                     <td class="text-secondary">{{ actividad.descripcion|truncatewords:12 }}</td>
                     <td><span class="estado estado-{{ actividad.estado }}">{{ actividad.get_estado_display }}</span></td>
+                    <td class="text-nowrap"><a href="{% url 'servicios:actividad_detalle' actividad.pk %}">Ver</a></td>
                 </tr>
                 {% empty %}
-                <tr><td colspan="6" class="text-secondary">No hay actividades para este filtro.</td></tr>
+                <tr><td colspan="7" class="text-secondary">No hay actividades para este filtro.</td></tr>
                 {% endfor %}
                 </tbody>
             </table>

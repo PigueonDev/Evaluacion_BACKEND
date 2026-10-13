@@ -59,6 +59,8 @@ a {
     color: #fff;
     font-size: 0.8rem;
     padding: 0.35rem 0;
+    position: relative;
+    z-index: 1030;
 }
 
 .enlaces-utilitarios,
@@ -127,11 +129,28 @@ a {
     color: #fff;
 }
 
+.menu-sesion .dropdown-menu {
+    z-index: 1040;
+}
+
 .dropdown-menu .dropdown-item {
     display: flex;
     align-items: center;
     font-size: 0.9rem;
     padding: 0.5rem 1rem;
+}
+
+.barra-nav .cerrar-sesion {
+    background: transparent;
+    border: 0;
+    color: #fff;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.barra-nav .cerrar-sesion:hover,
+.barra-nav .cerrar-sesion:focus {
+    color: var(--amarillo-municipal);
 }
 
 /* Encabezado */
@@ -1049,6 +1068,17 @@ a {
 
 .text-primary {
     color: var(--rojo-municipal) !important;
+}
+
+.codigo-evidencia {
+    background: var(--rojo-claro);
+    border-radius: 0.5rem;
+    color: var(--rojo-oscuro);
+    display: inline-block;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 0.95rem;
+    padding: 0.45rem 0.8rem;
+    word-break: break-all;
 }
 
 @media (max-width: 991.98px) {

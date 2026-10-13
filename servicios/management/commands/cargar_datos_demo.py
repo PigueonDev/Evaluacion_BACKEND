@@ -2,10 +2,13 @@ import json
 from datetime import date
 from pathlib import Path
 
+from django.contrib.auth import get_user_model
 from django.core.management.base import BaseCommand
 
 from institucional.models import Autoridad, Cargo, Delegacion, Funcionario, Municipio
-from servicios.models import Actividad, Compromiso, ItemMedicion, Meta, Periodo, Servicio
+
+CLAVE_DEMO = "Serena-demo-2026"
+from servicios.models import Actividad, Caso, Compromiso, Gestion, ItemMedicion, Meta, Periodo, Servicio
 
 
 class Command(BaseCommand):
@@ -101,6 +104,7 @@ class Command(BaseCommand):
         item = ItemMedicion.objects.get(codigo="ACT-001")
         cargo.funciones.add(item)
         delegacion = Delegacion.objects.get(slug="centro")
+        usuario_funcionario = _usuario_demo("funcionario.demo", "Funcionario", "Demostración")
         funcionario, _ = Funcionario.objects.update_or_create(
             identificador="DEMO-001",
             defaults={
@@ -108,6 +112,37 @@ class Command(BaseCommand):
                 "correo": "demo@ejemplo.cl",
                 "delegacion": delegacion,
                 "cargo": cargo,
+                "rol": "funcionario",
+                "usuario": usuario_funcionario,
+            },
+        )
+        funcionario.rol = "funcionario"
+        funcionario.usuario = usuario_funcionario
+        funcionario.save()
+        cargo_delegado, _ = Cargo.objects.get_or_create(nombre="Delegado territorial", defaults={"descripcion": "Jefatura de la delegación."})
+        usuario_delegado = _usuario_demo("delegado.demo", "Delegado", "Demostración")
+        Funcionario.objects.update_or_create(
+            identificador="DEMO-DEL",
+            defaults={
+                "nombre_completo": "Delegado de demostración",
+                "correo": "delegado@ejemplo.cl",
+                "delegacion": delegacion,
+                "cargo": cargo_delegado,
+                "rol": "delegado",
+                "usuario": usuario_delegado,
+            },
+        )
+        cargo_consulta, _ = Cargo.objects.get_or_create(nombre="Consulta operativa", defaults={"descripcion": "Lectura de informes dentro del ámbito."})
+        usuario_consulta = _usuario_demo("consulta.demo", "Consulta", "Demostración")
+        Funcionario.objects.update_or_create(
+            identificador="DEMO-CON",
+            defaults={
+                "nombre_completo": "Usuario de consulta",
+                "correo": "consulta@ejemplo.cl",
+                "delegacion": delegacion,
+                "cargo": cargo_consulta,
+                "rol": "consulta",
+                "usuario": usuario_consulta,
             },
         )
         Meta.objects.update_or_create(
@@ -123,6 +158,24 @@ class Command(BaseCommand):
             descripcion="Operativo territorial de demostración",
             defaults={"accion": "Orientación y coordinación ficticia", "estado": "validada"},
         )
+        caso, _ = Caso.objects.get_or_create(
+            identificacion="CASO-DEMO-001",
+            defaults={
+                "nombre": "Persona usuaria de demostración",
+                "delegacion": delegacion,
+                "observacion": "Caso ficticio para mostrar hasta tres gestiones.",
+            },
+        )
+        actividad_demo = Actividad.objects.filter(funcionario=funcionario, descripcion="Operativo territorial de demostración").first()
+        Gestion.objects.get_or_create(
+            caso=caso,
+            numero=1,
+            defaults={
+                "fecha": date(2026, 3, 12),
+                "descripcion": "Primera orientación de demostración",
+                "actividad": actividad_demo,
+            },
+        )
         Compromiso.objects.get_or_create(
             delegacion=delegacion,
             responsable=funcionario,
@@ -137,3 +190,17 @@ class Command(BaseCommand):
         )
 
         self.stdout.write(self.style.SUCCESS("Datos demo SGR cargados correctamente."))
+
+
+def _usuario_demo(username, nombre, apellido):
+    usuario, _ = get_user_model().objects.get_or_create(
+        username=username,
+        defaults={"email": f"{username}@ejemplo.cl", "first_name": nombre, "last_name": apellido},
+    )
+    usuario.first_name = nombre
+    usuario.last_name = apellido
+    usuario.is_staff = True
+    usuario.is_superuser = False
+    usuario.set_password(CLAVE_DEMO)
+    usuario.save()
+    return usuario

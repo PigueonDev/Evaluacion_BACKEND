@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+
+{% block titulo %}Compromiso · Agenda{% endblock %}
+
+{% block contenido %}
+{% url 'servicios:agenda' as url_agenda %}
+{% include "includes/cabecera.html" with antetitulo="Agenda colectiva" titulo=compromiso.solicitante bajada="El historial de estados se conserva. El cierre del compromiso se refleja como Realizado." seccion="Agenda" seccion_url=url_agenda %}
+
+<section class="container py-5">
+    <article class="tarjeta-info mb-4">
+        <dl class="ficha-datos">
+            <div><dt>Fecha comprometida</dt><dd>{{ compromiso.fecha_comprometida|date:"d/m/Y" }}</dd></div>
+            <div><dt>Delegación</dt><dd>{{ compromiso.delegacion.nombre }}</dd></div>
+            <div><dt>Responsable</dt><dd>{{ compromiso.responsable.nombre_completo }}</dd></div>
+            <div><dt>Territorio</dt><dd>{{ compromiso.territorio }}</dd></div>
+            <div><dt>Origen</dt><dd>{{ compromiso.origen }}</dd></div>
+            <div><dt>Descripción</dt><dd>{{ compromiso.descripcion }}</dd></div>
+            <div><dt>Estado</dt><dd>
+                <span class="estado estado-{{ compromiso.estado }}">{{ compromiso.get_estado_display }}</span>
+                {% if compromiso.estado == 'realizado' %}<span class="estado estado-realizado">Cierre: Realizado</span>{% endif %}
+                {% if compromiso.vencido %}<span class="estado estado-rechazada">Vencido</span>{% endif %}
+                {% if not compromiso.activo %}<span class="estado estado-anulada">Desactivado</span>{% endif %}
+            </dd></div>
+            {% if compromiso.observacion %}<div><dt>Observación</dt><dd>{{ compromiso.observacion }}</dd></div>{% endif %}
+        </dl>
+        <div class="d-flex flex-wrap gap-2">
+            {% if rol_sgr == 'delegado' %}
+            <a class="btn btn-outline-secondary" href="{% url 'servicios:resumen_agenda' %}">Volver al resumen</a>
+            {% else %}
+            <a class="btn btn-outline-secondary" href="{% url 'servicios:agenda' %}">Volver a la agenda</a>
+            {% if compromiso.activo %}<a class="btn btn-primary" href="{% url 'servicios:compromiso_editar' compromiso.pk %}">Editar</a>{% endif %}
+            <form method="post" action="{% url 'servicios:compromiso_desactivar' compromiso.pk %}">
+                {% csrf_token %}
+                <button class="btn btn-outline-danger" type="submit">{% if compromiso.activo %}Desactivar{% else %}Volver a publicar{% endif %}</button>
+            </form>
+            {% endif %}
+        </div>
+    </article>
+
+    <div class="panel-tabla">
+        <div class="panel-tabla-encabezado"><h2 class="h5 mb-0">Historial de estados</h2></div>
+        <div class="table-responsive">
+            <table class="table tabla-municipal align-middle mb-0">
+                <thead><tr><th>Fecha</th><th>Desde</th><th>Hacia</th><th>Autor</th><th>Observación</th></tr></thead>
+                <tbody>
+                {% for entrada in historial %}
+                <tr>
+                    <td class="text-nowrap">{{ entrada.fecha|date:"d/m/Y H:i" }}</td>
+                    <td>{{ entrada.estado_anterior|default:"—" }}</td>
+                    <td>{{ entrada.estado_nuevo }}</td>
+                    <td>{{ entrada.autor.get_username }}</td>
+                    <td>{{ entrada.observacion|default:"—" }}</td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="5" class="text-secondary">Todavía no hay cambios de estado.</td></tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</section>
+{% endblock %}

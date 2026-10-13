@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+
+{% block titulo %}{{ titulo }} · SGR{% endblock %}
+
+{% block contenido %}
+{% url 'servicios:casos' as url_casos %}
+{% include "includes/cabecera.html" with antetitulo="Atención social" titulo=titulo bajada="La identificación principal queda única. Las atenciones se agregan después, hasta tres gestiones." seccion="Casos" seccion_url=url_casos %}
+
+<section class="container py-5">
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+            <article class="tarjeta-info">
+                <form method="post" novalidate>
+                    {% csrf_token %}
+                    {% include "servicios/includes/campos.html" %}
+                    <div class="d-flex flex-wrap gap-2">
+                        <button class="btn btn-primary" type="submit">Guardar caso</button>
+                        <a class="btn btn-outline-secondary" href="{% url 'servicios:casos' %}">Volver al listado</a>
+                    </div>
+                </form>
+            </article>
+        </div>
+    </div>
+</section>
+{% endblock %}

@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+
+{% block titulo %}Detalle de consulta · SGR{% endblock %}
+
+{% block contenido %}
+{% url 'servicios:consulta' as url_consulta %}
+{% include "includes/cabecera.html" with antetitulo="Consulta" titulo="Detalle de la actividad" bajada="Solo lectura. Al volver, la consulta conserva los filtros con los que llegaste." seccion="Consulta operativa" seccion_url=url_consulta %}
+
+<section class="container py-5">
+    <article class="tarjeta-info">
+        <dl class="ficha-datos">
+            <div><dt>Identificador</dt><dd><span class="codigo-evidencia">{{ actividad.codigo_evidencia }}</span></dd></div>
+            <div><dt>Fecha</dt><dd>{{ actividad.fecha|date:"d/m/Y" }}</dd></div>
+            <div><dt>Funcionario</dt><dd>{{ actividad.funcionario.nombre_completo }}</dd></div>
+            <div><dt>Cargo</dt><dd>{{ actividad.funcionario.cargo.nombre }}</dd></div>
+            <div><dt>Delegación</dt><dd>{{ actividad.funcionario.delegacion.nombre }}</dd></div>
+            <div><dt>Período</dt><dd>{{ actividad.periodo.nombre }}</dd></div>
+            <div><dt>Ítem</dt><dd>{{ actividad.item.codigo }} — {{ actividad.item.nombre }}</dd></div>
+            <div><dt>Actividad o problema</dt><dd>{{ actividad.descripcion }}</dd></div>
+            <div><dt>Acción</dt><dd>{{ actividad.accion }}</dd></div>
+            <div><dt>Estado</dt><dd><span class="estado estado-{{ actividad.estado }}">{{ actividad.get_estado_display }}</span></dd></div>
+        </dl>
+        <a class="btn btn-primary" href="{% url 'servicios:consulta' %}?{{ consulta_query }}">Volver a la consulta</a>
+    </article>
+</section>
+{% endblock %}

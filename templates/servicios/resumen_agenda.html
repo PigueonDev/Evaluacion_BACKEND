@@ -1,0 +1,114 @@
+{% extends "base.html" %}
+
+{% block titulo %}Resumen de compromisos · SGR{% endblock %}
+
+{% block contenido %}
+{% url 'servicios:agenda' as url_agenda %}
+{% include "includes/cabecera.html" with antetitulo="Delegación" titulo="Resumen de compromisos" bajada="Pendientes, próximos, vencidos y realizados del ámbito autorizado. El historial del incumplimiento se conserva." seccion="Agenda" seccion_url=url_agenda %}
+
+<section class="container py-5">
+    <div class="row g-3 mb-4">
+        <div class="col-sm-6 col-lg-3"><div class="kpi kpi-ambar"><span class="kpi-icono"><svg><use href="#i-clock"/></svg></span><div><span class="kpi-etiqueta">Pendientes</span><strong>{{ pendientes }}</strong></div></div></div>
+        <div class="col-sm-6 col-lg-3"><div class="kpi"><span class="kpi-icono"><svg><use href="#i-calendar"/></svg></span><div><span class="kpi-etiqueta">Próximos {{ dias_proximos }} días</span><strong>{{ proximos|length }}</strong></div></div></div>
+        <div class="col-sm-6 col-lg-3"><div class="kpi"><span class="kpi-icono"><svg><use href="#i-info"/></svg></span><div><span class="kpi-etiqueta">Vencidos</span><strong>{{ vencidos|length }}</strong></div></div></div>
+        <div class="col-sm-6 col-lg-3"><div class="kpi kpi-verde"><span class="kpi-icono"><svg><use href="#i-check"/></svg></span><div><span class="kpi-etiqueta">Realizados</span><strong>{{ realizados }}</strong></div></div></div>
+    </div>
+
+    <div class="panel-tabla mb-4">
+        <div class="panel-tabla-encabezado"><h2 class="h5 mb-0">Por responsable</h2></div>
+        <div class="table-responsive">
+            <table class="table tabla-municipal align-middle mb-0">
+                <thead><tr><th>Responsable</th><th>Total</th><th>Realizados</th><th>Pendientes</th><th>% realizado</th><th>% pendiente</th></tr></thead>
+                <tbody>
+                {% for fila in filas %}
+                <tr>
+                    <td>{{ fila.responsable__nombre_completo }}</td>
+                    <td>{{ fila.total }}</td>
+                    <td>{{ fila.realizados }}</td>
+                    <td>{{ fila.pendientes }}</td>
+                    <td>{{ fila.porcentaje_realizado }}%</td>
+                    <td>{{ fila.porcentaje_pendiente }}%</td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="6" class="text-secondary">No hay compromisos publicados en este ámbito.</td></tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="row g-4">
+        <div class="col-lg-6">
+            <div class="panel-tabla h-100">
+                <div class="panel-tabla-encabezado"><h2 class="h5 mb-0">Próximos a vencer</h2></div>
+                <div class="table-responsive">
+                    <table class="table tabla-municipal align-middle mb-0">
+                        <thead><tr><th>Fecha</th><th>Solicitante</th><th>Responsable</th></tr></thead>
+                        <tbody>
+                        {% for compromiso in proximos %}
+                        <tr>
+                            <td>{{ compromiso.fecha_comprometida|date:"d/m/Y" }}</td>
+                            <td><a href="{% url 'servicios:compromiso_detalle' compromiso.pk %}">{{ compromiso.solicitante }}</a></td>
+                            <td>{{ compromiso.responsable.nombre_completo }}</td>
+                        </tr>
+                        {% empty %}
+                        <tr><td colspan="3" class="text-secondary">No hay compromisos por vencer en los próximos {{ dias_proximos }} días.</td></tr>
+                        {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        <div class="col-lg-6">
+            <div class="panel-tabla h-100">
+                <div class="panel-tabla-encabezado"><h2 class="h5 mb-0">Vencidos sin cierre</h2></div>
+                <div class="table-responsive">
+                    <table class="table tabla-municipal align-middle mb-0">
+                        <thead><tr><th>Fecha</th><th>Solicitante</th><th>Estado</th></tr></thead>
+                        <tbody>
+                        {% for compromiso in vencidos %}
+                        <tr class="fila-vencida">
+                            <td>{{ compromiso.fecha_comprometida|date:"d/m/Y" }}</td>
+                            <td><a href="{% url 'servicios:compromiso_detalle' compromiso.pk %}">{{ compromiso.solicitante }}</a></td>
+                            <td><span class="estado estado-{{ compromiso.estado }}">{{ compromiso.get_estado_display }}</span></td>
+                        </tr>
+                        {% empty %}
+                        <tr><td colspan="3" class="text-secondary">No hay compromisos vencidos sin realizar.</td></tr>
+                        {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="panel-tabla mt-4">
+        <div class="panel-tabla-encabezado"><h2 class="h5 mb-0">Historial del incumplimiento</h2></div>
+        <p class="px-3 pt-3 text-secondary mb-0">Los compromisos vencidos y los realizados fuera de plazo conservan su historial. Este resumen no borra ni reabre registros.</p>
+        <div class="table-responsive">
+            <table class="table tabla-municipal align-middle mb-0">
+                <thead><tr><th>Compromiso</th><th>Situación</th><th>Historial</th></tr></thead>
+                <tbody>
+                {% for compromiso in vencidos %}
+                <tr>
+                    <td><a href="{% url 'servicios:compromiso_detalle' compromiso.pk %}">{{ compromiso.solicitante }}</a><br><span class="small text-secondary">{{ compromiso.fecha_comprometida|date:"d/m/Y" }}</span></td>
+                    <td>Vencido sin cierre</td>
+                    <td class="small">{% for entrada in compromiso.historial.all %}{{ entrada.estado_anterior|default:"inicio" }} → {{ entrada.estado_nuevo }}{% if not forloop.last %}; {% endif %}{% empty %}Sin movimientos{% endfor %}</td>
+                </tr>
+                {% endfor %}
+                {% for compromiso in realizados_tarde %}
+                <tr>
+                    <td><a href="{% url 'servicios:compromiso_detalle' compromiso.pk %}">{{ compromiso.solicitante }}</a><br><span class="small text-secondary">{{ compromiso.fecha_comprometida|date:"d/m/Y" }}</span></td>
+                    <td><span class="estado estado-realizado">Realizado fuera de plazo</span></td>
+                    <td class="small">{% for entrada in compromiso.historial.all %}{{ entrada.estado_anterior|default:"inicio" }} → {{ entrada.estado_nuevo }}{% if not forloop.last %}; {% endif %}{% empty %}Sin movimientos{% endfor %}</td>
+                </tr>
+                {% endfor %}
+                {% if not vencidos and not realizados_tarde %}
+                <tr><td colspan="3" class="text-secondary">No hay incumplimientos que mostrar. El historial queda disponible en cada compromiso.</td></tr>
+                {% endif %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</section>
+{% endblock %}

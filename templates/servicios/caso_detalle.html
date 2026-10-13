@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+
+{% block titulo %}Caso {{ caso.identificacion }} · SGR{% endblock %}
+
+{% block contenido %}
+{% url 'servicios:casos' as url_casos %}
+{% include "includes/cabecera.html" with antetitulo="Atención social" titulo=caso.nombre bajada="La identificación principal se muestra una sola vez. Cada gestión vigente se cuenta una vez." seccion="Casos" seccion_url=url_casos %}
+
+<section class="container py-5">
+    <article class="tarjeta-info mb-4">
+        <dl class="ficha-datos">
+            <div><dt>Identificación principal</dt><dd><code>{{ caso.identificacion }}</code></dd></div>
+            <div><dt>Delegación</dt><dd>{{ caso.delegacion.nombre }}</dd></div>
+            <div><dt>Atenciones contadas</dt><dd>{{ atenciones }} de 3</dd></div>
+            <div><dt>Estado del caso</dt><dd>{% if caso.activo %}Activo{% else %}Inactivo{% endif %}</dd></div>
+            {% if caso.observacion %}<div><dt>Observación</dt><dd>{{ caso.observacion }}</dd></div>{% endif %}
+        </dl>
+        <div class="d-flex flex-wrap gap-2">
+            <a class="btn btn-outline-secondary" href="{% url 'servicios:casos' %}">Volver</a>
+            <a class="btn btn-primary" href="{% url 'servicios:caso_editar' caso.pk %}">Editar</a>
+            {% if cupo_disponible %}<a class="btn btn-success" href="{% url 'servicios:gestion_nueva' caso.pk %}">Agregar gestión</a>{% endif %}
+            <form method="post" action="{% url 'servicios:caso_desactivar' caso.pk %}">
+                {% csrf_token %}
+                <button class="btn btn-outline-danger" type="submit">{% if caso.activo %}Desactivar{% else %}Activar{% endif %}</button>
+            </form>
+        </div>
+    </article>
+
+    <div class="panel-tabla">
+        <div class="panel-tabla-encabezado"><h2 class="h5 mb-0">Gestiones del caso</h2></div>
+        <div class="table-responsive">
+            <table class="table tabla-municipal align-middle mb-0">
+                <thead><tr><th>N°</th><th>Fecha</th><th>Descripción</th><th>Actividad</th><th>Conteo</th><th></th></tr></thead>
+                <tbody>
+                {% for gestion in gestiones %}
+                <tr>
+                    <td>{{ gestion.numero }}</td>
+                    <td>{{ gestion.fecha|date:"d/m/Y" }}</td>
+                    <td>{{ gestion.descripcion }}</td>
+                    <td>{% if gestion.actividad %}<code class="small">{{ gestion.actividad.codigo_evidencia|truncatechars:13 }}</code>{% else %}Sin actividad{% endif %}</td>
+                    <td>{% if gestion.activa %}1{% else %}0{% endif %}</td>
+                    <td class="text-nowrap">
+                        <a href="{% url 'servicios:gestion_editar' caso.pk gestion.pk %}">Editar</a>
+                        <form class="d-inline" method="post" action="{% url 'servicios:gestion_desactivar' caso.pk gestion.pk %}">
+                            {% csrf_token %}
+                            <button class="btn btn-link btn-sm p-0 align-baseline" type="submit">{% if gestion.activa %}Desactivar{% else %}Activar{% endif %}</button>
+                        </form>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="6" class="text-secondary">Este caso todavía no tiene gestiones.</td></tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</section>
+{% endblock %}

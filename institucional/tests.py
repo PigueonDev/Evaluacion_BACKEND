@@ -58,7 +58,7 @@ class AccesoFuncionariosTest(TestCase):
 	def test_cerrar_sesion(self):
 		self.client.force_login(self.staff)
 		respuesta = self.client.post(reverse("institucional:salir"))
-		self.assertRedirects(respuesta, reverse("institucional:inicio"))
+		self.assertRedirects(respuesta, reverse("institucional:acceso"))
 		self.assertEqual(self.client.get(reverse("institucional:verificar")).status_code, 401)
 
 	def test_login_se_bloquea_tras_intentos_fallidos(self):

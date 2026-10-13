@@ -34,6 +34,7 @@ MIDDLEWARE = [
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
+    "laserena.permisos.RolMiddleware",
     "laserena.seguridad.CabecerasSeguridadMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
@@ -97,7 +98,7 @@ MEDIA_ROOT = BASE_DIR / "media"
 MEDIA_X_ACCEL = os.getenv("MEDIA_X_ACCEL", str(not DEBUG)).lower() == "true"
 LOGIN_URL = "institucional:acceso"
 LOGIN_REDIRECT_URL = "institucional:panel"
-LOGOUT_REDIRECT_URL = "institucional:inicio"
+LOGOUT_REDIRECT_URL = "institucional:acceso"
 
 # phpMyAdmin se publica en el mismo dominio (ver deploy/nginx.conf) para que
 # Nginx pueda validar la sesión de Django antes de permitir el acceso.

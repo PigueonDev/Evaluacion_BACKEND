@@ -26,8 +26,8 @@ class CargoAdmin(admin.ModelAdmin):
 
 @admin.register(Funcionario)
 class FuncionarioAdmin(admin.ModelAdmin):
-	list_display = ("nombre_completo", "identificador", "delegacion", "cargo", "activo")
-	list_filter = ("activo", "delegacion", "cargo")
+	list_display = ("nombre_completo", "identificador", "delegacion", "cargo", "rol", "activo")
+	list_filter = ("activo", "rol", "delegacion", "cargo")
 	search_fields = ("nombre_completo", "identificador", "correo")
 
 

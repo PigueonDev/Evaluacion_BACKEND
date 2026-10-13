@@ -32,7 +32,13 @@ Abrir http://127.0.0.1:8000/
 | `/servicios/<slug>/` | servicios | Ficha de trámite |
 | `/servicios/dashboard/` | servicios | Panel SGR (solo personal) |
 | `/servicios/actividades/` | servicios | Actividades y filtros (solo personal) |
-| `/servicios/agenda/` | servicios | Agenda colectiva (solo personal) |
+| `/servicios/actividades/nueva/` | servicios | Registrar actividad con período abierto (SCRUM-10) |
+| `/servicios/actividades/codigo/` | servicios | Consultar el código de evidencia según ámbito (SCRUM-15) |
+| `/servicios/casos/` | servicios | Casos de atención y hasta tres gestiones (SCRUM-12) |
+| `/servicios/agenda/` | servicios | Agenda ordenada y filtrable (SCRUM-16) |
+| `/servicios/agenda/nueva/` | servicios | Publicar compromiso en el ámbito autorizado (SCRUM-16) |
+| `/servicios/agenda/resumen/` | servicios | Resumen de pendientes, próximos, vencidos y realizados (SCRUM-18) |
+| `/servicios/consulta/` | servicios | Consulta operativa de solo lectura (SCRUM-21) |
 | `/acceso/` | institucional | Login "Acceso funcionarios" (solo cuentas staff) |
 | `/administracion/` | institucional | (Solo personal) Panel con accesos a phpMyAdmin y Django Admin por tabla |
 | `/acceso/verificar/` | institucional | Verificación de sesión usada por Nginx para proteger phpMyAdmin |

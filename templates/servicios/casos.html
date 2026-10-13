@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+
+{% block titulo %}Casos de atención · SGR{% endblock %}
+
+{% block contenido %}
+{% include "includes/cabecera.html" with antetitulo="Atención social" titulo="Casos" bajada="Cada persona usuaria tiene una identificación principal. Las gestiones se asocian al caso y se cuentan una sola vez." %}
+
+<section class="container py-5">
+    <div class="barra-filtros mb-4">
+        <form method="get" class="buscador-interno" role="search">
+            <label class="visually-hidden" for="q-casos">Buscar caso</label>
+            <svg class="icono"><use href="#i-search"/></svg>
+            <input id="q-casos" name="q" type="search" value="{{ busqueda }}" placeholder="Buscar por identificación o nombre">
+            <button class="btn btn-primary" type="submit">Buscar</button>
+        </form>
+        <div class="d-flex justify-content-end">
+            <a class="btn btn-success btn-sm" href="{% url 'servicios:caso_nuevo' %}"><svg class="icono"><use href="#i-plus"/></svg>Registrar caso</a>
+        </div>
+    </div>
+
+    <div class="panel-tabla">
+        <div class="table-responsive">
+            <table class="table tabla-municipal table-hover align-middle mb-0">
+                <thead><tr><th>Identificación</th><th>Persona usuaria</th><th>Delegación</th><th>Atenciones</th><th>Estado</th><th></th></tr></thead>
+                <tbody>
+                {% for caso in casos %}
+                <tr>
+                    <td><code>{{ caso.identificacion }}</code></td>
+                    <td>{{ caso.nombre }}</td>
+                    <td>{{ caso.delegacion.nombre }}</td>
+                    <td>{{ caso.atenciones_contadas }}</td>
+                    <td>{% if caso.activo %}<span class="estado estado-validada">Activo</span>{% else %}<span class="estado estado-anulada">Inactivo</span>{% endif %}</td>
+                    <td><a href="{% url 'servicios:caso_detalle' caso.pk %}">Ver caso</a></td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="6" class="text-secondary">No hay casos para este filtro.</td></tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</section>
+{% endblock %}

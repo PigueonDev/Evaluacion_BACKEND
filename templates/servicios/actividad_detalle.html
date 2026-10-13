@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+
+{% block titulo %}Actividad registrada · SGR{% endblock %}
+
+{% block contenido %}
+{% url 'servicios:actividades' as url_actividades %}
+{% include "includes/cabecera.html" with antetitulo="Identificador confirmado" titulo="Actividad registrada" bajada="Este código es único, no se edita y no vuelve a asignarse." seccion="Actividades" seccion_url=url_actividades %}
+
+<section class="container py-5">
+    <article class="tarjeta-info">
+        <p class="text-secondary mb-2">Identificador de evidencia</p>
+        <p class="codigo-evidencia mb-4">{{ actividad.codigo_evidencia }}</p>
+        <dl class="ficha-datos">
+            <div><dt>Fecha</dt><dd>{{ actividad.fecha|date:"d/m/Y" }}</dd></div>
+            <div><dt>Período</dt><dd>{{ actividad.periodo.nombre }} ({{ actividad.periodo.get_estado_display }})</dd></div>
+            <div><dt>Funcionario</dt><dd>{{ actividad.funcionario.nombre_completo }}</dd></div>
+            <div><dt>Delegación</dt><dd>{{ actividad.funcionario.delegacion.nombre }}</dd></div>
+            <div><dt>Ítem</dt><dd>{{ actividad.item.codigo }} — {{ actividad.item.nombre }}</dd></div>
+            <div><dt>Actividad o problema</dt><dd>{{ actividad.descripcion }}</dd></div>
+            <div><dt>Acción realizada</dt><dd>{{ actividad.accion }}</dd></div>
+            <div><dt>Contacto</dt><dd>{{ actividad.contacto|default:"Sin contacto" }}</dd></div>
+            <div><dt>Teléfono</dt><dd>{{ actividad.telefono|default:"Sin teléfono" }}</dd></div>
+            <div><dt>Vínculo con la agenda</dt><dd>{% if actividad.compromiso %}{{ actividad.compromiso.solicitante }} · {{ actividad.compromiso.fecha_comprometida|date:"d/m/Y" }}{% else %}Sin compromiso asociado{% endif %}</dd></div>
+            <div><dt>Estado</dt><dd><span class="estado estado-{{ actividad.estado }}">{{ actividad.get_estado_display }}</span></dd></div>
+        </dl>
+        <div class="d-flex flex-wrap gap-2">
+            <a class="btn btn-outline-secondary" href="{% url 'servicios:actividades' %}">Volver al listado</a>
+            {% if actividad.estado != 'anulada' and actividad.periodo.estado == 'abierto' %}
+            <a class="btn btn-primary" href="{% url 'servicios:actividad_editar' actividad.pk %}">Editar</a>
+            <form method="post" action="{% url 'servicios:actividad_anular' actividad.pk %}">
+                {% csrf_token %}
+                <button class="btn btn-outline-danger" type="submit">Anular</button>
+            </form>
+            {% endif %}
+        </div>
+    </article>
+</section>
+{% endblock %}
