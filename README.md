@@ -40,7 +40,8 @@ Abrir http://127.0.0.1:8000/
 | `/servicios/agenda/resumen/` | servicios | Resumen de pendientes, próximos, vencidos y realizados (SCRUM-18) |
 | `/servicios/consulta/` | servicios | Consulta operativa de solo lectura (SCRUM-21) |
 | `/acceso/` | institucional | Login "Acceso funcionarios" (solo cuentas staff) |
-| `/administracion/` | institucional | (Solo personal) Panel con accesos a phpMyAdmin y Django Admin por tabla |
+| `/administracion/` | institucional | Panel de parámetros (administración): delegaciones, cargos, catálogos, ítems, períodos, metas y ponderaciones |
+| `/administracion/cuentas/` | institucional | Alta de usuarios con delegación, cargo, rol y contraseña |
 | `/acceso/verificar/` | institucional | Verificación de sesión usada por Nginx para proteger phpMyAdmin |
 | `/admin/` | Django | Administración CRUD |
 
@@ -114,7 +115,7 @@ Además de Django se usa **WhiteNoise** para servir archivos estáticos y **Pill
 
 ## Datos y dominio SGR
 
-`python manage.py cargar_datos_demo` carga información ficticia desde los JSON, crea las seis delegaciones territoriales y prepara un período abierto. Los datos reales de ciudadanos o funcionarios no deben utilizarse.
+`python manage.py cargar_datos_demo` carga información ficticia desde los JSON, crea las seis delegaciones territoriales y prepara un período abierto. También deja cuatro cuentas de demostración con la clave `Serena-demo-2026`: `funcionario.demo`, `delegado.demo`, `consulta.demo` y `admin.demo`. El administrador entra a `/administracion/` y crea otras cuentas en `/administracion/cuentas/`. Los datos reales de ciudadanos o funcionarios no deben utilizarse.
 
 El dominio incluye delegaciones, cargos, funcionarios, servicios, ítems de medición, períodos, metas, actividades, evidencias, validaciones, compromisos, historial y auditoría. Las fórmulas de cumplimiento y semáforo están implementadas en el modelo `Meta`.
 

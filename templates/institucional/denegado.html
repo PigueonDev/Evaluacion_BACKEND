@@ -13,6 +13,8 @@
         <a class="btn btn-primary" href="{% url 'servicios:resumen_agenda' %}">Ir al resumen</a>
         {% elif rol_sgr == 'consulta' %}
         <a class="btn btn-primary" href="{% url 'servicios:consulta' %}">Ir a la consulta</a>
+        {% elif rol_sgr == 'administrador' %}
+        <a class="btn btn-primary" href="{% url 'institucional:panel' %}">Ir a administración</a>
         {% else %}
         <a class="btn btn-primary" href="{% url 'institucional:inicio' %}">Volver al inicio</a>
         {% endif %}

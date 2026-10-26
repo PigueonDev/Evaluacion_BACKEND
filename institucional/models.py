@@ -50,6 +50,7 @@ class Funcionario(models.Model):
 		("funcionario", "Funcionario"),
 		("delegado", "Delegado o jefatura"),
 		("consulta", "Usuario de consulta"),
+		("administrador", "Administrador"),
 	]
 	usuario = models.OneToOneField("auth.User", on_delete=models.SET_NULL, null=True, blank=True, related_name="perfil_sgr")
 	identificador = models.CharField(max_length=30, unique=True)

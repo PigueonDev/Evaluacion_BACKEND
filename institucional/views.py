@@ -1,17 +1,19 @@
 from urllib.parse import urlencode
 
 from django.conf import settings
+from django.contrib import messages
 from django.contrib.admin.forms import AdminAuthenticationForm
 from django.contrib.auth import views as auth_views
 from django.core.cache import cache
 from django.http import HttpResponse
-from django.shortcuts import render
+from django.shortcuts import redirect, render
 from django.urls import reverse
 
-from laserena.permisos import es_staff, rol_usuario, solo_administracion
+from laserena.permisos import ROLES_OPERATIVOS, es_staff, rol_usuario, solo_administracion
 from laserena.seguridad import ip_cliente
 from servicios.models import Actividad, Caso, Compromiso, ItemMedicion, Meta, Periodo, Servicio
 
+from .forms import CuentaForm
 from .models import Autoridad, Cargo, Delegacion, Funcionario, Municipio
 
 RECURSOS_ADMINISTRABLES = [
@@ -143,8 +145,27 @@ def panel(request):
     return render(request, "institucional/panel.html", contexto)
 
 
+@solo_administracion
+def cuentas(request):
+    if request.method == "POST":
+        form = CuentaForm(request.POST)
+        if form.is_valid():
+            usuario = form.save()
+            messages.success(request, f"Cuenta {usuario.username} creada con el rol {usuario.perfil_sgr.get_rol_display()}.")
+            return redirect("institucional:cuentas")
+    else:
+        form = CuentaForm()
+    contexto = {
+        "form": form,
+        "cuentas": Funcionario.objects.select_related("usuario", "delegacion", "cargo").exclude(usuario=None),
+        "hay_parametros": form.fields["delegacion"].queryset.exists() and form.fields["cargo"].queryset.exists(),
+        "pagina_activa": "panel",
+    }
+    return render(request, "institucional/cuentas.html", contexto)
+
+
 def verificar_acceso(request):
     """Subconsulta de Nginx (auth_request) que protege la ruta de phpMyAdmin."""
-    if rol_usuario(request.user):
+    if rol_usuario(request.user) in ROLES_OPERATIVOS:
         return HttpResponse(status=401)
     return HttpResponse(status=204 if es_staff(request.user) else 401)

@@ -12,4 +12,5 @@ urlpatterns = [
     path("acceso/salir/", auth_views.LogoutView.as_view(), name="salir"),
     path("acceso/verificar/", views.verificar_acceso, name="verificar"),
     path("administracion/", views.panel, name="panel"),
+    path("administracion/cuentas/", views.cuentas, name="cuentas"),
 ]

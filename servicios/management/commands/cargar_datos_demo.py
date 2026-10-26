@@ -5,6 +5,7 @@ from pathlib import Path
 from django.contrib.auth import get_user_model
 from django.core.management.base import BaseCommand
 
+from institucional.cuentas import conceder_permisos_parametros
 from institucional.models import Autoridad, Cargo, Delegacion, Funcionario, Municipio
 
 CLAVE_DEMO = "Serena-demo-2026"
@@ -145,6 +146,23 @@ class Command(BaseCommand):
                 "usuario": usuario_consulta,
             },
         )
+        cargo_admin, _ = Cargo.objects.get_or_create(
+            nombre="Administración municipal",
+            defaults={"descripcion": "Parámetros, catálogos, metas y cuentas del SGR."},
+        )
+        usuario_admin = _usuario_demo("admin.demo", "Administrador", "Demostración")
+        conceder_permisos_parametros(usuario_admin)
+        Funcionario.objects.update_or_create(
+            identificador="DEMO-ADM",
+            defaults={
+                "nombre_completo": "Administrador de demostración",
+                "correo": "admin@ejemplo.cl",
+                "delegacion": delegacion,
+                "cargo": cargo_admin,
+                "rol": "administrador",
+                "usuario": usuario_admin,
+            },
+        )
         Meta.objects.update_or_create(
             periodo=periodo,
             item=item,
@@ -189,7 +207,9 @@ class Command(BaseCommand):
             },
         )
 
-        self.stdout.write(self.style.SUCCESS("Datos demo SGR cargados correctamente."))
+        self.stdout.write(self.style.SUCCESS(
+            "Datos demo SGR cargados. Cuentas: funcionario.demo, delegado.demo, consulta.demo y admin.demo. Clave: Serena-demo-2026."
+        ))
 
 
 def _usuario_demo(username, nombre, apellido):

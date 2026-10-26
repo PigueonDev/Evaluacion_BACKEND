@@ -21,7 +21,7 @@
                 </dl>
                 <div class="d-flex flex-wrap gap-2">
                     <a class="btn btn-primary" href="{% url 'servicios:catalogo' %}">Volver al catálogo</a>
-                    {% if user.is_staff and not rol_sgr %}
+                    {% if es_administracion %}
                     <a class="btn btn-outline-secondary" href="{% url 'admin:servicios_servicio_change' servicio.pk %}">Modificar servicio</a>
                     {% endif %}
                 </div>

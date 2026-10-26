@@ -6,6 +6,15 @@
 {% include "includes/cabecera.html" with antetitulo="Acceso funcionarios" titulo="Panel de administración" bajada="Modifica los recursos del sitio: sedes, servicios, funcionarios, actividades y más." %}
 
 <section class="container py-5">
+    <article class="tarjeta-recurso mb-4">
+        <div class="d-flex flex-wrap justify-content-between align-items-center gap-3">
+            <div>
+                <h2 class="h4 mb-1">Cuentas y permisos</h2>
+                <p class="mb-0">Crea usuarios de funcionario, delegado, consulta o administrador. Cada cuenta lleva delegación, cargo, rol y una contraseña que cumple las reglas del sistema.</p>
+            </div>
+            <a class="btn btn-primary" href="{% url 'institucional:cuentas' %}">Crear usuario</a>
+        </div>
+    </article>
     <div class="destacado-phpmyadmin mb-5">
         <span class="kpi-icono grande"><svg><use href="#i-database"/></svg></span>
         <div class="flex-grow-1">

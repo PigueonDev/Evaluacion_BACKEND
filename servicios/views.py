@@ -13,6 +13,7 @@ from institucional.models import Cargo, Delegacion, Funcionario
 from laserena.permisos import (
     acotar_ambito,
     parametro_permitido,
+    perfil_de_ambito,
     perfil_funcionario,
     solo_administracion,
     solo_consulta,
@@ -55,7 +56,7 @@ def detalle(request, slug: str):
 
 
 def _delegacion_usuario(user):
-    perfil = perfil_funcionario(user)
+    perfil = perfil_de_ambito(user)
     return perfil.delegacion if perfil else None
 
 
@@ -109,7 +110,7 @@ def dashboard(request):
     metas = Meta.objects.select_related("item", "periodo", "funcionario", "cargo")
     if periodo:
         metas = metas.filter(periodo=periodo)
-    perfil = perfil_funcionario(request.user)
+    perfil = perfil_de_ambito(request.user)
     if perfil is not None:
         metas = metas.filter(Q(funcionario__delegacion=perfil.delegacion) | Q(funcionario__isnull=True, cargo=perfil.cargo))
     delegaciones = Delegacion.objects.filter(activa=True)
@@ -527,7 +528,7 @@ def resumen_agenda(request):
 @solo_consulta
 def consulta(request):
     actividades = _actividades_ambito(request.user)
-    perfil = perfil_funcionario(request.user)
+    perfil = perfil_de_ambito(request.user)
     if perfil is not None:
         delegaciones = Delegacion.objects.filter(pk=perfil.delegacion_id)
     else:

@@ -24,7 +24,7 @@
 
     <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
         <p class="mb-0 text-secondary">Mostrando <strong class="text-dark">{{ total }}</strong> de {{ total_general }} servicios publicados{% if busqueda %} para «{{ busqueda }}»{% endif %}.</p>
-        {% if user.is_staff and not rol_sgr %}
+        {% if es_administracion %}
         <a class="btn btn-success btn-sm" href="{% url 'admin:servicios_servicio_add' %}"><svg class="icono"><use href="#i-plus"/></svg>Agregar servicio</a>
         {% endif %}
     </div>
@@ -42,7 +42,7 @@
                 <p class="small mb-3"><svg class="icono text-primary"><use href="#i-building"/></svg>{{ servicio.unidad }}</p>
                 <div class="d-flex flex-wrap gap-2 mt-auto">
                     <a class="btn btn-primary" href="{% url 'servicios:detalle' servicio.slug %}">Ver ficha</a>
-                    {% if user.is_staff and not rol_sgr %}
+                    {% if es_administracion %}
                     <a class="btn btn-outline-secondary" href="{% url 'admin:servicios_servicio_change' servicio.pk %}">Modificar</a>
                     <a class="btn btn-outline-danger" href="{% url 'admin:servicios_servicio_delete' servicio.pk %}">Eliminar</a>
                     {% endif %}

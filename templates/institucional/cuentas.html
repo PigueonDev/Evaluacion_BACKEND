@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+
+{% block titulo %}Cuentas y permisos · Municipalidad de La Serena{% endblock %}
+
+{% block contenido %}
+{% url 'institucional:panel' as url_panel %}
+{% include "includes/cabecera.html" with antetitulo="Administración" titulo="Cuentas y permisos" bajada="Crea un usuario para cada rol y define su delegación, cargo y contraseña." seccion="Panel" seccion_url=url_panel %}
+
+<section class="container py-5">
+    <div class="row g-4">
+        <div class="col-lg-5">
+            <article class="tarjeta-info">
+                <h2 class="h5 mb-3">Nueva cuenta</h2>
+                {% if not hay_parametros %}
+                <div class="alert alert-warning">Primero debe existir al menos una delegación activa y un cargo activo.</div>
+                {% endif %}
+                <form method="post" novalidate>
+                    {% csrf_token %}
+                    {% include "servicios/includes/campos.html" %}
+                    <button class="btn btn-primary" type="submit" {% if not hay_parametros %}disabled{% endif %}>Crear usuario</button>
+                </form>
+            </article>
+        </div>
+        <div class="col-lg-7">
+            <article class="tarjeta-info">
+                <h2 class="h5 mb-3">Cuentas del SGR</h2>
+                {% if cuentas %}
+                <div class="table-responsive">
+                    <table class="table align-middle mb-0">
+                        <thead>
+                            <tr>
+                                <th>Usuario</th>
+                                <th>Nombre</th>
+                                <th>Rol</th>
+                                <th>Delegación</th>
+                                <th>Cargo</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for cuenta in cuentas %}
+                            <tr>
+                                <td>{{ cuenta.usuario.username }}</td>
+                                <td>{{ cuenta.nombre_completo }}</td>
+                                <td>{{ cuenta.get_rol_display }}</td>
+                                <td>{{ cuenta.delegacion }}</td>
+                                <td>{{ cuenta.cargo }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <p class="text-secondary mb-0">Todavía no hay cuentas con perfil.</p>
+                {% endif %}
+            </article>
+        </div>
+    </div>
+</section>
+{% endblock %}

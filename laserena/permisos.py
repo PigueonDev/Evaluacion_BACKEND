@@ -5,6 +5,8 @@ from django.contrib.auth.views import redirect_to_login
 from django.shortcuts import render
 
 LARGO_MAXIMO_BUSQUEDA = 100
+ROL_ADMINISTRADOR = "administrador"
+ROLES_OPERATIVOS = ("funcionario", "delegado", "consulta")
 
 
 def es_staff(user):
@@ -26,20 +28,27 @@ def solo_personal(view):
 
 
 def rol_usuario(user):
-    """Rol del perfil SGR. El personal sin perfil es administración y no tiene rol."""
+    """Rol del perfil SGR. El personal sin perfil queda como administración sin rol nombrado."""
     perfil = perfil_funcionario(user)
     if perfil is None:
         return None
     return perfil.rol
 
 
+def es_administracion(user):
+    """Personal sin rol operativo: sin perfil, o con el rol Administrador."""
+    if not getattr(user, "is_authenticated", False) or not es_staff(user):
+        return False
+    rol = rol_usuario(user)
+    return rol is None or rol == ROL_ADMINISTRADOR
+
+
 def permite_rol(user, roles):
     if not es_staff(user):
         return False
-    rol = rol_usuario(user)
-    if rol is None:
+    if es_administracion(user):
         return True
-    return rol in roles
+    return rol_usuario(user) in roles
 
 
 def solo_roles(*roles):
@@ -73,7 +82,7 @@ class RolMiddleware:
     def __call__(self, request):
         rol = rol_usuario(getattr(request, "user", None))
         path = request.path
-        if rol and (path.startswith("/admin") or path.startswith("/administracion")):
+        if rol in ROLES_OPERATIVOS and (path.startswith("/admin") or path.startswith("/administracion")):
             return render(request, "institucional/denegado.html", status=403)
         return self.get_response(request)
 
@@ -98,9 +107,17 @@ def perfil_funcionario(user):
 def acotar_ambito(queryset, user, campo):
     """Limita la consulta a la delegación del funcionario.
 
-    El personal sin perfil (administración) mantiene el ámbito municipal completo.
+    La administración (sin perfil o con rol administrador) mantiene el ámbito municipal completo.
     """
-    perfil = perfil_funcionario(user)
+    perfil = perfil_de_ambito(user)
     if perfil is None:
         return queryset
     return queryset.filter(**{campo: perfil.delegacion_id})
+
+
+def perfil_de_ambito(user):
+    """Perfil que restringe la delegación. Administración no acota el municipio."""
+    perfil = perfil_funcionario(user)
+    if perfil is None or perfil.rol == ROL_ADMINISTRADOR:
+        return None
+    return perfil

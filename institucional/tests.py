@@ -7,10 +7,12 @@ from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.core.cache import cache
+from django.core.management import call_command
 from django.test import TestCase, override_settings
 from django.urls import reverse
 
-from .models import Delegacion
+from .cuentas import conceder_permisos_parametros
+from .models import Cargo, Delegacion, Funcionario
 
 
 class AccesoFuncionariosTest(TestCase):
@@ -152,3 +154,156 @@ class SeguridadSitioTest(TestCase):
 		with self.assertRaises(ValidationError):
 			campo.run_validators(SimpleUploadedFile("grande.pdf", b"0" * (5 * 1024 * 1024 + 1)))
 		campo.run_validators(SimpleUploadedFile("acta.pdf", b"%PDF-1.4"))
+
+
+class AdministradorDemoTest(TestCase):
+	def setUp(self):
+		cache.clear()
+		modelo = get_user_model()
+		self.centro = Delegacion.objects.create(nombre="Centro admin", slug="centro-admin", territorio="Centro", enfoque="Demo")
+		self.cargo = Cargo.objects.create(nombre="Gestor admin")
+		self.admin = modelo.objects.create_user(username="admin-local", password="Serena-demo-2026", is_staff=True, first_name="Admin")
+		Funcionario.objects.create(
+			usuario=self.admin, identificador="ADM-LOCAL", nombre_completo="Admin Local",
+			delegacion=self.centro, cargo=self.cargo, rol="administrador",
+		)
+		conceder_permisos_parametros(self.admin)
+		self.client.force_login(self.admin)
+
+	def _operativo(self, username, rol):
+		modelo = get_user_model()
+		usuario = modelo.objects.create_user(username=username, password="Serena-demo-2026", is_staff=True)
+		Funcionario.objects.create(
+			usuario=usuario, identificador=username.upper(), nombre_completo=username,
+			delegacion=self.centro, cargo=self.cargo, rol=rol,
+		)
+		return usuario
+
+	def test_administrador_abre_parametros_sin_ser_superusuario(self):
+		cuenta = get_user_model().objects.get(pk=self.admin.pk)
+		self.assertFalse(cuenta.is_superuser)
+		self.assertTrue(cuenta.is_staff)
+		self.assertEqual(cuenta.perfil_sgr.rol, "administrador")
+		self.assertTrue(cuenta.has_perm("institucional.change_delegacion"))
+		self.assertTrue(cuenta.has_perm("institucional.change_cargo"))
+		self.assertTrue(cuenta.has_perm("servicios.change_servicio"))
+		self.assertTrue(cuenta.has_perm("servicios.change_itemmedicion"))
+		self.assertTrue(cuenta.has_perm("servicios.change_periodo"))
+		self.assertTrue(cuenta.has_perm("servicios.change_meta"))
+		panel = self.client.get(reverse("institucional:panel"))
+		self.assertContains(panel, reverse("institucional:cuentas"))
+		self.assertContains(panel, "Crear usuario")
+		for ruta in (
+			"/admin/",
+			"/admin/institucional/delegacion/",
+			"/admin/institucional/delegacion/add/",
+			"/admin/institucional/cargo/",
+			"/admin/servicios/servicio/",
+			"/admin/servicios/itemmedicion/",
+			"/admin/servicios/periodo/",
+			"/admin/servicios/meta/",
+			"/admin/servicios/meta/add/",
+		):
+			self.assertEqual(self.client.get(ruta).status_code, 200, ruta)
+		self.assertEqual(self.client.get(reverse("institucional:verificar")).status_code, 204)
+		self.client.logout()
+		entrada = self.client.post(reverse("institucional:acceso"), {"username": "admin-local", "password": "Serena-demo-2026"})
+		self.assertRedirects(entrada, reverse("institucional:panel"))
+
+	def test_roles_operativos_siguen_fuera_de_administracion(self):
+		for username, rol in (("fun-op", "funcionario"), ("del-op", "delegado"), ("con-op", "consulta")):
+			self.client.force_login(self._operativo(username, rol))
+			self.assertEqual(self.client.get(reverse("institucional:panel")).status_code, 403, rol)
+			self.assertEqual(self.client.get(reverse("institucional:cuentas")).status_code, 403, rol)
+			self.assertEqual(self.client.get("/admin/").status_code, 403, rol)
+			self.assertEqual(self.client.get(reverse("institucional:verificar")).status_code, 401, rol)
+
+	def test_crea_cada_rol_y_rechaza_clave_invalida(self):
+		debil = self.client.post(reverse("institucional:cuentas"), {
+			"username": "nuevo.func",
+			"nombre": "Nuevo",
+			"apellido": "Funcionario",
+			"identificador": "F-NEW",
+			"correo": "nuevo@ejemplo.cl",
+			"delegacion": str(self.centro.pk),
+			"cargo": str(self.cargo.pk),
+			"rol": "funcionario",
+			"clave": "1234567890",
+			"clave_confirmacion": "1234567890",
+		})
+		self.assertEqual(debil.status_code, 200)
+		self.assertTrue(debil.context["form"].errors.get("clave"))
+		self.assertFalse(get_user_model().objects.filter(username="nuevo.func").exists())
+
+		distinta = self.client.post(reverse("institucional:cuentas"), {
+			"username": "nuevo.func",
+			"nombre": "Nuevo",
+			"apellido": "Funcionario",
+			"identificador": "F-NEW",
+			"delegacion": str(self.centro.pk),
+			"cargo": str(self.cargo.pk),
+			"rol": "funcionario",
+			"clave": "Serena-nueva-2026",
+			"clave_confirmacion": "Otra-clave-2026",
+		})
+		self.assertTrue(distinta.context["form"].errors.get("clave_confirmacion"))
+
+		for rol, username, identificador in (
+			("funcionario", "nuevo.func", "F-NEW"),
+			("delegado", "nuevo.del", "D-NEW"),
+			("consulta", "nuevo.con", "C-NEW"),
+			("administrador", "nuevo.adm", "A-NEW"),
+		):
+			respuesta = self.client.post(reverse("institucional:cuentas"), {
+				"username": username,
+				"nombre": "Nuevo",
+				"apellido": rol,
+				"identificador": identificador,
+				"correo": f"{username}@ejemplo.cl",
+				"delegacion": str(self.centro.pk),
+				"cargo": str(self.cargo.pk),
+				"rol": rol,
+				"clave": "Serena-nueva-2026",
+				"clave_confirmacion": "Serena-nueva-2026",
+			})
+			self.assertRedirects(respuesta, reverse("institucional:cuentas"))
+			creado = get_user_model().objects.get(username=username)
+			self.assertTrue(creado.check_password("Serena-nueva-2026"))
+			self.assertTrue(creado.is_staff)
+			self.assertFalse(creado.is_superuser)
+			self.assertEqual(creado.perfil_sgr.rol, rol)
+			self.assertEqual(creado.perfil_sgr.delegacion, self.centro)
+			self.assertEqual(creado.perfil_sgr.cargo, self.cargo)
+			validate_password("Serena-nueva-2026", creado)
+
+		self.client.force_login(get_user_model().objects.get(username="nuevo.func"))
+		self.assertEqual(self.client.get(reverse("institucional:panel")).status_code, 403)
+		nuevo_admin = get_user_model().objects.get(username="nuevo.adm")
+		self.assertTrue(nuevo_admin.has_perm("servicios.change_meta"))
+		self.client.force_login(nuevo_admin)
+		self.assertEqual(self.client.get(reverse("institucional:panel")).status_code, 200)
+		self.assertEqual(self.client.get("/admin/servicios/meta/").status_code, 200)
+
+	def test_cargar_datos_demo_crea_admin_demo(self):
+		call_command("cargar_datos_demo")
+		cuenta = get_user_model().objects.get(username="admin.demo")
+		self.assertFalse(cuenta.is_superuser)
+		self.assertTrue(cuenta.is_staff)
+		self.assertTrue(cuenta.check_password("Serena-demo-2026"))
+		self.assertEqual(cuenta.perfil_sgr.rol, "administrador")
+		self.assertEqual(cuenta.perfil_sgr.identificador, "DEMO-ADM")
+		validate_password("Serena-demo-2026", cuenta)
+		self.assertTrue(cuenta.has_perm("institucional.view_delegacion"))
+		self.assertTrue(cuenta.has_perm("servicios.change_meta"))
+		for username, rol in (
+			("funcionario.demo", "funcionario"),
+			("delegado.demo", "delegado"),
+			("consulta.demo", "consulta"),
+		):
+			perfil = get_user_model().objects.get(username=username).perfil_sgr
+			self.assertEqual(perfil.rol, rol)
+			self.assertFalse(get_user_model().objects.get(username=username).is_superuser)
+		self.client.force_login(cuenta)
+		self.assertEqual(self.client.get(reverse("institucional:cuentas")).status_code, 200)
+		self.client.force_login(get_user_model().objects.get(username="funcionario.demo"))
+		self.assertEqual(self.client.get(reverse("institucional:cuentas")).status_code, 403)

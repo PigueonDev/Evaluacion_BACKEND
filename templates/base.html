@@ -38,8 +38,9 @@
                         <svg class="icono"><use href="#i-user"/></svg>{{ user.get_short_name|default:user.username }}
                     </button>
                     <ul class="dropdown-menu dropdown-menu-end shadow">
-                        {% if not rol_sgr %}
+                        {% if es_administracion %}
                         <li><a class="dropdown-item" href="{% url 'institucional:panel' %}"><svg class="icono"><use href="#i-gear"/></svg>Panel de administración</a></li>
+                        <li><a class="dropdown-item" href="{% url 'institucional:cuentas' %}"><svg class="icono"><use href="#i-user"/></svg>Cuentas y permisos</a></li>
                         <li><a class="dropdown-item" href="{{ phpmyadmin_url }}" target="_blank" rel="noopener"><svg class="icono"><use href="#i-database"/></svg>Abrir phpMyAdmin</a></li>
                         <li><a class="dropdown-item" href="{% url 'admin:index' %}"><svg class="icono"><use href="#i-list"/></svg>Django Admin</a></li>
                         <li><hr class="dropdown-divider"></li>
@@ -85,7 +86,7 @@
                         <li class="nav-item"><a class="nav-link {% if pagina_activa == 'inicio' %}active{% endif %}" href="{% url 'institucional:inicio' %}">Inicio</a></li>
                         <li class="nav-item"><a class="nav-link {% if pagina_activa == 'autoridades' %}active{% endif %}" href="{% url 'institucional:autoridades' %}">Municipio</a></li>
                         <li class="nav-item"><a class="nav-link {% if pagina_activa == 'servicios' %}active{% endif %}" href="{% url 'servicios:catalogo' %}">Servicios ciudadanos</a></li>
-                        {% if user.is_staff and not rol_sgr %}
+                        {% if es_administracion %}
                         <li class="nav-item"><a class="nav-link {% if pagina_activa == 'dashboard' %}active{% endif %}" href="{% url 'servicios:dashboard' %}">Panel SGR</a></li>
                         {% endif %}
                         {% if user.is_staff and rol_sgr != 'delegado' and rol_sgr != 'consulta' %}
@@ -93,14 +94,15 @@
                         <li class="nav-item"><a class="nav-link {% if pagina_activa == 'casos' %}active{% endif %}" href="{% url 'servicios:casos' %}">Casos</a></li>
                         <li class="nav-item"><a class="nav-link {% if pagina_activa == 'agenda' %}active{% endif %}" href="{% url 'servicios:agenda' %}">Agenda</a></li>
                         {% endif %}
-                        {% if user.is_staff and rol_sgr == 'delegado' or user.is_staff and not rol_sgr %}
+                        {% if user.is_staff and rol_sgr == 'delegado' or es_administracion %}
                         <li class="nav-item"><a class="nav-link {% if pagina_activa == 'agenda' and request.resolver_match.url_name == 'resumen_agenda' %}active{% endif %}" href="{% url 'servicios:resumen_agenda' %}">Resumen</a></li>
                         {% endif %}
-                        {% if user.is_staff and rol_sgr == 'consulta' or user.is_staff and not rol_sgr %}
+                        {% if user.is_staff and rol_sgr == 'consulta' or es_administracion %}
                         <li class="nav-item"><a class="nav-link {% if pagina_activa == 'consulta' %}active{% endif %}" href="{% url 'servicios:consulta' %}">Consulta</a></li>
                         {% endif %}
-                        {% if user.is_staff and not rol_sgr %}
+                        {% if es_administracion %}
                         <li class="nav-item"><a class="nav-link {% if pagina_activa == 'panel' %}active{% endif %}" href="{% url 'institucional:panel' %}">Administración</a></li>
+                        <li class="nav-item"><a class="nav-link" href="{% url 'institucional:cuentas' %}">Cuentas</a></li>
                         {% endif %}
                     </ul>
                     {% if user.is_authenticated and user.is_staff %}
@@ -155,10 +157,11 @@
                         <li><a href="{% url 'institucional:inicio' %}">Presentación institucional</a></li>
                         <li><a href="{% url 'institucional:autoridades' %}">Alcaldía y concejo</a></li>
                         <li><a href="{% url 'servicios:catalogo' %}">Catálogo de servicios</a></li>
-                        {% if user.is_staff and not rol_sgr %}<li><a href="{% url 'servicios:dashboard' %}">Panel de gestión territorial</a></li>{% endif %}
+                        {% if es_administracion %}<li><a href="{% url 'servicios:dashboard' %}">Panel de gestión territorial</a></li>{% endif %}
                         {% if user.is_staff and rol_sgr == 'funcionario' %}<li><a href="{% url 'servicios:actividades' %}">Registro de actividades</a></li>{% endif %}
                         {% if user.is_staff and rol_sgr == 'delegado' %}<li><a href="{% url 'servicios:resumen_agenda' %}">Resumen de la delegación</a></li>{% endif %}
-                        {% if user.is_staff and rol_sgr == 'consulta' or user.is_staff and not rol_sgr %}<li><a href="{% url 'servicios:consulta' %}">Consulta operativa</a></li>{% endif %}
+                        {% if user.is_staff and rol_sgr == 'consulta' or es_administracion %}<li><a href="{% url 'servicios:consulta' %}">Consulta operativa</a></li>{% endif %}
+                        {% if es_administracion %}<li><a href="{% url 'institucional:cuentas' %}">Cuentas y permisos</a></li>{% endif %}
                         <li><a href="{% url 'institucional:acceso' %}">Acceso funcionarios</a></li>
                     </ul>
                 </div>
