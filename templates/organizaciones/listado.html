@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+
+{% block titulo %}Organizaciones comunitarias · SGR{% endblock %}
+
+{% block contenido %}
+{% include "includes/cabecera.html" with antetitulo="Mantenedor" titulo="Organizaciones comunitarias" bajada="Juntas de vecinos y organizaciones funcionales importadas desde la base municipal. Se verifican antes de usarse." %}
+
+<section class="container py-5">
+    <div class="row g-3 mb-4">
+        {% for etiqueta, total, codigo in resumen %}
+        <div class="col-sm-4"><a class="text-decoration-none" href="?estado={{ codigo }}"><div class="kpi {% if codigo == 'verificada' %}kpi-verde{% elif codigo == 'sin_verificar' %}kpi-ambar{% endif %}"><div><span class="kpi-etiqueta">{{ etiqueta }}</span><strong>{{ total }}</strong></div></div></a></div>
+        {% endfor %}
+    </div>
+    <form class="row g-2 align-items-end mb-3" method="get" role="search">
+        <div class="col-md-4"><label class="form-label small fw-semibold" for="q">Buscar</label><input class="form-control" id="q" name="q" type="search" value="{{ busqueda }}" placeholder="Nombre, domicilio o N° de registro"></div>
+        <div class="col-md-2"><label class="form-label small fw-semibold" for="estado">Estado</label><select class="form-select" id="estado" name="estado"><option value="">Todos</option>{% for codigo, etiqueta in estados %}<option value="{{ codigo }}" {% if codigo == estado_activo %}selected{% endif %}>{{ etiqueta }}</option>{% endfor %}</select></div>
+        <div class="col-md-2"><label class="form-label small fw-semibold" for="territorio">Territorio</label><select class="form-select" id="territorio" name="territorio"><option value="">Todos</option>{% for codigo, etiqueta in territorios %}<option value="{{ codigo }}" {% if codigo == territorio_activo %}selected{% endif %}>{{ etiqueta }}</option>{% endfor %}</select></div>
+        <div class="col-md-2"><label class="form-label small fw-semibold" for="tipo">Tipo</label><select class="form-select" id="tipo" name="tipo"><option value="">Todos</option>{% for codigo, etiqueta in tipos %}<option value="{{ codigo }}" {% if codigo == tipo_activo %}selected{% endif %}>{{ etiqueta }}</option>{% endfor %}</select></div>
+        <div class="col-md-2 d-flex gap-2"><button class="btn btn-primary flex-grow-1" type="submit">Filtrar</button><a class="btn btn-outline-secondary" href="{% url 'organizaciones:listado' %}">Limpiar</a></div>
+    </form>
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+        <p class="mb-0 text-secondary"><strong class="text-dark">{{ total }}</strong> organizaciones encontradas.</p>
+        {% if perms.organizaciones.add_organizacioncomunitaria %}<a class="btn btn-success" href="{% url 'organizaciones:crear' %}"><svg class="icono"><use href="#i-plus"/></svg>Nueva organización</a>{% endif %}
+    </div>
+    <div class="panel-tabla">
+        <div class="table-responsive">
+            <table class="table tabla-municipal align-middle mb-0">
+                <thead><tr><th>Nombre</th><th>Tipo</th><th>Territorio</th><th>Socios</th><th>N° P.J.</th><th>Estado</th><th class="text-end">Acciones</th></tr></thead>
+                <tbody>
+                {% for org in pagina %}
+                <tr>
+                    <td><a href="{% url 'organizaciones:detalle' org.pk %}">{{ org.nombre }}</a><div class="small text-secondary">{{ org.domicilio|default:"Sin domicilio registrado" }}</div></td>
+                    <td>{{ org.get_tipo_display }}</td>
+                    <td>{{ org.get_territorio_display }}</td>
+                    <td>{{ org.socios_activos|default_if_none:"—" }}</td>
+                    <td>{{ org.numero_registro_pj|default_if_none:"—" }}</td>
+                    <td><span class="badge {% if org.estado == 'verificada' %}text-bg-success{% elif org.estado == 'inactiva' %}text-bg-secondary{% else %}text-bg-warning{% endif %}">{{ org.get_estado_display }}</span></td>
+                    <td class="text-end text-nowrap">
+                        <a class="btn btn-outline-primary btn-sm" href="{% url 'organizaciones:detalle' org.pk %}">Ver</a>
+                        {% if perms.organizaciones.change_organizacioncomunitaria %}<a class="btn btn-outline-secondary btn-sm" href="{% url 'organizaciones:editar' org.pk %}">Editar</a>{% endif %}
+                        {% if perms.organizaciones.delete_organizacioncomunitaria %}<a class="btn btn-outline-danger btn-sm" href="{% url 'organizaciones:eliminar' org.pk %}">Eliminar</a>{% endif %}
+                    </td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="7" class="text-center text-secondary py-4">No hay organizaciones con esos filtros. {% if not busqueda and not estado_activo %}Importa la base con <code>python manage.py importar_jjvv</code>.{% endif %}</td></tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% if pagina.paginator.num_pages > 1 %}
+    <nav class="mt-3" aria-label="Paginación"><ul class="pagination flex-wrap">
+        {% if pagina.has_previous %}<li class="page-item"><a class="page-link" href="?{{ parametros }}&pagina={{ pagina.previous_page_number }}">Anterior</a></li>{% endif %}
+        <li class="page-item disabled"><span class="page-link">Página {{ pagina.number }} de {{ pagina.paginator.num_pages }}</span></li>
+        {% if pagina.has_next %}<li class="page-item"><a class="page-link" href="?{{ parametros }}&pagina={{ pagina.next_page_number }}">Siguiente</a></li>{% endif %}
+    </ul></nav>
+    {% endif %}
+</section>
+{% endblock %}

@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+
+{% block titulo %}{{ organizacion.nombre }} · SGR{% endblock %}
+
+{% block contenido %}
+{% url 'organizaciones:listado' as url_listado %}
+{% include "includes/cabecera.html" with antetitulo=organizacion.get_tipo_display titulo=organizacion.nombre seccion="Organizaciones" seccion_url=url_listado %}
+
+<section class="container py-5">
+    <div class="row g-4">
+        <div class="col-lg-8">
+            <article class="tarjeta-info">
+                <dl class="ficha-datos">
+                    <div><dt>Estado</dt><dd><span class="badge {% if organizacion.estado == 'verificada' %}text-bg-success{% elif organizacion.estado == 'inactiva' %}text-bg-secondary{% else %}text-bg-warning{% endif %}">{{ organizacion.get_estado_display }}</span>{% if organizacion.verificada_por %} · por {{ organizacion.verificada_por.get_full_name|default:organizacion.verificada_por.username }} el {{ organizacion.verificada_en|date:"d/m/Y H:i" }}{% endif %}</dd></div>
+                    <div><dt>Territorio</dt><dd>{{ organizacion.get_territorio_display }}</dd></div>
+                    <div><dt>Domicilio legal</dt><dd>{{ organizacion.domicilio|default:"Sin domicilio registrado" }}</dd></div>
+                    <div><dt>Socios activos</dt><dd>{{ organizacion.socios_activos|default_if_none:"Sin dato" }}</dd></div>
+                    <div><dt>Fecha de constitución</dt><dd>{{ organizacion.fecha_constitucion|date:"d/m/Y"|default:"Sin dato" }}</dd></div>
+                    <div><dt>N° registro P.J.</dt><dd>{{ organizacion.numero_registro_pj|default_if_none:"Sin dato" }}</dd></div>
+                    <div><dt>Inscripción en el registro</dt><dd>{{ organizacion.fecha_inscripcion|date:"d/m/Y"|default:"Sin dato" }}</dd></div>
+                    <div><dt>N° registro de directiva</dt><dd>{{ organizacion.registro_directiva|default_if_none:"Sin dato" }}</dd></div>
+                    {% if organizacion.fila_origen %}<div><dt>Origen</dt><dd>{{ organizacion.archivo_origen }}, fila {{ organizacion.fila_origen }}</dd></div>{% endif %}
+                </dl>
+                <div class="d-flex flex-wrap gap-2">
+                    <a class="btn btn-outline-secondary" href="{% url 'organizaciones:listado' %}">Volver al listado</a>
+                    {% if perms.organizaciones.change_organizacioncomunitaria %}<a class="btn btn-primary" href="{% url 'organizaciones:editar' organizacion.pk %}">Editar</a>{% endif %}
+                    {% if perms.organizaciones.delete_organizacioncomunitaria %}<a class="btn btn-outline-danger" href="{% url 'organizaciones:eliminar' organizacion.pk %}">Eliminar</a>{% endif %}
+                </div>
+            </article>
+        </div>
+        {% if perms.organizaciones.verificar_organizacion %}
+        <div class="col-lg-4">
+            <article class="tarjeta-info">
+                <h2 class="h5">Verificación</h2>
+                <p class="small text-secondary">Confirma los datos con la directiva o el registro municipal y deja constancia de quién verificó.</p>
+                <form method="post" action="{% url 'organizaciones:verificar' organizacion.pk %}" class="d-grid gap-2">
+                    {% csrf_token %}
+                    {% for codigo, etiqueta in estados %}{% if codigo != organizacion.estado %}
+                    <button class="btn {% if codigo == 'verificada' %}btn-success{% elif codigo == 'inactiva' %}btn-outline-secondary{% else %}btn-outline-warning{% endif %}" name="estado" value="{{ codigo }}" type="submit">Marcar como {{ etiqueta|lower }}</button>
+                    {% endif %}{% endfor %}
+                </form>
+            </article>
+        </div>
+        {% endif %}
+    </div>
+</section>
+{% endblock %}

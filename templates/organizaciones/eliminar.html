@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+
+{% block titulo %}Eliminar organización · SGR{% endblock %}
+
+{% block contenido %}
+{% url 'organizaciones:listado' as url_listado %}
+{% include "includes/cabecera.html" with antetitulo="Confirmar eliminación" titulo=organizacion.nombre seccion="Organizaciones" seccion_url=url_listado %}
+
+<section class="container py-5">
+    <article class="tarjeta-info">
+        <p>¿Eliminar definitivamente <strong>{{ organizacion.nombre }}</strong>? Esta acción no se puede deshacer. Si la organización dejó de funcionar, puedes marcarla como <em>inactiva</em> en lugar de eliminarla.</p>
+        <form method="post" class="d-flex gap-2">
+            {% csrf_token %}
+            <button class="btn btn-danger" type="submit">Sí, eliminar</button>
+            <a class="btn btn-outline-secondary" href="{% url 'organizaciones:detalle' organizacion.pk %}">Cancelar</a>
+        </form>
+    </article>
+</section>
+{% endblock %}
