@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+
+{% block titulo %}{{ titulo }} · SGR{% endblock %}
+
+{% block contenido %}
+{% url 'institucional:usuarios' as url_usuarios %}
+{% include "includes/cabecera.html" with antetitulo="Mantenedor de usuarios" titulo=titulo seccion="Usuarios" seccion_url=url_usuarios %}
+
+<section class="container py-5">
+    <div class="row justify-content-center">
+        <div class="col-lg-9">
+            <article class="tarjeta-info">
+                {% if not hay_parametros %}<div class="alert alert-warning">Faltan delegaciones o cargos. Ejecuta <code>python manage.py cargar_datos_demo</code>.</div>{% endif %}
+                <form method="post" novalidate>
+                    {% csrf_token %}
+                    {% if form.non_field_errors %}<div class="alert alert-danger">{% for error in form.non_field_errors %}{{ error }}{% endfor %}</div>{% endif %}
+                    <h2 class="h6 text-uppercase text-secondary">Cuenta</h2>
+                    <div class="row g-3 mb-4">
+                        {% for campo in form %}{% if campo.name in "username,first_name,last_name,email,grupo" %}
+                        <div class="col-md-6"><label class="form-label fw-semibold" for="{{ campo.id_for_label }}">{{ campo.label }}</label>{{ campo }}{% if campo.help_text %}<div class="form-text">{{ campo.help_text }}</div>{% endif %}{% for error in campo.errors %}<div class="invalid-feedback d-block">{{ error }}</div>{% endfor %}</div>
+                        {% endif %}{% endfor %}
+                        <div class="col-md-6 d-flex align-items-end"><div class="form-check">{{ form.is_active }}<label class="form-check-label" for="{{ form.is_active.id_for_label }}">{{ form.is_active.label }}</label></div></div>
+                    </div>
+                    <h2 class="h6 text-uppercase text-secondary">Ficha de funcionario <span class="text-lowercase fw-normal">(obligatoria para Supervisor y Administrativo)</span></h2>
+                    <div class="row g-3 mb-4">
+                        {% for campo in form %}{% if campo.name in "identificador,delegacion,cargo" %}
+                        <div class="col-md-4"><label class="form-label fw-semibold" for="{{ campo.id_for_label }}">{{ campo.label }}</label>{{ campo }}{% for error in campo.errors %}<div class="invalid-feedback d-block">{{ error }}</div>{% endfor %}</div>
+                        {% endif %}{% endfor %}
+                    </div>
+                    <h2 class="h6 text-uppercase text-secondary">Contraseña</h2>
+                    <div class="row g-3 mb-4">
+                        {% for campo in form %}{% if campo.name == "clave" or campo.name == "clave_confirmacion" %}
+                        <div class="col-md-6"><label class="form-label fw-semibold" for="{{ campo.id_for_label }}">{{ campo.label }}</label>{{ campo }}{% if campo.help_text %}<div class="form-text">{{ campo.help_text }}</div>{% endif %}{% for error in campo.errors %}<div class="invalid-feedback d-block">{{ error }}</div>{% endfor %}</div>
+                        {% endif %}{% endfor %}
+                    </div>
+                    <div class="d-flex gap-2"><button class="btn btn-primary" type="submit">Guardar</button><a class="btn btn-outline-secondary" href="{% url 'institucional:usuarios' %}">Cancelar</a></div>
+                </form>
+            </article>
+        </div>
+    </div>
+</section>
+{% endblock %}

@@ -12,7 +12,7 @@
                     <div class="text-center mb-4">
                         <img src="{% static 'img/escudo_la_serena.png' %}" alt="Escudo de La Serena" class="logo-acceso">
                         <h1 class="h4 mt-3 mb-1">Acceso funcionarios</h1>
-                        <p class="text-secondary small mb-0">Ingresa con tu cuenta de personal municipal para administrar delegaciones, servicios y demás recursos en phpMyAdmin.</p>
+                        <p class="text-secondary small mb-0">Ingresa con tu cuenta del Sistema de Gestión de Resultados. Verás el panel de tu perfil: Administrador, Supervisor o Administrativo.</p>
                     </div>
 
                     {% if bloqueado %}
@@ -41,7 +41,8 @@
                         <button class="btn btn-primary btn-lg w-100" type="submit">Iniciar sesión</button>
                     </form>
 
-                    <p class="small text-secondary text-center mt-4 mb-0">Solo cuentas con permiso de personal (<em>staff</em>). Las cuentas se crean con <code>python manage.py createsuperuser</code>.</p>
+                    <p class="text-center mt-3 mb-0"><a href="{% url 'institucional:recuperar' %}">¿Olvidaste tu contraseña?</a></p>
+                    <p class="small text-secondary text-center mt-3 mb-0">Las cuentas las crea coordinación (perfil Administrador) desde el mantenedor de usuarios.</p>
                 </div>
             </div>
         </div>

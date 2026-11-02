@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+
+{% block titulo %}Eliminar usuario · SGR{% endblock %}
+
+{% block contenido %}
+{% url 'institucional:usuarios' as url_usuarios %}
+{% include "includes/cabecera.html" with antetitulo="Confirmar eliminación" titulo=cuenta.username seccion="Usuarios" seccion_url=url_usuarios %}
+<section class="container py-5">
+    <article class="tarjeta-info">
+        <p>¿Eliminar la cuenta <strong>{{ cuenta.username }}</strong> ({{ cuenta.get_full_name|default:"sin nombre" }})? Si tiene registros asociados, se desactivará en lugar de borrarse para conservar el historial.</p>
+        <form method="post" class="d-flex gap-2">{% csrf_token %}<button class="btn btn-danger" type="submit">Sí, eliminar</button><a class="btn btn-outline-secondary" href="{% url 'institucional:usuarios' %}">Cancelar</a></form>
+    </article>
+</section>
+{% endblock %}

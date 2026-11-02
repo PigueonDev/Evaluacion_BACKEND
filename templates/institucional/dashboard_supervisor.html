@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+
+{% block titulo %}Panel del Supervisor · SGR{% endblock %}
+
+{% block contenido %}
+{% include "includes/cabecera.html" with antetitulo="Perfil Supervisor · Delegado" titulo="Panel del Supervisor" bajada="Información operacional de tu delegación: aprobaciones, compromisos, metas y organizaciones por verificar." %}
+
+<section class="container py-5">
+    <p class="periodo-activo mb-4"><svg class="icono"><use href="#i-calendar"/></svg><span>{% if perfil %}Delegación <strong>{{ perfil.delegacion.nombre }}</strong> · {% endif %}Semana laboral {{ semana_inicio|date:"d/m" }} al {{ semana_fin|date:"d/m/Y" }}</span></p>
+    <div class="row g-3 mb-5">
+        <div class="col-sm-6 col-lg-3"><div class="kpi kpi-ambar"><span class="kpi-icono"><svg><use href="#i-clock"/></svg></span><div><span class="kpi-etiqueta">Pendientes de aprobación</span><strong>{{ total_pendientes }}</strong></div></div></div>
+        <div class="col-sm-6 col-lg-3"><div class="kpi"><span class="kpi-icono"><svg><use href="#i-check"/></svg></span><div><span class="kpi-etiqueta">Listas para aprobar</span><strong>{{ listas_para_aprobar }}</strong></div></div></div>
+        <div class="col-sm-6 col-lg-3"><div class="kpi kpi-verde"><span class="kpi-icono"><svg><use href="#i-check"/></svg></span><div><span class="kpi-etiqueta">Aprobadas esta semana</span><strong>{{ aprobadas_semana }}</strong></div></div></div>
+        <div class="col-sm-6 col-lg-3"><a class="text-decoration-none" href="{% url 'organizaciones:listado' %}?estado=sin_verificar"><div class="kpi"><span class="kpi-icono"><svg><use href="#i-building"/></svg></span><div><span class="kpi-etiqueta">Organizaciones por verificar</span><strong>{{ organizaciones_por_verificar }}</strong></div></div></a></div>
+    </div>
+    <div class="panel-tabla mb-4">
+        <div class="panel-tabla-encabezado d-flex justify-content-between align-items-center"><h2 class="h5 mb-0">Actividades por aprobar</h2><a class="btn btn-primary btn-sm" href="{% url 'servicios:aprobaciones' %}">Ir a aprobaciones</a></div>
+        <div class="table-responsive"><table class="table tabla-municipal align-middle mb-0">
+            <thead><tr><th>Fecha</th><th>Funcionario</th><th>Actividad</th><th>Tareas</th></tr></thead>
+            <tbody>{% for actividad in pendientes %}<tr><td>{{ actividad.fecha|date:"d/m" }}</td><td>{{ actividad.funcionario.nombre_completo }}</td><td>{{ actividad.descripcion|truncatewords:8 }}</td><td>{{ actividad.tareas_realizadas }}/{{ actividad.total_tareas }}</td></tr>{% empty %}<tr><td colspan="4" class="text-center text-secondary py-4">No hay actividades pendientes esta semana.</td></tr>{% endfor %}</tbody>
+        </table></div>
+    </div>
+    <div class="row g-4">
+        <div class="col-lg-8">
+            <div class="panel-tabla h-100">
+                <div class="panel-tabla-encabezado"><h2 class="h5 mb-0">Metas de la delegación (tope 120 % por ítem)</h2></div>
+                <div class="table-responsive"><table class="table tabla-municipal align-middle mb-0">
+                    <thead><tr><th>Ítem</th><th>Funcionario</th><th>Avance</th><th>Cumplimiento</th></tr></thead>
+                    <tbody>{% for fila in metas %}<tr><td>{{ fila.meta.item.codigo }}</td><td>{{ fila.meta.funcionario.nombre_completo|default:fila.meta.cargo }}</td><td>{{ fila.meta.avance_aprobado }} / {{ fila.meta.objetivo|floatformat:0 }}</td><td><span class="semaforo semaforo-{{ fila.semaforo }}"></span> {{ fila.cumplimiento|floatformat:1 }} %</td></tr>{% empty %}<tr><td colspan="4" class="text-center text-secondary py-4">Sin metas en el período abierto.</td></tr>{% endfor %}</tbody>
+                </table></div>
+            </div>
+        </div>
+        <div class="col-lg-4">
+            <article class="tarjeta-info h-100">
+                <h2 class="h5">Agenda</h2>
+                <p class="mb-2">Compromisos vencidos: <strong>{{ compromisos_vencidos }}</strong></p>
+                <div class="d-grid gap-2"><a class="btn btn-outline-dark" href="{% url 'servicios:resumen_agenda' %}">Resumen de la agenda</a><a class="btn btn-outline-dark" href="{% url 'servicios:consulta' %}">Consulta de actividades</a></div>
+            </article>
+        </div>
+    </div>
+</section>
+{% endblock %}

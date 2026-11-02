@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+
+{% block titulo %}Usuarios · SGR{% endblock %}
+
+{% block contenido %}
+{% url 'institucional:panel' as url_panel %}
+{% include "includes/cabecera.html" with antetitulo="Mantenedor" titulo="Usuarios" bajada="Cuentas del sistema y su perfil (grupo de Django)." seccion="Panel" seccion_url=url_panel %}
+
+<section class="container py-5">
+    <form class="row g-2 align-items-end mb-3" method="get" role="search">
+        <div class="col-md-5"><label class="form-label small fw-semibold" for="q">Buscar</label><input class="form-control" id="q" name="q" type="search" value="{{ busqueda }}" placeholder="Usuario, nombre o correo"></div>
+        <div class="col-md-3"><label class="form-label small fw-semibold" for="grupo">Grupo</label><select class="form-select" id="grupo" name="grupo"><option value="">Todos</option>{% for nombre in grupos %}<option value="{{ nombre }}" {% if nombre == grupo_activo %}selected{% endif %}>{{ nombre }}</option>{% endfor %}</select></div>
+        <div class="col-md-2"><button class="btn btn-primary w-100" type="submit">Buscar</button></div>
+        <div class="col-md-2 text-md-end"><a class="btn btn-success w-100" href="{% url 'institucional:usuario_crear' %}">Crear usuario</a></div>
+    </form>
+    <div class="panel-tabla">
+        <div class="table-responsive"><table class="table tabla-municipal align-middle mb-0">
+            <thead><tr><th>Usuario</th><th>Nombre</th><th>Correo</th><th>Grupo</th><th>Delegación</th><th>Estado</th><th class="text-end">Acciones</th></tr></thead>
+            <tbody>
+            {% for cuenta in pagina %}
+            <tr>
+                <td><strong>{{ cuenta.username }}</strong></td>
+                <td>{{ cuenta.get_full_name|default:"—" }}</td>
+                <td class="small">{{ cuenta.email|default:"—" }}</td>
+                <td>{% for grupo in cuenta.groups.all %}<span class="badge text-bg-primary">{{ grupo.name }}</span> {% empty %}{% if cuenta.is_superuser %}<span class="badge text-bg-dark">Superusuario</span>{% else %}<span class="text-secondary">Sin grupo</span>{% endif %}{% endfor %}</td>
+                <td>{{ cuenta.perfil_sgr.delegacion.nombre|default:"—" }}</td>
+                <td>{% if cuenta.is_active %}<span class="badge text-bg-success">Activa</span>{% else %}<span class="badge text-bg-secondary">Inactiva</span>{% endif %}</td>
+                <td class="text-end text-nowrap"><a class="btn btn-outline-secondary btn-sm" href="{% url 'institucional:usuario_editar' cuenta.pk %}">Editar</a>{% if cuenta != user %} <a class="btn btn-outline-danger btn-sm" href="{% url 'institucional:usuario_eliminar' cuenta.pk %}">Eliminar</a>{% endif %}</td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="7" class="text-center text-secondary py-4">No hay cuentas con esos filtros.</td></tr>
+            {% endfor %}
+            </tbody>
+        </table></div>
+    </div>
+    {% if pagina.paginator.num_pages > 1 %}
+    <nav class="mt-3"><ul class="pagination">
+        {% if pagina.has_previous %}<li class="page-item"><a class="page-link" href="?{{ parametros }}&pagina={{ pagina.previous_page_number }}">Anterior</a></li>{% endif %}
+        <li class="page-item disabled"><span class="page-link">Página {{ pagina.number }} de {{ pagina.paginator.num_pages }}</span></li>
+        {% if pagina.has_next %}<li class="page-item"><a class="page-link" href="?{{ parametros }}&pagina={{ pagina.next_page_number }}">Siguiente</a></li>{% endif %}
+    </ul></nav>
+    {% endif %}
+</section>
+{% endblock %}

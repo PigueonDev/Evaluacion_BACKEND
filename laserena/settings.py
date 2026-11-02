@@ -17,7 +17,6 @@ if not DEBUG and SECRET_KEY in ("", "dev-only-change-me", "cambia-esta-clave"):
 ALLOWED_HOSTS = [host.strip() for host in os.getenv("ALLOWED_HOSTS", "127.0.0.1,localhost,testserver").split(",") if host.strip()]
 
 INSTALLED_APPS = [
-    "django.contrib.admin",
     "django.contrib.auth",
     "django.contrib.contenttypes",
     "django.contrib.sessions",
@@ -25,6 +24,7 @@ INSTALLED_APPS = [
     "django.contrib.staticfiles",
     "institucional",
     "servicios",
+    "organizaciones",
 ]
 
 MIDDLEWARE = [
@@ -97,13 +97,25 @@ MEDIA_ROOT = BASE_DIR / "media"
 # Con Nginx delante, Django solo autoriza y Nginx entrega el archivo (X-Accel-Redirect).
 MEDIA_X_ACCEL = os.getenv("MEDIA_X_ACCEL", str(not DEBUG)).lower() == "true"
 LOGIN_URL = "institucional:acceso"
-LOGIN_REDIRECT_URL = "institucional:panel"
+LOGIN_REDIRECT_URL = "institucional:mi_panel"
 LOGOUT_REDIRECT_URL = "institucional:acceso"
 
 # phpMyAdmin se publica en el mismo dominio (ver deploy/nginx.conf) para que
 # Nginx pueda validar la sesión de Django antes de permitir el acceso.
 PHPMYADMIN_URL = os.getenv("PHPMYADMIN_URL", "/phpmyadmin/")
 PHPMYADMIN_DB = os.getenv("DB_NAME", "sgr_laserena")
+
+# Correo para la recuperación de contraseña. Por defecto los mensajes se guardan
+# como archivos en correos_enviados/ (demo); en producción usar el backend SMTP.
+EMAIL_BACKEND = os.getenv("EMAIL_BACKEND", "django.core.mail.backends.filebased.EmailBackend")
+EMAIL_FILE_PATH = os.getenv("EMAIL_FILE_PATH", str(BASE_DIR / "correos_enviados"))
+EMAIL_HOST = os.getenv("EMAIL_HOST", "smtp.gmail.com")
+EMAIL_PORT = int(os.getenv("EMAIL_PORT", "587"))
+EMAIL_HOST_USER = os.getenv("EMAIL_HOST_USER", "")
+EMAIL_HOST_PASSWORD = os.getenv("EMAIL_HOST_PASSWORD", "")
+EMAIL_USE_TLS = os.getenv("EMAIL_USE_TLS", "True").lower() == "true"
+DEFAULT_FROM_EMAIL = os.getenv("DEFAULT_FROM_EMAIL", "SGR La Serena <no-responder@laserena.cl>")
+PASSWORD_RESET_TIMEOUT = int(os.getenv("PASSWORD_RESET_TIMEOUT", str(60 * 60)))
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 

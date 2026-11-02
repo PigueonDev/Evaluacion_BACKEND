@@ -32,19 +32,19 @@
                     <a href="#x" aria-label="X"><svg class="icono"><use href="#i-x"/></svg></a>
                     <a href="#tiktok" aria-label="TikTok"><svg class="icono"><use href="#i-tiktok"/></svg></a>
                 </div>
-                {% if user.is_authenticated and user.is_staff %}
+                {% if es_personal %}
                 <div class="dropdown menu-sesion">
                     <button class="boton-acceso dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Menú de {{ user.get_short_name|default:user.username }}">
-                        <svg class="icono"><use href="#i-user"/></svg>{{ user.get_short_name|default:user.username }}
+                        <svg class="icono"><use href="#i-user"/></svg>{{ user.get_short_name|default:user.username }} · {{ grupo_sgr }}
                     </button>
                     <ul class="dropdown-menu dropdown-menu-end shadow">
+                        <li><a class="dropdown-item" href="{% url 'institucional:mi_panel' %}"><svg class="icono"><use href="#i-chart"/></svg>Mi panel</a></li>
                         {% if es_administracion %}
-                        <li><a class="dropdown-item" href="{% url 'institucional:panel' %}"><svg class="icono"><use href="#i-gear"/></svg>Panel de administración</a></li>
-                        <li><a class="dropdown-item" href="{% url 'institucional:cuentas' %}"><svg class="icono"><use href="#i-user"/></svg>Cuentas y permisos</a></li>
+                        <li><a class="dropdown-item" href="{% url 'institucional:usuarios' %}"><svg class="icono"><use href="#i-user"/></svg>Usuarios</a></li>
+                        <li><a class="dropdown-item" href="{% url 'institucional:grupos' %}"><svg class="icono"><use href="#i-users"/></svg>Grupos y permisos</a></li>
                         <li><a class="dropdown-item" href="{{ phpmyadmin_url }}" target="_blank" rel="noopener"><svg class="icono"><use href="#i-database"/></svg>Abrir phpMyAdmin</a></li>
-                        <li><a class="dropdown-item" href="{% url 'admin:index' %}"><svg class="icono"><use href="#i-list"/></svg>Django Admin</a></li>
-                        <li><hr class="dropdown-divider"></li>
                         {% endif %}
+                        <li><hr class="dropdown-divider"></li>
                         <li>
                             <form method="post" action="{% url 'institucional:salir' %}">
                                 {% csrf_token %}
@@ -86,26 +86,29 @@
                         <li class="nav-item"><a class="nav-link {% if pagina_activa == 'inicio' %}active{% endif %}" href="{% url 'institucional:inicio' %}">Inicio</a></li>
                         <li class="nav-item"><a class="nav-link {% if pagina_activa == 'autoridades' %}active{% endif %}" href="{% url 'institucional:autoridades' %}">Municipio</a></li>
                         <li class="nav-item"><a class="nav-link {% if pagina_activa == 'servicios' %}active{% endif %}" href="{% url 'servicios:catalogo' %}">Servicios ciudadanos</a></li>
-                        {% if es_administracion %}
-                        <li class="nav-item"><a class="nav-link {% if pagina_activa == 'dashboard' %}active{% endif %}" href="{% url 'servicios:dashboard' %}">Panel SGR</a></li>
+                        {% if es_personal %}
+                        <li class="nav-item"><a class="nav-link {% if pagina_activa == 'mi_panel' or pagina_activa == 'panel' %}active{% endif %}" href="{% url 'institucional:mi_panel' %}">Mi panel</a></li>
                         {% endif %}
-                        {% if user.is_staff and rol_sgr != 'delegado' and rol_sgr != 'consulta' %}
+                        {% if es_administrativo or es_administracion %}
                         <li class="nav-item"><a class="nav-link {% if pagina_activa == 'actividades' %}active{% endif %}" href="{% url 'servicios:actividades' %}">Actividades</a></li>
+                        {% endif %}
+                        {% if es_administrativo %}
                         <li class="nav-item"><a class="nav-link {% if pagina_activa == 'casos' %}active{% endif %}" href="{% url 'servicios:casos' %}">Casos</a></li>
                         <li class="nav-item"><a class="nav-link {% if pagina_activa == 'agenda' %}active{% endif %}" href="{% url 'servicios:agenda' %}">Agenda</a></li>
                         {% endif %}
-                        {% if user.is_staff and rol_sgr == 'delegado' or es_administracion %}
-                        <li class="nav-item"><a class="nav-link {% if pagina_activa == 'agenda' and request.resolver_match.url_name == 'resumen_agenda' %}active{% endif %}" href="{% url 'servicios:resumen_agenda' %}">Resumen</a></li>
-                        {% endif %}
-                        {% if user.is_staff and rol_sgr == 'consulta' or es_administracion %}
+                        {% if es_supervisor or es_administracion %}
+                        <li class="nav-item"><a class="nav-link {% if pagina_activa == 'aprobaciones' %}active{% endif %}" href="{% url 'servicios:aprobaciones' %}">Aprobaciones</a></li>
                         <li class="nav-item"><a class="nav-link {% if pagina_activa == 'consulta' %}active{% endif %}" href="{% url 'servicios:consulta' %}">Consulta</a></li>
                         {% endif %}
+                        {% if es_personal %}
+                        <li class="nav-item"><a class="nav-link {% if pagina_activa == 'organizaciones' %}active{% endif %}" href="{% url 'organizaciones:listado' %}">Organizaciones</a></li>
+                        {% endif %}
                         {% if es_administracion %}
-                        <li class="nav-item"><a class="nav-link {% if pagina_activa == 'panel' %}active{% endif %}" href="{% url 'institucional:panel' %}">Administración</a></li>
-                        <li class="nav-item"><a class="nav-link" href="{% url 'institucional:cuentas' %}">Cuentas</a></li>
+                        <li class="nav-item"><a class="nav-link {% if pagina_activa == 'usuarios' %}active{% endif %}" href="{% url 'institucional:usuarios' %}">Usuarios</a></li>
+                        <li class="nav-item"><a class="nav-link {% if pagina_activa == 'grupos' %}active{% endif %}" href="{% url 'institucional:grupos' %}">Grupos</a></li>
                         {% endif %}
                     </ul>
-                    {% if user.is_authenticated and user.is_staff %}
+                    {% if es_personal %}
                     <ul class="navbar-nav ms-lg-auto">
                         <li class="nav-item">
                             <form method="post" action="{% url 'institucional:salir' %}">
@@ -157,11 +160,7 @@
                         <li><a href="{% url 'institucional:inicio' %}">Presentación institucional</a></li>
                         <li><a href="{% url 'institucional:autoridades' %}">Alcaldía y concejo</a></li>
                         <li><a href="{% url 'servicios:catalogo' %}">Catálogo de servicios</a></li>
-                        {% if es_administracion %}<li><a href="{% url 'servicios:dashboard' %}">Panel de gestión territorial</a></li>{% endif %}
-                        {% if user.is_staff and rol_sgr == 'funcionario' %}<li><a href="{% url 'servicios:actividades' %}">Registro de actividades</a></li>{% endif %}
-                        {% if user.is_staff and rol_sgr == 'delegado' %}<li><a href="{% url 'servicios:resumen_agenda' %}">Resumen de la delegación</a></li>{% endif %}
-                        {% if user.is_staff and rol_sgr == 'consulta' or es_administracion %}<li><a href="{% url 'servicios:consulta' %}">Consulta operativa</a></li>{% endif %}
-                        {% if es_administracion %}<li><a href="{% url 'institucional:cuentas' %}">Cuentas y permisos</a></li>{% endif %}
+                        {% if es_personal %}<li><a href="{% url 'institucional:mi_panel' %}">Mi panel</a></li>{% endif %}
                         <li><a href="{% url 'institucional:acceso' %}">Acceso funcionarios</a></li>
                     </ul>
                 </div>

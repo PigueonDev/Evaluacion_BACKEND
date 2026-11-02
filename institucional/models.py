@@ -46,19 +46,12 @@ class Cargo(models.Model):
 
 
 class Funcionario(models.Model):
-	ROLES = [
-		("funcionario", "Funcionario"),
-		("delegado", "Delegado o jefatura"),
-		("consulta", "Usuario de consulta"),
-		("administrador", "Administrador"),
-	]
 	usuario = models.OneToOneField("auth.User", on_delete=models.SET_NULL, null=True, blank=True, related_name="perfil_sgr")
 	identificador = models.CharField(max_length=30, unique=True)
 	nombre_completo = models.CharField(max_length=160)
 	correo = models.EmailField(blank=True)
 	delegacion = models.ForeignKey(Delegacion, on_delete=models.PROTECT, related_name="funcionarios")
 	cargo = models.ForeignKey(Cargo, on_delete=models.PROTECT, related_name="funcionarios")
-	rol = models.CharField(max_length=20, choices=ROLES, default="funcionario")
 	activo = models.BooleanField(default=True)
 
 	class Meta:
@@ -66,6 +59,12 @@ class Funcionario(models.Model):
 
 	def __str__(self):
 		return f"{self.nombre_completo} ({self.identificador})"
+
+	@property
+	def grupo(self):
+		from laserena.permisos import grupo_usuario
+
+		return grupo_usuario(self.usuario) if self.usuario_id else None
 
 
 class Autoridad(models.Model):

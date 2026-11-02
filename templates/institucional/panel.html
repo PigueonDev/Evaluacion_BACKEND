@@ -1,67 +1,52 @@
 {% extends "base.html" %}
 
-{% block titulo %}Administración · Municipalidad de La Serena{% endblock %}
+{% block titulo %}Panel del Administrador · SGR{% endblock %}
 
 {% block contenido %}
-{% include "includes/cabecera.html" with antetitulo="Acceso funcionarios" titulo="Panel de administración" bajada="Modifica los recursos del sitio: sedes, servicios, funcionarios, actividades y más." %}
+{% include "includes/cabecera.html" with antetitulo="Perfil Administrador · Coordinación" titulo="Panel del Administrador" bajada="Vista global del municipio: usuarios, mantenedores, transacciones y auditoría." %}
 
 <section class="container py-5">
-    <article class="tarjeta-recurso mb-4">
-        <div class="d-flex flex-wrap justify-content-between align-items-center gap-3">
-            <div>
-                <h2 class="h4 mb-1">Cuentas y permisos</h2>
-                <p class="mb-0">Crea usuarios de funcionario, delegado, consulta o administrador. Cada cuenta lleva delegación, cargo, rol y una contraseña que cumple las reglas del sistema.</p>
-            </div>
-            <a class="btn btn-primary" href="{% url 'institucional:cuentas' %}">Crear usuario</a>
-        </div>
-    </article>
-    <div class="destacado-phpmyadmin mb-5">
-        <span class="kpi-icono grande"><svg><use href="#i-database"/></svg></span>
-        <div class="flex-grow-1">
-            <h2 class="h4 mb-1">phpMyAdmin</h2>
-            <p class="mb-0">Administra directamente la base de datos <code>{{ base_datos }}</code> en MariaDB: agrega nuevas sedes, edita servicios o corrige registros.</p>
-        </div>
-        <div class="d-flex flex-wrap gap-2">
-            <a class="btn btn-warning btn-lg" href="{{ phpmyadmin_bd }}" target="_blank" rel="noopener"><svg class="icono"><use href="#i-external"/></svg>Abrir phpMyAdmin</a>
-            <a class="btn btn-outline-light btn-lg" href="{% url 'admin:index' %}">Django Admin</a>
-        </div>
-    </div>
-
-    {% if not usa_mysql %}
-    <div class="alert alert-warning d-flex gap-2 align-items-start">
-        <svg class="icono mt-1"><use href="#i-info"/></svg>
-        <div>Este entorno usa <strong>SQLite</strong> (desarrollo local), por lo que phpMyAdmin no tendrá estas tablas. En EC2 configura <code>DB_ENGINE=mysql</code> en <code>.env</code>. Mientras tanto puedes usar los botones de Django Admin.</div>
-    </div>
-    {% endif %}
-
-    {% for grupo in grupos %}
-    <div class="titulo-seccion"><div><span class="antetitulo">Recursos</span><h2>{{ grupo.titulo }}</h2></div></div>
-    <div class="row g-4 mb-5">
-        {% for recurso in grupo.recursos %}
-        <div class="col-md-6 col-xl-4">
-            <article class="tarjeta-recurso h-100">
-                <div class="d-flex justify-content-between align-items-start gap-2">
-                    <h3 class="h5 mb-1">{{ recurso.nombre }}</h3>
-                    <span class="contador" title="Registros">{{ recurso.total }}</span>
-                </div>
-                <p class="small text-secondary mb-2">{{ recurso.descripcion }}</p>
-                <p class="small mb-3"><svg class="icono"><use href="#i-database"/></svg><code>{{ recurso.tabla }}</code></p>
-                <div class="mt-auto">
-                    <span class="d-block small fw-semibold text-uppercase text-secondary mb-1">phpMyAdmin</span>
-                    <div class="d-flex flex-wrap gap-2 mb-2">
-                        <a class="btn btn-primary btn-sm" href="{{ recurso.phpmyadmin_ver }}" target="_blank" rel="noopener"><svg class="icono"><use href="#i-list"/></svg>Ver registros</a>
-                        <a class="btn btn-success btn-sm" href="{{ recurso.phpmyadmin_agregar }}" target="_blank" rel="noopener"><svg class="icono"><use href="#i-plus"/></svg>Agregar nuevo</a>
-                    </div>
-                    <span class="d-block small fw-semibold text-uppercase text-secondary mb-1">Django Admin</span>
-                    <div class="d-flex flex-wrap gap-2">
-                        <a class="btn btn-outline-secondary btn-sm" href="{{ recurso.admin_ver }}">Listar</a>
-                        <a class="btn btn-outline-secondary btn-sm" href="{{ recurso.admin_agregar }}">Agregar</a>
-                    </div>
-                </div>
-            </article>
-        </div>
+    <div class="row g-3 mb-4">
+        <div class="col-sm-6 col-lg-3"><div class="kpi"><span class="kpi-icono"><svg><use href="#i-users"/></svg></span><div><span class="kpi-etiqueta">Usuarios activos</span><strong>{{ total_usuarios }}</strong></div></div></div>
+        {% for nombre, total in usuarios_por_grupo %}
+        <div class="col-sm-6 col-lg-3"><div class="kpi"><span class="kpi-icono"><svg><use href="#i-user"/></svg></span><div><span class="kpi-etiqueta">{{ nombre }}</span><strong>{{ total }}</strong></div></div></div>
         {% endfor %}
     </div>
-    {% endfor %}
+
+    <div class="titulo-seccion"><div><span class="antetitulo">Accesos</span><h2>Mantenedores y transacciones</h2></div></div>
+    <div class="row g-4 mb-5">
+        <div class="col-md-6 col-xl-3"><article class="tarjeta-recurso h-100"><h3 class="h5">Usuarios</h3><p class="small text-secondary">Crear, buscar, editar y eliminar cuentas. Asignar el perfil (grupo).</p><div class="mt-auto d-flex gap-2"><a class="btn btn-primary btn-sm" href="{% url 'institucional:usuarios' %}">Listar</a><a class="btn btn-success btn-sm" href="{% url 'institucional:usuario_crear' %}">Crear</a></div></article></div>
+        <div class="col-md-6 col-xl-3"><article class="tarjeta-recurso h-100"><h3 class="h5">Grupos y permisos</h3><p class="small text-secondary">Administrador, Supervisor, Administrativo y sus permisos de Django.</p><div class="mt-auto d-flex gap-2"><a class="btn btn-primary btn-sm" href="{% url 'institucional:grupos' %}">Listar</a><a class="btn btn-success btn-sm" href="{% url 'institucional:grupo_crear' %}">Crear</a></div></article></div>
+        <div class="col-md-6 col-xl-3"><article class="tarjeta-recurso h-100"><div class="d-flex justify-content-between"><h3 class="h5">Organizaciones</h3><span class="contador">{{ total_organizaciones }}</span></div><p class="small text-secondary">{% for etiqueta, total in organizaciones %}{{ etiqueta }}: {{ total }}{% if not forloop.last %} · {% endif %}{% endfor %}</p><div class="mt-auto d-flex gap-2"><a class="btn btn-primary btn-sm" href="{% url 'organizaciones:listado' %}">Listar</a><a class="btn btn-success btn-sm" href="{% url 'organizaciones:crear' %}">Crear</a></div></article></div>
+        <div class="col-md-6 col-xl-3"><article class="tarjeta-recurso h-100"><h3 class="h5">Registrar actividad</h3><p class="small text-secondary">Semana {{ semana_inicio|date:"d/m" }}–{{ semana_fin|date:"d/m" }}: {% for etiqueta, total in actividades_semana %}{{ etiqueta }} {{ total }}{% if not forloop.last %} · {% endif %}{% endfor %}</p><div class="mt-auto d-flex gap-2"><a class="btn btn-primary btn-sm" href="{% url 'servicios:actividades' %}">Actividades</a><a class="btn btn-outline-primary btn-sm" href="{% url 'servicios:aprobaciones' %}">Aprobaciones</a></div></article></div>
+    </div>
+
+    <div class="row g-4 mb-5">
+        <div class="col-lg-7">
+            <div class="panel-tabla h-100">
+                <div class="panel-tabla-encabezado"><h2 class="h5 mb-0">Auditoría reciente</h2></div>
+                <div class="table-responsive"><table class="table tabla-municipal align-middle mb-0">
+                    <thead><tr><th>Fecha</th><th>Usuario</th><th>Acción</th><th>Registro</th></tr></thead>
+                    <tbody>{% for registro in auditoria %}<tr><td class="small">{{ registro.fecha|date:"d/m H:i" }}</td><td>{{ registro.usuario.username }}</td><td>{{ registro.accion }}</td><td class="small"><code>{{ registro.identificador|truncatechars:14 }}</code></td></tr>{% empty %}<tr><td colspan="4" class="text-center text-secondary py-4">Aún no hay movimientos registrados.</td></tr>{% endfor %}</tbody>
+                </table></div>
+            </div>
+        </div>
+        <div class="col-lg-5">
+            <div class="panel-tabla h-100">
+                <div class="panel-tabla-encabezado"><h2 class="h5 mb-0">Delegaciones</h2></div>
+                <ul class="list-group list-group-flush">{% for delegacion in delegaciones %}<li class="list-group-item d-flex justify-content-between">{{ delegacion.nombre }}<span class="badge text-bg-light">{{ delegacion.total_funcionarios }} funcionarios</span></li>{% endfor %}</ul>
+                <div class="p-3"><a class="btn btn-outline-dark btn-sm" href="{% url 'servicios:dashboard' %}">Ver metas y semáforo municipal</a></div>
+            </div>
+        </div>
+    </div>
+
+    <div class="destacado-phpmyadmin">
+        <span class="kpi-icono grande"><svg><use href="#i-database"/></svg></span>
+        <div class="flex-grow-1">
+            <h2 class="h4 mb-1">Base de datos</h2>
+            <p class="mb-0">{% if usa_mysql %}MariaDB <code>{{ base_datos }}</code> en EC2. phpMyAdmin queda solo para consulta técnica; la operación se hace en estas pantallas.{% else %}Entorno local con SQLite. En EC2 se usa MariaDB con <code>DB_ENGINE=mysql</code>.{% endif %}</p>
+        </div>
+        {% if usa_mysql %}<a class="btn btn-warning" href="{{ phpmyadmin_bd }}" target="_blank" rel="noopener">Abrir phpMyAdmin</a>{% endif %}
+    </div>
 </section>
 {% endblock %}

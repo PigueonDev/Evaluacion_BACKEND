@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+
+{% block titulo %}Mi panel · SGR{% endblock %}
+
+{% block contenido %}
+{% include "includes/cabecera.html" with antetitulo="Perfil Administrativo · Funcionario" titulo="Mi panel" bajada="Tus actividades de la semana, tus tareas preparatorias y tu porcentaje de cumplimiento." %}
+
+<section class="container py-5">
+    {% if not perfil %}<div class="alert alert-warning">Tu cuenta no tiene ficha de funcionario. Pide a coordinación que complete tu delegación y cargo.</div>{% endif %}
+    <div class="row g-3 mb-4">
+        <div class="col-sm-6 col-lg-3"><div class="kpi"><span class="kpi-icono"><svg><use href="#i-list"/></svg></span><div><span class="kpi-etiqueta">Registradas hoy</span><strong>{{ hoy_registradas }} / {{ maximo_diario }}</strong></div></div></div>
+        <div class="col-sm-6 col-lg-3"><div class="kpi kpi-ambar"><span class="kpi-icono"><svg><use href="#i-clock"/></svg></span><div><span class="kpi-etiqueta">Esperan aprobación</span><strong>{{ pendientes_aprobacion }}</strong></div></div></div>
+        <div class="col-sm-6 col-lg-3"><div class="kpi kpi-verde"><span class="kpi-icono"><svg><use href="#i-chart"/></svg></span><div><span class="kpi-etiqueta">Cumplimiento ponderado</span><strong>{{ cumplimiento_total|floatformat:1 }} %</strong></div></div></div>
+        <div class="col-sm-6 col-lg-3 d-flex align-items-center"><a class="btn btn-success btn-lg w-100" href="{% url 'servicios:actividad_nueva' %}"><svg class="icono"><use href="#i-plus"/></svg>Registrar actividad</a></div>
+    </div>
+    <div class="panel-tabla mb-4">
+        <div class="panel-tabla-encabezado"><h2 class="h5 mb-0">Semana laboral {{ semana_inicio|date:"d/m" }} al {{ semana_fin|date:"d/m/Y" }}</h2></div>
+        <div class="table-responsive"><table class="table tabla-municipal align-middle mb-0">
+            <thead><tr><th>Fecha</th><th>Actividad</th><th>Tareas</th><th>Estado</th><th>Suma</th></tr></thead>
+            <tbody>{% for actividad in semana %}<tr><td>{{ actividad.fecha|date:"d/m" }}</td><td><a href="{% url 'servicios:actividad_detalle' actividad.pk %}">{{ actividad.descripcion|truncatewords:8 }}</a></td><td>{{ actividad.tareas_realizadas }}/{{ actividad.total_tareas }}</td><td><span class="estado estado-{{ actividad.estado }}">{{ actividad.get_estado_display }}</span></td><td>{% if actividad.puntua %}Sí{% else %}No{% endif %}</td></tr>{% empty %}<tr><td colspan="5" class="text-center text-secondary py-4">Aún no registras actividades esta semana.</td></tr>{% endfor %}</tbody>
+        </table></div>
+    </div>
+    <div class="panel-tabla">
+        <div class="panel-tabla-encabezado"><h2 class="h5 mb-0">Mis metas{% if periodo %} · {{ periodo.nombre }}{% endif %}</h2></div>
+        <div class="table-responsive"><table class="table tabla-municipal align-middle mb-0">
+            <thead><tr><th>Ítem</th><th>Ponderador</th><th>Aprobadas</th><th style="min-width:200px">Cumplimiento (máx. 120 %)</th></tr></thead>
+            <tbody>{% for fila in metas %}<tr><td>{{ fila.meta.item }}</td><td>{{ fila.meta.ponderador|floatformat:0 }} %</td><td>{{ fila.meta.avance_aprobado }} / {{ fila.meta.objetivo|floatformat:0 }}</td><td><div class="progress"><div class="progress-bar semaforo-fondo-{{ fila.semaforo }}" style="width: {{ fila.cumplimiento|floatformat:0 }}%"></div></div><span class="small">{{ fila.cumplimiento|floatformat:1 }} %</span></td></tr>{% empty %}<tr><td colspan="4" class="text-center text-secondary py-4">No tienes metas asignadas en el período abierto.</td></tr>{% endfor %}</tbody>
+        </table></div>
+    </div>
+</section>
+{% endblock %}

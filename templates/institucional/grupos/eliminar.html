@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+
+{% block titulo %}Eliminar grupo · SGR{% endblock %}
+
+{% block contenido %}
+{% url 'institucional:grupos' as url_grupos %}
+{% include "includes/cabecera.html" with antetitulo="Confirmar eliminación" titulo=grupo.name seccion="Grupos" seccion_url=url_grupos %}
+<section class="container py-5">
+    <article class="tarjeta-info">
+        <p>¿Eliminar el grupo <strong>{{ grupo.name }}</strong>? Sus miembros pierden los permisos que concede.</p>
+        <form method="post" class="d-flex gap-2">{% csrf_token %}<button class="btn btn-danger" type="submit">Sí, eliminar</button><a class="btn btn-outline-secondary" href="{% url 'institucional:grupos' %}">Cancelar</a></form>
+    </article>
+</section>
+{% endblock %}

@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+
+{% block titulo %}Grupos y permisos · SGR{% endblock %}
+
+{% block contenido %}
+{% url 'institucional:panel' as url_panel %}
+{% include "includes/cabecera.html" with antetitulo="Mantenedor" titulo="Grupos y permisos" bajada="Los perfiles del sistema son Grupos de Django. Cada grupo concede permisos sobre los modelos." seccion="Panel" seccion_url=url_panel %}
+
+<section class="container py-5">
+    <form class="row g-2 align-items-end mb-3" method="get" role="search">
+        <div class="col-md-6"><label class="form-label small fw-semibold" for="q">Buscar</label><input class="form-control" id="q" name="q" type="search" value="{{ busqueda }}" placeholder="Nombre del grupo"></div>
+        <div class="col-md-2"><button class="btn btn-primary w-100" type="submit">Buscar</button></div>
+        <div class="col-md-4 text-md-end"><a class="btn btn-success" href="{% url 'institucional:grupo_crear' %}">Crear grupo</a></div>
+    </form>
+    <div class="panel-tabla"><div class="table-responsive"><table class="table tabla-municipal align-middle mb-0">
+        <thead><tr><th>Grupo</th><th>Usuarios</th><th>Permisos</th><th class="text-end">Acciones</th></tr></thead>
+        <tbody>
+        {% for grupo in grupos %}
+        <tr>
+            <td><strong>{{ grupo.name }}</strong>{% if grupo.name in base %} <span class="badge text-bg-light">perfil base</span>{% endif %}</td>
+            <td>{{ grupo.total_usuarios }}</td>
+            <td>{{ grupo.total_permisos }}</td>
+            <td class="text-end text-nowrap"><a class="btn btn-outline-secondary btn-sm" href="{% url 'institucional:grupo_editar' grupo.pk %}">Editar</a>{% if grupo.name not in base %} <a class="btn btn-outline-danger btn-sm" href="{% url 'institucional:grupo_eliminar' grupo.pk %}">Eliminar</a>{% endif %}</td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="4" class="text-center text-secondary py-4">No hay grupos con ese nombre.</td></tr>
+        {% endfor %}
+        </tbody>
+    </table></div></div>
+</section>
+{% endblock %}

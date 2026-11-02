@@ -1,40 +1,42 @@
+from datetime import timedelta
 from urllib.parse import urlencode
 
 from django.conf import settings
 from django.contrib import messages
-from django.contrib.admin.forms import AdminAuthenticationForm
+from django.contrib.auth import get_user_model
 from django.contrib.auth import views as auth_views
+from django.contrib.auth.models import Group
 from django.core.cache import cache
+from django.core.paginator import Paginator
+from django.db.models import Count, ProtectedError, Q
 from django.http import HttpResponse
-from django.shortcuts import redirect, render
-from django.urls import reverse
+from django.shortcuts import get_object_or_404, redirect, render
+from django.urls import reverse, reverse_lazy
+from django.utils import timezone
 
-from laserena.permisos import ROLES_OPERATIVOS, es_staff, rol_usuario, solo_administracion
+from laserena.permisos import (
+    GRUPO_ADMINISTRADOR,
+    GRUPO_ADMINISTRATIVO,
+    GRUPO_SUPERVISOR,
+    GRUPOS_SGR,
+    es_administracion,
+    grupo_usuario,
+    parametro_permitido,
+    perfil_funcionario,
+    solo_administracion,
+    solo_grupos,
+    texto_busqueda,
+)
 from laserena.seguridad import ip_cliente
-from servicios.models import Actividad, Caso, Compromiso, ItemMedicion, Meta, Periodo, Servicio
+from organizaciones.models import OrganizacionComunitaria
+from servicios.models import Actividad, Auditoria, Caso, Compromiso, ItemMedicion, Meta, Periodo, Servicio
+from servicios.reglas import MAXIMO_ACTIVIDADES_POR_DIA, fin_semana_laboral, inicio_semana
 
-from .forms import CuentaForm
+from .forms import AccesoForm, GrupoForm, NuevaClaveForm, RecuperarClaveForm, UsuarioForm
 from .models import Autoridad, Cargo, Delegacion, Funcionario, Municipio
 
-RECURSOS_ADMINISTRABLES = [
-    ("Gestión institucional", [
-        (Delegacion, "Sedes y delegaciones", "Sedes y delegaciones territoriales con dirección, teléfono y responsable."),
-        (Funcionario, "Funcionarios", "Funcionarios asociados a una delegación y un cargo."),
-        (Cargo, "Cargos", "Cargos y funciones medibles."),
-        (Autoridad, "Autoridades", "Alcaldía, concejo y equipo de gobierno comunal."),
-        (Municipio, "Municipio", "Datos institucionales, misión y visión."),
-    ]),
-    ("Sistema de Gestión de Resultados", [
-        (Servicio, "Servicios", "Catálogo de servicios y trámites ciudadanos."),
-        (Actividad, "Actividades", "Actividades registradas con código de evidencia."),
-        (Caso, "Casos de atención", "Casos de atención social y sus gestiones."),
-        (Compromiso, "Compromisos", "Compromisos de la agenda colectiva."),
-        (Meta, "Metas", "Metas y ponderadores por período."),
-        (Periodo, "Períodos", "Períodos de medición y umbrales del semáforo."),
-        (ItemMedicion, "Ítems de medición", "Ítems de medición asociados a metas."),
-    ]),
-]
-
+User = get_user_model()
+USUARIOS_POR_PAGINA = 20
 
 MAXIMO_INTENTOS_LOGIN = 5
 BLOQUEO_LOGIN_SEGUNDOS = 15 * 60
@@ -81,7 +83,7 @@ def _clave_intentos(request):
 
 class AccesoView(auth_views.LoginView):
     template_name = "institucional/acceso.html"
-    authentication_form = AdminAuthenticationForm
+    authentication_form = AccesoForm
     redirect_authenticated_user = True
 
     def post(self, request, *args, **kwargs):
@@ -99,46 +101,104 @@ class AccesoView(auth_views.LoginView):
         cache.delete(_clave_intentos(self.request))
         return super().form_valid(form)
 
-    def get_success_url(self):
-        destinos = {
-            "funcionario": "servicios:actividades",
-            "delegado": "servicios:resumen_agenda",
-            "consulta": "servicios:consulta",
-        }
-        rol = rol_usuario(self.request.user)
-        if rol in destinos:
-            return reverse(destinos[rol])
-        return super().get_success_url()
+
+class RecuperarClaveView(auth_views.PasswordResetView):
+    template_name = "institucional/recuperar/solicitar.html"
+    email_template_name = "institucional/recuperar/correo.txt"
+    html_email_template_name = "institucional/recuperar/correo.html"
+    subject_template_name = "institucional/recuperar/asunto.txt"
+    form_class = RecuperarClaveForm
+    success_url = reverse_lazy("institucional:recuperar_enviado")
+
+
+class RecuperarClaveEnviadoView(auth_views.PasswordResetDoneView):
+    template_name = "institucional/recuperar/enviado.html"
+
+
+class RecuperarClaveConfirmarView(auth_views.PasswordResetConfirmView):
+    template_name = "institucional/recuperar/nueva_clave.html"
+    form_class = NuevaClaveForm
+    success_url = reverse_lazy("institucional:recuperar_listo")
+
+
+class RecuperarClaveListoView(auth_views.PasswordResetCompleteView):
+    template_name = "institucional/recuperar/listo.html"
+
+
+@solo_grupos(GRUPO_SUPERVISOR, GRUPO_ADMINISTRATIVO)
+def mi_panel(request):
+    """Dashboard según el grupo del usuario autenticado."""
+    grupo = grupo_usuario(request.user)
+    if grupo == GRUPO_ADMINISTRADOR:
+        return redirect("institucional:panel")
+    perfil = perfil_funcionario(request.user)
+    hoy = timezone.localdate()
+    semana = inicio_semana(hoy)
+    periodo = Periodo.objects.filter(estado="abierto").first()
+    contexto = {"perfil": perfil, "periodo": periodo, "semana_inicio": semana, "semana_fin": fin_semana_laboral(hoy), "pagina_activa": "mi_panel"}
+    if grupo == GRUPO_SUPERVISOR:
+        actividades = Actividad.objects.select_related("funcionario", "item").prefetch_related("tareas")
+        compromisos = Compromiso.objects.filter(activo=True)
+        metas = Meta.objects.select_related("item", "periodo", "funcionario", "cargo")
+        if perfil is not None:
+            actividades = actividades.filter(funcionario__delegacion=perfil.delegacion)
+            compromisos = compromisos.filter(delegacion=perfil.delegacion)
+            metas = metas.filter(funcionario__delegacion=perfil.delegacion)
+        if periodo:
+            metas = metas.filter(periodo=periodo)
+        pendientes = actividades.filter(estado="pendiente", fecha__gte=semana)
+        contexto.update({
+            "pendientes": pendientes[:8],
+            "total_pendientes": pendientes.count(),
+            "listas_para_aprobar": sum(1 for actividad in pendientes if actividad.tareas_completas),
+            "aprobadas_semana": actividades.filter(estado="validada", fecha__gte=semana).count(),
+            "compromisos_vencidos": compromisos.exclude(estado="realizado").filter(fecha_comprometida__lt=hoy).count(),
+            "organizaciones_por_verificar": OrganizacionComunitaria.objects.filter(estado="sin_verificar").count(),
+            "metas": [{"meta": meta, "cumplimiento": meta.cumplimiento, "semaforo": meta.semaforo()} for meta in metas],
+        })
+        return render(request, "institucional/dashboard_supervisor.html", contexto)
+    actividades = Actividad.objects.none()
+    metas = Meta.objects.none()
+    if perfil is not None:
+        actividades = Actividad.objects.filter(funcionario=perfil).select_related("item").prefetch_related("tareas")
+        metas = Meta.objects.filter(funcionario=perfil).select_related("item", "periodo")
+        if periodo:
+            metas = metas.filter(periodo=periodo)
+    filas = [{"meta": meta, "cumplimiento": meta.cumplimiento, "semaforo": meta.semaforo()} for meta in metas]
+    total_ponderado = sum(float(fila["meta"].ponderador) * fila["cumplimiento"] / 100 for fila in filas)
+    contexto.update({
+        "hoy_registradas": actividades.filter(fecha=hoy).exclude(estado="anulada").count(),
+        "maximo_diario": MAXIMO_ACTIVIDADES_POR_DIA,
+        "semana": actividades.filter(fecha__gte=semana).exclude(estado="anulada"),
+        "pendientes_aprobacion": actividades.filter(estado="pendiente", fecha__gte=semana).count(),
+        "metas": filas,
+        "cumplimiento_total": min(total_ponderado, float(periodo.tope_cumplimiento)) if periodo else 0,
+    })
+    return render(request, "institucional/dashboard_administrativo.html", contexto)
 
 
 @solo_administracion
 def panel(request):
+    """Dashboard del Administrador: vista global, mantenedores y transacciones."""
     base = settings.PHPMYADMIN_URL
-    usa_mysql = settings.DATABASES["default"]["ENGINE"].endswith("mysql")
     db = settings.PHPMYADMIN_DB
-
-    grupos = []
-    for titulo, modelos in RECURSOS_ADMINISTRABLES:
-        recursos = []
-        for modelo, nombre, descripcion in modelos:
-            opciones = modelo._meta
-            prefijo = f"admin:{opciones.app_label}_{opciones.model_name}"
-            recursos.append({
-                "nombre": nombre,
-                "descripcion": descripcion,
-                "tabla": opciones.db_table,
-                "total": modelo.objects.count(),
-                "phpmyadmin_ver": _url_phpmyadmin(base, db, "/sql", opciones.db_table),
-                "phpmyadmin_agregar": _url_phpmyadmin(base, db, "/table/change", opciones.db_table),
-                "admin_ver": reverse(f"{prefijo}_changelist"),
-                "admin_agregar": reverse(f"{prefijo}_add"),
-            })
-        grupos.append({"titulo": titulo, "recursos": recursos})
-
+    hoy = timezone.localdate()
+    semana = inicio_semana(hoy)
+    usuarios_por_grupo = dict(Group.objects.filter(name__in=GRUPOS_SGR).annotate(total=Count("user")).values_list("name", "total"))
+    organizaciones = dict(OrganizacionComunitaria.objects.values_list("estado").annotate(total=Count("id")))
+    actividades = dict(Actividad.objects.filter(fecha__gte=semana).values_list("estado").annotate(total=Count("id")))
     contexto = {
-        "grupos": grupos,
+        "usuarios_por_grupo": [(nombre, usuarios_por_grupo.get(nombre, 0)) for nombre in GRUPOS_SGR],
+        "total_usuarios": User.objects.filter(is_active=True).count(),
+        "organizaciones": [(etiqueta, organizaciones.get(codigo, 0)) for codigo, etiqueta in OrganizacionComunitaria.ESTADOS],
+        "total_organizaciones": sum(organizaciones.values()),
+        "actividades_semana": [(etiqueta, actividades.get(codigo, 0)) for codigo, etiqueta in Actividad.ESTADOS],
+        "semana_inicio": semana,
+        "semana_fin": fin_semana_laboral(hoy),
+        "auditoria": Auditoria.objects.select_related("usuario")[:8],
+        "delegaciones": Delegacion.objects.filter(activa=True).annotate(total_funcionarios=Count("funcionarios", filter=Q(funcionarios__activo=True))),
         "base_datos": db,
-        "usa_mysql": usa_mysql,
+        "usa_mysql": settings.DATABASES["default"]["ENGINE"].endswith("mysql"),
         "phpmyadmin_bd": _url_phpmyadmin(base, db, "/database/structure"),
         "pagina_activa": "panel",
     }
@@ -147,25 +207,124 @@ def panel(request):
 
 @solo_administracion
 def cuentas(request):
+    return redirect("institucional:usuarios")
+
+
+@solo_administracion
+def usuarios(request):
+    queryset = User.objects.prefetch_related("groups").select_related("perfil_sgr", "perfil_sgr__delegacion").order_by("username")
+    busqueda = texto_busqueda(request)
+    grupos = list(Group.objects.order_by("name").values_list("name", flat=True))
+    grupo = parametro_permitido(request, "grupo", grupos)
+    if busqueda:
+        queryset = queryset.filter(Q(username__icontains=busqueda) | Q(first_name__icontains=busqueda) | Q(last_name__icontains=busqueda) | Q(email__icontains=busqueda))
+    if grupo:
+        queryset = queryset.filter(groups__name=grupo)
+    pagina = Paginator(queryset, USUARIOS_POR_PAGINA).get_page(request.GET.get("pagina"))
+    parametros = request.GET.copy()
+    parametros.pop("pagina", None)
+    return render(request, "institucional/usuarios/listado.html", {
+        "pagina": pagina, "busqueda": busqueda, "grupos": grupos, "grupo_activo": grupo,
+        "parametros": parametros.urlencode(), "pagina_activa": "usuarios",
+    })
+
+
+@solo_administracion
+def usuario_crear(request):
+    form = UsuarioForm(request.POST or None)
+    if request.method == "POST" and form.is_valid():
+        usuario = form.save()
+        messages.success(request, f"Cuenta {usuario.username} creada en el grupo {form.cleaned_data['grupo'].name}.")
+        return redirect("institucional:usuarios")
+    return render(request, "institucional/usuarios/formulario.html", {
+        "form": form, "titulo": "Crear usuario", "hay_parametros": Delegacion.objects.exists() and Cargo.objects.exists(), "pagina_activa": "usuarios",
+    })
+
+
+@solo_administracion
+def usuario_editar(request, pk):
+    usuario = get_object_or_404(User, pk=pk)
+    form = UsuarioForm(request.POST or None, usuario=usuario)
+    form.solicitante = request.user
+    if request.method == "POST" and form.is_valid():
+        form.save()
+        messages.success(request, f"Cuenta {usuario.username} actualizada.")
+        return redirect("institucional:usuarios")
+    return render(request, "institucional/usuarios/formulario.html", {
+        "form": form, "cuenta": usuario, "titulo": f"Editar usuario {usuario.username}", "hay_parametros": True, "pagina_activa": "usuarios",
+    })
+
+
+@solo_administracion
+def usuario_eliminar(request, pk):
+    usuario = get_object_or_404(User, pk=pk)
+    if usuario == request.user:
+        messages.warning(request, "No puedes eliminar tu propia cuenta.")
+        return redirect("institucional:usuarios")
     if request.method == "POST":
-        form = CuentaForm(request.POST)
-        if form.is_valid():
-            usuario = form.save()
-            messages.success(request, f"Cuenta {usuario.username} creada con el rol {usuario.perfil_sgr.get_rol_display()}.")
-            return redirect("institucional:cuentas")
-    else:
-        form = CuentaForm()
-    contexto = {
-        "form": form,
-        "cuentas": Funcionario.objects.select_related("usuario", "delegacion", "cargo").exclude(usuario=None),
-        "hay_parametros": form.fields["delegacion"].queryset.exists() and form.fields["cargo"].queryset.exists(),
-        "pagina_activa": "panel",
-    }
-    return render(request, "institucional/cuentas.html", contexto)
+        try:
+            usuario.delete()
+        except ProtectedError:
+            usuario.is_active = False
+            usuario.save(update_fields=["is_active"])
+            messages.warning(request, f"{usuario.username} tiene registros asociados (auditoría, evidencias): se desactivó en lugar de eliminarse.")
+        else:
+            messages.success(request, f"Cuenta {usuario.username} eliminada.")
+        return redirect("institucional:usuarios")
+    return render(request, "institucional/usuarios/eliminar.html", {"cuenta": usuario, "pagina_activa": "usuarios"})
+
+
+@solo_administracion
+def grupos(request):
+    busqueda = texto_busqueda(request)
+    queryset = Group.objects.annotate(total_usuarios=Count("user", distinct=True), total_permisos=Count("permissions", distinct=True)).order_by("name")
+    if busqueda:
+        queryset = queryset.filter(name__icontains=busqueda)
+    return render(request, "institucional/grupos/listado.html", {"grupos": queryset, "busqueda": busqueda, "base": GRUPOS_SGR, "pagina_activa": "grupos"})
+
+
+@solo_administracion
+def grupo_crear(request):
+    form = GrupoForm(request.POST or None)
+    if request.method == "POST" and form.is_valid():
+        grupo = form.save()
+        messages.success(request, f"Grupo {grupo.name} creado.")
+        return redirect("institucional:grupos")
+    return render(request, "institucional/grupos/formulario.html", {"form": form, "titulo": "Crear grupo", "pagina_activa": "grupos"})
+
+
+@solo_administracion
+def grupo_editar(request, pk):
+    grupo = get_object_or_404(Group, pk=pk)
+    form = GrupoForm(request.POST or None, instance=grupo)
+    if request.method == "POST" and form.is_valid():
+        form.save()
+        messages.success(request, f"Grupo {grupo.name} actualizado.")
+        return redirect("institucional:grupos")
+    return render(request, "institucional/grupos/formulario.html", {
+        "form": form, "grupo": grupo, "titulo": f"Editar grupo {grupo.name}",
+        "miembros": grupo.user_set.order_by("username"), "pagina_activa": "grupos",
+    })
+
+
+@solo_administracion
+def grupo_eliminar(request, pk):
+    grupo = get_object_or_404(Group, pk=pk)
+    if grupo.name in GRUPOS_SGR:
+        messages.warning(request, f"{grupo.name} es uno de los tres perfiles base del SGR y no se elimina.")
+        return redirect("institucional:grupos")
+    if request.method == "POST":
+        nombre = grupo.name
+        grupo.delete()
+        messages.success(request, f"Grupo {nombre} eliminado.")
+        return redirect("institucional:grupos")
+    return render(request, "institucional/grupos/eliminar.html", {"grupo": grupo, "pagina_activa": "grupos"})
 
 
 def verificar_acceso(request):
     """Subconsulta de Nginx (auth_request) que protege la ruta de phpMyAdmin."""
-    if rol_usuario(request.user) in ROLES_OPERATIVOS:
-        return HttpResponse(status=401)
-    return HttpResponse(status=204 if es_staff(request.user) else 401)
+    return HttpResponse(status=204 if es_administracion(request.user) else 401)
+
+
+def acceso_denegado(request, exception=None):
+    return render(request, "institucional/denegado.html", status=403)

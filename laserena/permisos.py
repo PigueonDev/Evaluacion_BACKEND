@@ -1,3 +1,8 @@
+"""Perfiles del SGR basados en los Grupos de Django.
+
+Administrador (coordinación), Supervisor (delegado) y Administrativo (funcionario).
+"""
+
 from functools import wraps
 
 from django.conf import settings
@@ -5,59 +10,49 @@ from django.contrib.auth.views import redirect_to_login
 from django.shortcuts import render
 
 LARGO_MAXIMO_BUSQUEDA = 100
-ROL_ADMINISTRADOR = "administrador"
-ROLES_OPERATIVOS = ("funcionario", "delegado", "consulta")
+GRUPO_ADMINISTRADOR = "Administrador"
+GRUPO_SUPERVISOR = "Supervisor"
+GRUPO_ADMINISTRATIVO = "Administrativo"
+GRUPOS_SGR = (GRUPO_ADMINISTRADOR, GRUPO_SUPERVISOR, GRUPO_ADMINISTRATIVO)
+GRUPOS_OPERATIVOS = (GRUPO_SUPERVISOR, GRUPO_ADMINISTRATIVO)
 
 
-def es_staff(user):
-    return user.is_active and user.is_staff
-
-
-def solo_personal(view):
-    """Personal municipal. Un perfil con rol usa las pantallas de ese rol."""
-
-    @wraps(view)
-    def _wrapped(request, *args, **kwargs):
-        if not getattr(request.user, "is_authenticated", False):
-            return redirect_to_login(request.get_full_path(), login_url=settings.LOGIN_URL)
-        if not es_staff(request.user):
-            return redirect_to_login(request.get_full_path(), login_url=settings.LOGIN_URL)
-        return view(request, *args, **kwargs)
-
-    return _wrapped
-
-
-def rol_usuario(user):
-    """Rol del perfil SGR. El personal sin perfil queda como administración sin rol nombrado."""
-    perfil = perfil_funcionario(user)
-    if perfil is None:
+def grupo_usuario(user):
+    """Grupo SGR del usuario. Si tuviera varios, manda el de mayor nivel."""
+    if user is None or not getattr(user, "is_authenticated", False) or not user.is_active:
         return None
-    return perfil.rol
+    if user.is_superuser:
+        return GRUPO_ADMINISTRADOR
+    if not hasattr(user, "_grupo_sgr"):
+        nombres = set(user.groups.values_list("name", flat=True))
+        user._grupo_sgr = next((grupo for grupo in GRUPOS_SGR if grupo in nombres), None)
+    return user._grupo_sgr
+
+
+def es_personal(user):
+    return grupo_usuario(user) is not None
 
 
 def es_administracion(user):
-    """Personal sin rol operativo: sin perfil, o con el rol Administrador."""
-    if not getattr(user, "is_authenticated", False) or not es_staff(user):
+    return grupo_usuario(user) == GRUPO_ADMINISTRADOR
+
+
+def permite_grupo(user, grupos):
+    grupo = grupo_usuario(user)
+    if grupo is None:
         return False
-    rol = rol_usuario(user)
-    return rol is None or rol == ROL_ADMINISTRADOR
+    return grupo == GRUPO_ADMINISTRADOR or grupo in grupos
 
 
-def permite_rol(user, roles):
-    if not es_staff(user):
-        return False
-    if es_administracion(user):
-        return True
-    return rol_usuario(user) in roles
+def solo_grupos(*grupos):
+    """Exige sesión y uno de los grupos indicados. El Administrador siempre pasa."""
 
-
-def solo_roles(*roles):
     def decorator(view):
         @wraps(view)
         def _wrapped(request, *args, **kwargs):
-            if not getattr(request.user, "is_authenticated", False) or not es_staff(request.user):
+            if not es_personal(request.user):
                 return redirect_to_login(request.get_full_path(), login_url=settings.LOGIN_URL)
-            if not permite_rol(request.user, roles):
+            if not permite_grupo(request.user, grupos):
                 return render(request, "institucional/denegado.html", status=403)
             return view(request, *args, **kwargs)
 
@@ -66,23 +61,40 @@ def solo_roles(*roles):
     return decorator
 
 
-solo_funcionario = solo_roles("funcionario")
-solo_delegado = solo_roles("delegado")
-solo_consulta = solo_roles("consulta")
-solo_funcionario_o_delegado = solo_roles("funcionario", "delegado")
-solo_administracion = solo_roles()
+def con_permiso(codigo):
+    """Exige sesión y un permiso de Django concedido por el grupo."""
+
+    def decorator(view):
+        @wraps(view)
+        def _wrapped(request, *args, **kwargs):
+            if not es_personal(request.user):
+                return redirect_to_login(request.get_full_path(), login_url=settings.LOGIN_URL)
+            if not request.user.has_perm(codigo):
+                return render(request, "institucional/denegado.html", status=403)
+            return view(request, *args, **kwargs)
+
+        return _wrapped
+
+    return decorator
+
+
+solo_personal = solo_grupos(*GRUPOS_OPERATIVOS)
+solo_funcionario = solo_grupos(GRUPO_ADMINISTRATIVO)
+solo_delegado = solo_grupos(GRUPO_SUPERVISOR)
+solo_consulta = solo_grupos(GRUPO_SUPERVISOR)
+solo_funcionario_o_delegado = solo_grupos(GRUPO_ADMINISTRATIVO, GRUPO_SUPERVISOR)
+solo_administracion = solo_grupos()
 
 
 class RolMiddleware:
-    """Impide que un rol operativo entre a la administración del sistema."""
+    """Impide que un perfil operativo entre a la administración del sistema."""
 
     def __init__(self, get_response):
         self.get_response = get_response
 
     def __call__(self, request):
-        rol = rol_usuario(getattr(request, "user", None))
-        path = request.path
-        if rol in ROLES_OPERATIVOS and (path.startswith("/admin") or path.startswith("/administracion")):
+        grupo = grupo_usuario(getattr(request, "user", None))
+        if grupo in GRUPOS_OPERATIVOS and request.path.startswith("/administracion"):
             return render(request, "institucional/denegado.html", status=403)
         return self.get_response(request)
 
@@ -105,10 +117,7 @@ def perfil_funcionario(user):
 
 
 def acotar_ambito(queryset, user, campo):
-    """Limita la consulta a la delegación del funcionario.
-
-    La administración (sin perfil o con rol administrador) mantiene el ámbito municipal completo.
-    """
+    """Limita la consulta a la delegación del funcionario. El Administrador ve todo el municipio."""
     perfil = perfil_de_ambito(user)
     if perfil is None:
         return queryset
@@ -116,8 +125,8 @@ def acotar_ambito(queryset, user, campo):
 
 
 def perfil_de_ambito(user):
-    """Perfil que restringe la delegación. Administración no acota el municipio."""
+    """Perfil que restringe la delegación. El Administrador no acota el municipio."""
     perfil = perfil_funcionario(user)
-    if perfil is None or perfil.rol == ROL_ADMINISTRADOR:
+    if perfil is None or es_administracion(user):
         return None
     return perfil
