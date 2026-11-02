@@ -25,7 +25,7 @@ py -3 -m venv .venv
 python -m pip install -r requirements.txt
 python manage.py migrate
 python manage.py cargar_datos_demo
-python manage.py importar_jjvv ruta\base-datos-jjvv-sin-verificar.xlsx
+python manage.py importar_jjvv datos\base-datos-jjvv-sin-verificar.xlsx
 python manage.py runserver
 ```
 
