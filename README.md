@@ -1,8 +1,16 @@
 # Ilustre Municipalidad de La Serena — sitio informativo Django
-# MVP Sistema de Gestión de Resultados · Evaluación Sumativa 2
+# Sistema de Gestión de Resultados (SGR) · Evaluación Sumativa 3
 
 ## Qué incluye
-Proyecto Django con dos aplicaciones (`institucional` y `servicios`) para registrar delegaciones, funcionarios, actividades, evidencias, compromisos y períodos de medición. El catálogo JSON se conserva como fuente de carga inicial, pero la aplicación consulta la base de datos mediante Django ORM.
+Proyecto Django con tres aplicaciones (`institucional`, `servicios` y `organizaciones`) para registrar delegaciones, funcionarios, actividades, evidencias, compromisos, períodos de medición y organizaciones comunitarias. Toda la operación se hace con Django Templates y Bootstrap: **Django Admin está desactivado**.
+
+### Evaluación Sumativa 3
+- **Autenticación:** login, logout, bloqueo tras 5 intentos fallidos y vistas protegidas.
+- **Perfiles con Grupos de Django:** `Administrador` (coordinación, crea usuarios), `Supervisor` (delegado) y `Administrativo` (funcionario). La migración `institucional/0006_roles_a_grupos` traslada el antiguo campo `rol` a grupos (el rol "consulta" pasa a Supervisor) y `0007` elimina el campo. Los permisos de cada grupo se sincronizan tras cada `migrate` (`institucional/cuentas.py`).
+- **Recuperación de contraseña por correo con token** (`/acceso/recuperar/`): enlace firmado de un solo uso que vence en una hora (`PASSWORD_RESET_TIMEOUT`). En la demo los correos se guardan en `correos_enviados/`; para SMTP real cambia `EMAIL_BACKEND` en `.env`.
+- **Dashboard por perfil** en `/panel/`.
+- **Mantenedores CRUD:** usuarios y grupos (`/administracion/usuarios/`, `/administracion/grupos/`) y organizaciones comunitarias (`/organizaciones/`), con búsqueda, filtros y paginación.
+- **Transacción "Registrar actividad"** (`servicios/transacciones.py`, `transaction.atomic`): actividad + tareas preparatorias + auditoría. Las tareas no suman; la actividad suma al cumplimiento solo con todas sus tareas realizadas y la aprobación del Supervisor. Tope 120 % por ítem, máximo 7 actividades por día, ingreso solo dentro de los 5 días hábiles de su semana; al cerrar la semana todo queda bloqueado y no se traspasa.
 
 ## Requisitos
 - Python 3.9 o superior
@@ -17,9 +25,13 @@ py -3 -m venv .venv
 python -m pip install -r requirements.txt
 python manage.py migrate
 python manage.py cargar_datos_demo
-python manage.py createsuperuser
+python manage.py importar_jjvv ruta\base-datos-jjvv-sin-verificar.xlsx
 python manage.py runserver
 ```
+
+Cuentas demo (clave `Serena-demo-2026`): `admin.demo` (Administrador), `delegado.demo` y `consulta.demo` (Supervisor), `funcionario.demo` (Administrativo).
+
+Pruebas: `python manage.py test` (incluye las reglas de la transacción, permisos por grupo, recuperación de contraseña e importación).
 
 Abrir http://127.0.0.1:8000/
 
@@ -39,17 +51,21 @@ Abrir http://127.0.0.1:8000/
 | `/servicios/agenda/nueva/` | servicios | Publicar compromiso en el ámbito autorizado (SCRUM-16) |
 | `/servicios/agenda/resumen/` | servicios | Resumen de pendientes, próximos, vencidos y realizados (SCRUM-18) |
 | `/servicios/consulta/` | servicios | Consulta operativa de solo lectura (SCRUM-21) |
-| `/acceso/` | institucional | Login "Acceso funcionarios" (solo cuentas staff) |
-| `/administracion/` | institucional | Panel de parámetros (administración): delegaciones, cargos, catálogos, ítems, períodos, metas y ponderaciones |
-| `/administracion/cuentas/` | institucional | Alta de usuarios con delegación, cargo, rol y contraseña |
-| `/acceso/verificar/` | institucional | Verificación de sesión usada por Nginx para proteger phpMyAdmin |
-| `/admin/` | Django | Administración CRUD |
+| `/servicios/aprobaciones/` | servicios | Supervisor aprueba o rechaza actividades de su delegación |
+| `/acceso/` | institucional | Login (solo cuentas con grupo SGR) |
+| `/acceso/recuperar/` | institucional | Recuperación de contraseña por correo con token |
+| `/panel/` | institucional | Dashboard según el grupo |
+| `/administracion/` | institucional | Dashboard del Administrador |
+| `/administracion/usuarios/` | institucional | CRUD de usuarios |
+| `/administracion/grupos/` | institucional | CRUD de grupos y permisos |
+| `/organizaciones/` | organizaciones | CRUD de organizaciones comunitarias y verificación |
+| `/acceso/verificar/` | institucional | Verificación de sesión usada por Nginx para proteger phpMyAdmin (solo Administrador) |
 
 ## Acceso funcionarios y phpMyAdmin
 
-En la esquina superior derecha de todas las páginas está el botón **Acceso funcionarios**. Al iniciar sesión con una cuenta staff (por ejemplo, la creada con `createsuperuser`) se abre el panel `/administracion/`, que muestra cada recurso (sedes/delegaciones, funcionarios, servicios, actividades, etc.) con botones para **ver registros** o **agregar nuevo** directamente en phpMyAdmin, además de los equivalentes en Django Admin.
+En la esquina superior derecha de todas las páginas está el botón **Acceso funcionarios**. Cada perfil llega a su propio dashboard. phpMyAdmin queda solo como herramienta técnica del Administrador.
 
-La URL de phpMyAdmin se configura con `PHPMYADMIN_URL` en `.env` (por defecto `/phpmyadmin/`). En EC2, `deploy/nginx.conf` publica phpMyAdmin en `/phpmyadmin/` y usa `auth_request` contra `/acceso/verificar/`: sin sesión staff en Django, Nginx redirige al login.
+La URL de phpMyAdmin se configura con `PHPMYADMIN_URL` en `.env` (por defecto `/phpmyadmin/`). En EC2, `deploy/nginx.conf` publica phpMyAdmin en `/phpmyadmin/` y usa `auth_request` contra `/acceso/verificar/`: sin sesión de Administrador en Django, Nginx redirige al login.
 
 ```bash
 sudo dnf install -y php php-fpm php-mysqlnd php-mbstring php-xml php-json
@@ -115,7 +131,7 @@ Además de Django se usa **WhiteNoise** para servir archivos estáticos y **Pill
 
 ## Datos y dominio SGR
 
-`python manage.py cargar_datos_demo` carga información ficticia desde los JSON, crea las seis delegaciones territoriales y prepara un período abierto. También deja cuatro cuentas de demostración con la clave `Serena-demo-2026`: `funcionario.demo`, `delegado.demo`, `consulta.demo` y `admin.demo`. El administrador entra a `/administracion/` y crea otras cuentas en `/administracion/cuentas/`. Los datos reales de ciudadanos o funcionarios no deben utilizarse.
+`python manage.py cargar_datos_demo` carga información ficticia desde los JSON, crea las seis delegaciones territoriales y prepara un período abierto. También deja cuatro cuentas de demostración con la clave `Serena-demo-2026`: `funcionario.demo` (Administrativo), `delegado.demo` y `consulta.demo` (Supervisor) y `admin.demo` (Administrador). El Administrador crea otras cuentas en `/administracion/usuarios/`. Los datos reales de ciudadanos o funcionarios no deben utilizarse.
 
 El dominio incluye delegaciones, cargos, funcionarios, servicios, ítems de medición, períodos, metas, actividades, evidencias, validaciones, compromisos, historial y auditoría. Las fórmulas de cumplimiento y semáforo están implementadas en el modelo `Meta`.
 
@@ -143,7 +159,7 @@ source .venv/bin/activate
 pip install -r requirements.txt
 python manage.py migrate
 python manage.py cargar_datos_demo
-python manage.py createsuperuser
+python manage.py importar_jjvv /ruta/base-datos-jjvv-sin-verificar.xlsx
 python manage.py collectstatic --noinput
 gunicorn --bind 0.0.0.0:8000 laserena.wsgi:application
 ```
@@ -164,8 +180,6 @@ sudo systemctl status laserena nginx
 ## Evidencias
 
 La matriz inicial de trazabilidad está en `docs/MATRIZ_TRAZABILIDAD.md`. Debes complementarla con los commits, pruebas y capturas de tu equipo.
-
-No hay modelos ni migraciones: el contenido se lee en las vistas y se envía al template por contexto.
 
 
 PROFE TUVE QUE CAMBIAR DE IDEA PORQUE LA ORIGINAL ERA UN BLOCKBUSTER TODO ORDINARIO DE HECHO ESTA EL BACKUP AHI GUARDADO XD
