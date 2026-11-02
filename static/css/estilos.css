@@ -243,6 +243,13 @@ a {
     border-bottom: 3px solid transparent;
 }
 
+@media (min-width: 992px) and (max-width: 1399.98px) {
+    .barra-nav .nav-link {
+        font-size: 0.85rem;
+        padding: 0.85rem 0.55rem !important;
+    }
+}
+
 .barra-nav .nav-link:hover {
     background: rgba(0, 0, 0, 0.2);
     color: #fff;

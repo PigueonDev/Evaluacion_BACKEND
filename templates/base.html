@@ -10,7 +10,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap">
     <link rel="stylesheet" href="{% static 'css/bootstrap.min.css' %}">
-    <link rel="stylesheet" href="{% static 'css/estilos.css' %}?v=20261012b">
+    <link rel="stylesheet" href="{% static 'css/estilos.css' %}?v=20261102">
 </head>
 <body class="d-flex flex-column min-vh-100">
     {% include "includes/iconos.html" %}
@@ -100,14 +100,15 @@
                         <li class="nav-item"><a class="nav-link {% if pagina_activa == 'aprobaciones' %}active{% endif %}" href="{% url 'servicios:aprobaciones' %}">Aprobaciones</a></li>
                         <li class="nav-item"><a class="nav-link {% if pagina_activa == 'consulta' %}active{% endif %}" href="{% url 'servicios:consulta' %}">Consulta</a></li>
                         {% endif %}
-                        {% if perms.oficina.view_carta %}
-                        <li class="nav-item"><a class="nav-link {% if pagina_activa == 'cartas' %}active{% endif %}" href="{% url 'oficina:cartas' %}">Cartas</a></li>
-                        {% endif %}
-                        {% if perms.oficina.view_beneficionino %}
-                        <li class="nav-item"><a class="nav-link {% if pagina_activa == 'beneficios' %}active{% endif %}" href="{% url 'oficina:beneficios' %}">Beneficios</a></li>
-                        {% endif %}
-                        {% if perms.oficina.view_ausencia %}
-                        <li class="nav-item"><a class="nav-link {% if pagina_activa == 'ausencias' %}active{% endif %}" href="{% url 'oficina:ausencias' %}">Ausencias</a></li>
+                        {% if perms.oficina.view_carta or perms.oficina.view_beneficionino or perms.oficina.view_ausencia %}
+                        <li class="nav-item dropdown">
+                            <a class="nav-link dropdown-toggle {% if pagina_activa == 'cartas' or pagina_activa == 'beneficios' or pagina_activa == 'ausencias' %}active{% endif %}" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">Oficina</a>
+                            <ul class="dropdown-menu shadow">
+                                {% if perms.oficina.view_carta %}<li><a class="dropdown-item" href="{% url 'oficina:cartas' %}">Cartas de Oficina de Partes</a></li>{% endif %}
+                                {% if perms.oficina.view_beneficionino %}<li><a class="dropdown-item" href="{% url 'oficina:beneficios' %}">Beneficios para niños</a></li>{% endif %}
+                                {% if perms.oficina.view_ausencia %}<li><a class="dropdown-item" href="{% url 'oficina:ausencias' %}">Ausencias</a></li>{% endif %}
+                            </ul>
+                        </li>
                         {% endif %}
                         {% if es_personal %}
                         <li class="nav-item"><a class="nav-link {% if pagina_activa == 'organizaciones' %}active{% endif %}" href="{% url 'organizaciones:listado' %}">Organizaciones</a></li>
