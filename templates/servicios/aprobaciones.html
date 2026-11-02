@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+
+{% block titulo %}Aprobación de actividades · SGR{% endblock %}
+
+{% block contenido %}
+{% include "includes/cabecera.html" with antetitulo="Supervisor" titulo="Aprobación de actividades" bajada="Aprueba las actividades de tu delegación con todas sus tareas realizadas. Solo lo aprobado suma al cumplimiento." %}
+
+<section class="container py-5">
+    <p class="periodo-activo mb-4"><svg class="icono"><use href="#i-calendar"/></svg><span>Semana laboral: <strong>{{ semana_inicio|date:"d/m/Y" }} al {{ semana_fin|date:"d/m/Y" }}</strong>. Al cerrar la semana lo pendiente queda bloqueado.</span></p>
+    <div class="panel-tabla mb-5">
+        <div class="panel-tabla-encabezado"><h2 class="h5 mb-0">Pendientes de aprobación ({{ pendientes|length }})</h2></div>
+        <div class="table-responsive">
+            <table class="table tabla-municipal align-middle mb-0">
+                <thead><tr><th>Fecha</th><th>Funcionario</th><th>Actividad</th><th>Tareas</th><th style="min-width:280px">Decisión</th></tr></thead>
+                <tbody>
+                {% for actividad in pendientes %}
+                <tr>
+                    <td>{{ actividad.fecha|date:"d/m/Y" }}</td>
+                    <td>{{ actividad.funcionario.nombre_completo }}</td>
+                    <td>{{ actividad.item.codigo }} · {{ actividad.descripcion|truncatewords:10 }}</td>
+                    <td>{% if actividad.tareas_completas %}<span class="badge text-bg-success">{{ actividad.tareas_realizadas }}/{{ actividad.total_tareas }} listas</span>{% else %}<span class="badge text-bg-warning">{{ actividad.tareas_realizadas }}/{{ actividad.total_tareas }} listas</span>{% endif %}</td>
+                    <td>
+                        <form method="post" action="{% url 'servicios:actividad_revisar' actividad.pk %}" class="d-flex flex-wrap gap-2 align-items-center">
+                            {% csrf_token %}
+                            <input class="form-control form-control-sm" name="observacion" placeholder="Observación (obligatoria al rechazar)" style="max-width:220px">
+                            <button class="btn btn-success btn-sm" name="decision" value="aprobar" type="submit" {% if not actividad.tareas_completas %}disabled title="Faltan tareas por realizar"{% endif %}>Aprobar</button>
+                            <button class="btn btn-outline-danger btn-sm" name="decision" value="rechazar" type="submit">Rechazar</button>
+                        </form>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="5" class="text-center text-secondary py-4">No hay actividades pendientes esta semana.</td></tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    <div class="panel-tabla">
+        <div class="panel-tabla-encabezado"><h2 class="h5 mb-0">Revisadas esta semana</h2></div>
+        <div class="table-responsive">
+            <table class="table tabla-municipal align-middle mb-0">
+                <thead><tr><th>Fecha</th><th>Funcionario</th><th>Actividad</th><th>Estado</th><th>Revisó</th></tr></thead>
+                <tbody>
+                {% for actividad in revisadas %}
+                <tr><td>{{ actividad.fecha|date:"d/m/Y" }}</td><td>{{ actividad.funcionario.nombre_completo }}</td><td>{{ actividad.descripcion|truncatewords:10 }}</td><td><span class="estado estado-{{ actividad.estado }}">{{ actividad.get_estado_display }}</span></td><td>{{ actividad.revisada_por.username }}</td></tr>
+                {% empty %}
+                <tr><td colspan="5" class="text-center text-secondary py-4">Aún no hay revisiones esta semana.</td></tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</section>
+{% endblock %}

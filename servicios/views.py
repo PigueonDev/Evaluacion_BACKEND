@@ -23,8 +23,10 @@ from laserena.permisos import (
     texto_busqueda,
 )
 
-from .forms import ActividadForm, CasoForm, CompromisoForm, GestionForm
-from .models import DIAS_COMPROMISO_PROXIMO, MAXIMO_GESTIONES_POR_CASO, Actividad, Caso, Compromiso, Gestion, HistorialCompromiso, ItemMedicion, Meta, Periodo, Servicio
+from .forms import ActividadForm, CasoForm, CompromisoForm, GestionForm, RevisionForm, TareaFormSet
+from .models import DIAS_COMPROMISO_PROXIMO, MAXIMO_GESTIONES_POR_CASO, Actividad, Caso, Compromiso, Gestion, HistorialCompromiso, ItemMedicion, Meta, Periodo, Servicio, TareaPreparatoria
+from .reglas import MAXIMO_ACTIVIDADES_POR_DIA, fin_semana_laboral, inicio_semana, semana_abierta
+from .transacciones import actualizar_actividad, marcar_tarea, registrar_actividad, revisar_actividad, tareas_desde_formset
 
 
 def catalogo(request):
@@ -92,14 +94,18 @@ def _fecha_get(request, nombre):
         return None
 
 
-def _guardar_actividad(form, funcionario):
-    actividad = form.save(commit=False)
-    if not actividad.pk:
-        actividad.funcionario = funcionario
-        actividad.estado = "pendiente"
-    actividad.full_clean()
-    actividad.save()
-    return actividad
+def _contexto_semana(funcionario):
+    hoy = timezone.localdate()
+    hoy_registradas = 0
+    if funcionario is not None:
+        hoy_registradas = Actividad.objects.filter(funcionario=funcionario, fecha=hoy).exclude(estado="anulada").count()
+    return {
+        "semana_inicio": inicio_semana(hoy),
+        "semana_fin": fin_semana_laboral(hoy),
+        "semana_abierta_hoy": hoy.weekday() < 5,
+        "hoy_registradas": hoy_registradas,
+        "maximo_diario": MAXIMO_ACTIVIDADES_POR_DIA,
+    }
 
 
 @solo_administracion
@@ -151,33 +157,42 @@ def actividad_nueva(request):
     perfil = perfil_funcionario(request.user)
     if request.method == "POST":
         form = ActividadForm(request.POST, funcionario=perfil)
-        if form.is_valid():
+        formset = TareaFormSet(request.POST, prefix="tareas")
+        if form.is_valid() and formset.is_valid():
             funcionario = perfil or form.cleaned_data.get("funcionario")
             try:
-                actividad = _guardar_actividad(form, funcionario)
+                actividad = registrar_actividad(form.save(commit=False), tareas_desde_formset(formset), funcionario, request.user)
             except ValidationError as error:
                 form.add_error(None, error)
             else:
-                messages.success(request, f"Actividad registrada. Identificador: {actividad.codigo_evidencia}")
+                messages.success(request, f"Actividad registrada con {actividad.tareas.count()} tareas preparatorias. Identificador: {actividad.codigo_evidencia}")
                 return redirect("servicios:actividad_detalle", pk=actividad.pk)
     else:
         form = ActividadForm(funcionario=perfil, initial={"fecha": timezone.localdate()})
+        formset = TareaFormSet(prefix="tareas")
     contexto = {
         "form": form,
+        "formset": formset,
         "titulo": "Registrar actividad",
         "hay_periodo_abierto": Periodo.objects.filter(estado="abierto").exists(),
         "pagina_activa": "actividades",
+        **_contexto_semana(perfil),
     }
     return render(request, "servicios/actividad_formulario.html", contexto)
 
 
 @solo_funcionario
 def actividad_detalle(request, pk):
-    actividad = get_object_or_404(_actividades_ambito(request.user), pk=pk)
+    actividad = get_object_or_404(_actividades_ambito(request.user).prefetch_related("tareas"), pk=pk)
     return render(
         request,
         "servicios/actividad_detalle.html",
-        {"actividad": actividad, "pagina_activa": "actividades"},
+        {
+            "actividad": actividad,
+            "tareas": actividad.tareas.all(),
+            "editable": actividad.estado == "pendiente" and semana_abierta(actividad.fecha),
+            "pagina_activa": "actividades",
+        },
     )
 
 
@@ -190,11 +205,14 @@ def actividad_editar(request, pk):
     if actividad.periodo.estado != "abierto":
         messages.warning(request, "El período está cerrado. La actividad se puede consultar, no modificar.")
         return redirect("servicios:actividad_detalle", pk=actividad.pk)
+    if actividad.estado != "pendiente" or not semana_abierta(actividad.fecha):
+        messages.warning(request, "La actividad ya fue revisada o su semana laboral cerró: queda bloqueada.")
+        return redirect("servicios:actividad_detalle", pk=actividad.pk)
     if request.method == "POST":
         form = ActividadForm(request.POST, instance=actividad, funcionario=actividad.funcionario)
         if form.is_valid():
             try:
-                actividad = _guardar_actividad(form, actividad.funcionario)
+                actividad = actualizar_actividad(form.save(commit=False), request.user)
             except ValidationError as error:
                 form.add_error(None, error)
             else:
@@ -215,11 +233,68 @@ def actividad_anular(request, pk):
     actividad = get_object_or_404(_actividades_ambito(request.user), pk=pk)
     if actividad.periodo.estado != "abierto":
         messages.warning(request, "No se modifica una actividad de un período cerrado.")
+    elif not semana_abierta(actividad.fecha):
+        messages.warning(request, "La semana laboral de esta actividad ya cerró: queda bloqueada.")
+    elif actividad.estado == "validada":
+        messages.warning(request, "Una actividad aprobada no se anula.")
     elif actividad.estado != "anulada":
         actividad.estado = "anulada"
         actividad.save(update_fields=["estado"])
         messages.success(request, f"Actividad anulada. El código {actividad.codigo_evidencia} queda reservado y no se reutiliza.")
     return redirect("servicios:actividad_detalle", pk=actividad.pk)
+
+
+@solo_funcionario
+@require_POST
+def tarea_marcar(request, pk, tarea_pk):
+    actividad = get_object_or_404(_actividades_ambito(request.user), pk=pk)
+    tarea = get_object_or_404(TareaPreparatoria, pk=tarea_pk, actividad=actividad)
+    try:
+        marcar_tarea(tarea, request.POST.get("realizada") == "1", request.user)
+    except ValidationError as error:
+        messages.warning(request, " ".join(error.messages))
+    else:
+        messages.success(request, f"Tarea «{tarea}» {'realizada' if tarea.realizada else 'marcada como pendiente'}. Las tareas no suman al cumplimiento.")
+    return redirect("servicios:actividad_detalle", pk=actividad.pk)
+
+
+@solo_delegado
+def aprobaciones(request):
+    base = _actividades_ambito(request.user).prefetch_related("tareas")
+    hoy = timezone.localdate()
+    pendientes = [a for a in base.filter(estado="pendiente", fecha__gte=inicio_semana(hoy))]
+    revisadas = base.filter(estado__in=["validada", "rechazada"], fecha__gte=inicio_semana(hoy))
+    contexto = {
+        "pendientes": pendientes,
+        "revisadas": revisadas[:20],
+        "semana_inicio": inicio_semana(hoy),
+        "semana_fin": fin_semana_laboral(hoy),
+        "form": RevisionForm(),
+        "pagina_activa": "aprobaciones",
+    }
+    return render(request, "servicios/aprobaciones.html", contexto)
+
+
+@solo_delegado
+@require_POST
+def actividad_revisar(request, pk):
+    actividad = get_object_or_404(_actividades_ambito(request.user), pk=pk)
+    if not request.user.has_perm("servicios.aprobar_actividad"):
+        return render(request, "institucional/denegado.html", status=403)
+    form = RevisionForm(request.POST)
+    if not form.is_valid():
+        messages.warning(request, "Decisión no válida.")
+        return redirect("servicios:aprobaciones")
+    try:
+        revisar_actividad(actividad, form.cleaned_data["decision"], request.user, form.cleaned_data["observacion"])
+    except ValidationError as error:
+        messages.warning(request, " ".join(error.messages))
+    else:
+        if form.cleaned_data["decision"] == "aprobar":
+            messages.success(request, f"Actividad de {actividad.funcionario.nombre_completo} aprobada: ya suma a su cumplimiento.")
+        else:
+            messages.success(request, "Actividad rechazada. No suma al cumplimiento.")
+    return redirect("servicios:aprobaciones")
 
 
 @solo_funcionario

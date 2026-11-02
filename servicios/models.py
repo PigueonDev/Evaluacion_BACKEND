@@ -65,6 +65,7 @@ class Periodo(models.Model):
 	fecha_termino = models.DateField()
 	estado = models.CharField(max_length=20, choices=ESTADOS, default="abierto")
 	tope_cumplimiento = models.DecimalField(max_digits=5, decimal_places=2, default=150)
+	tope_item = models.DecimalField(max_digits=5, decimal_places=2, default=120)
 	umbral_colectivo = models.DecimalField(max_digits=5, decimal_places=2, default=80)
 	umbral_ambar = models.DecimalField(max_digits=5, decimal_places=2, default=60)
 
@@ -100,7 +101,7 @@ class Meta(models.Model):
 
 	@property
 	def avance_aprobado(self):
-		actividades = Actividad.objects.filter(periodo=self.periodo, item=self.item, estado="validada")
+		actividades = Actividad.objects.puntuables().filter(periodo=self.periodo, item=self.item)
 		if self.funcionario_id:
 			actividades = actividades.filter(funcionario=self.funcionario)
 		elif self.cargo_id:
@@ -109,7 +110,7 @@ class Meta(models.Model):
 
 	@property
 	def cumplimiento(self):
-		return min((self.avance_aprobado / float(self.objetivo)) * 100, float(self.periodo.tope_cumplimiento))
+		return min((self.avance_aprobado / float(self.objetivo)) * 100, float(self.periodo.tope_item))
 
 	@property
 	def resultado_ponderado(self):
@@ -131,8 +132,14 @@ class Meta(models.Model):
 		return "rojo"
 
 
+class ActividadQuerySet(models.QuerySet):
+	def puntuables(self):
+		"""Solo suma al cumplimiento lo aprobado por el Supervisor y con todas sus tareas realizadas."""
+		return self.filter(estado="validada").exclude(tareas__realizada=False)
+
+
 class Actividad(models.Model):
-	ESTADOS = [("pendiente", "Pendiente"), ("validada", "Validada"), ("rechazada", "Rechazada"), ("anulada", "Anulada")]
+	ESTADOS = [("pendiente", "Pendiente"), ("validada", "Aprobada"), ("rechazada", "Rechazada"), ("anulada", "Anulada")]
 	codigo_evidencia = models.UUIDField(default=uuid.uuid4, unique=True, editable=False)
 	funcionario = models.ForeignKey("institucional.Funcionario", on_delete=models.PROTECT, related_name="actividades")
 	periodo = models.ForeignKey(Periodo, on_delete=models.PROTECT, related_name="actividades")
@@ -146,9 +153,31 @@ class Actividad(models.Model):
 	telefono = models.CharField(max_length=30, blank=True)
 	estado = models.CharField(max_length=20, choices=ESTADOS, default="pendiente")
 	creada_en = models.DateTimeField(auto_now_add=True)
+	revisada_por = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name="actividades_revisadas")
+	revisada_en = models.DateTimeField(null=True, blank=True)
+	observacion_revision = models.TextField(blank=True)
+
+	objects = ActividadQuerySet.as_manager()
 
 	class Meta:
 		ordering = ["-fecha", "-creada_en"]
+		permissions = [("aprobar_actividad", "Puede aprobar o rechazar actividades")]
+
+	@property
+	def total_tareas(self):
+		return self.tareas.count()
+
+	@property
+	def tareas_realizadas(self):
+		return self.tareas.filter(realizada=True).count()
+
+	@property
+	def tareas_completas(self):
+		return not self.tareas.filter(realizada=False).exists()
+
+	@property
+	def puntua(self):
+		return self.estado == "validada" and self.tareas_completas
 
 	def clean(self):
 		errores = {}
@@ -181,6 +210,33 @@ class Actividad(models.Model):
 
 	def __str__(self):
 		return f"{self.codigo_evidencia} - {self.funcionario.nombre_completo}"
+
+
+class TareaPreparatoria(models.Model):
+	"""Gestión previa a la actividad (sillas, colación, regalos...). Nunca suma al cumplimiento por sí sola."""
+
+	TIPOS = [
+		("sillas", "Solicitar sillas y mesas"),
+		("colacion", "Solicitar colación"),
+		("regalos", "Solicitar regalos"),
+		("local", "Reservar local o espacio"),
+		("animacion", "Contratar animadores o artistas"),
+		("difusion", "Difusión e invitaciones"),
+		("otra", "Otra gestión"),
+	]
+	actividad = models.ForeignKey(Actividad, on_delete=models.CASCADE, related_name="tareas")
+	tipo = models.CharField(max_length=20, choices=TIPOS)
+	descripcion = models.CharField(max_length=200, blank=True)
+	realizada = models.BooleanField(default=False)
+	realizada_en = models.DateTimeField(null=True, blank=True)
+
+	class Meta:
+		ordering = ["pk"]
+		verbose_name = "tarea preparatoria"
+		verbose_name_plural = "tareas preparatorias"
+
+	def __str__(self):
+		return self.descripcion or self.get_tipo_display()
 
 
 class Caso(models.Model):

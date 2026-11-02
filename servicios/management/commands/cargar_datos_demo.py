@@ -5,17 +5,21 @@ from pathlib import Path
 from django.contrib.auth import get_user_model
 from django.core.management.base import BaseCommand
 
-from institucional.cuentas import conceder_permisos_parametros
+from django.utils import timezone
+
+from institucional.cuentas import asegurar_grupos, asignar_grupo
 from institucional.models import Autoridad, Cargo, Delegacion, Funcionario, Municipio
+from laserena.permisos import GRUPO_ADMINISTRADOR, GRUPO_ADMINISTRATIVO, GRUPO_SUPERVISOR
+from servicios.models import Actividad, Caso, Compromiso, Gestion, ItemMedicion, Meta, Periodo, Servicio, TareaPreparatoria
 
 CLAVE_DEMO = "Serena-demo-2026"
-from servicios.models import Actividad, Caso, Compromiso, Gestion, ItemMedicion, Meta, Periodo, Servicio
 
 
 class Command(BaseCommand):
     help = "Carga datos ficticios iniciales para demostrar el SGR."
 
     def handle(self, *args, **options):
+        asegurar_grupos()
         base_dir = Path(__file__).resolve().parents[3]
         institucion_path = base_dir / "institucional" / "data" / "institucion.json"
         servicios_path = base_dir / "servicios" / "data" / "servicios.json"
@@ -105,7 +109,7 @@ class Command(BaseCommand):
         item = ItemMedicion.objects.get(codigo="ACT-001")
         cargo.funciones.add(item)
         delegacion = Delegacion.objects.get(slug="centro")
-        usuario_funcionario = _usuario_demo("funcionario.demo", "Funcionario", "Demostración")
+        usuario_funcionario = _usuario_demo("funcionario.demo", "Funcionario", "Demostración", GRUPO_ADMINISTRATIVO)
         funcionario, _ = Funcionario.objects.update_or_create(
             identificador="DEMO-001",
             defaults={
@@ -113,15 +117,13 @@ class Command(BaseCommand):
                 "correo": "demo@ejemplo.cl",
                 "delegacion": delegacion,
                 "cargo": cargo,
-                "rol": "funcionario",
                 "usuario": usuario_funcionario,
             },
         )
-        funcionario.rol = "funcionario"
         funcionario.usuario = usuario_funcionario
         funcionario.save()
         cargo_delegado, _ = Cargo.objects.get_or_create(nombre="Delegado territorial", defaults={"descripcion": "Jefatura de la delegación."})
-        usuario_delegado = _usuario_demo("delegado.demo", "Delegado", "Demostración")
+        usuario_delegado = _usuario_demo("delegado.demo", "Delegado", "Demostración", GRUPO_SUPERVISOR)
         Funcionario.objects.update_or_create(
             identificador="DEMO-DEL",
             defaults={
@@ -129,20 +131,18 @@ class Command(BaseCommand):
                 "correo": "delegado@ejemplo.cl",
                 "delegacion": delegacion,
                 "cargo": cargo_delegado,
-                "rol": "delegado",
                 "usuario": usuario_delegado,
             },
         )
         cargo_consulta, _ = Cargo.objects.get_or_create(nombre="Consulta operativa", defaults={"descripcion": "Lectura de informes dentro del ámbito."})
-        usuario_consulta = _usuario_demo("consulta.demo", "Consulta", "Demostración")
+        usuario_consulta = _usuario_demo("consulta.demo", "Consulta", "Demostración", GRUPO_SUPERVISOR)
         Funcionario.objects.update_or_create(
             identificador="DEMO-CON",
             defaults={
-                "nombre_completo": "Usuario de consulta",
+                "nombre_completo": "Supervisor de consulta",
                 "correo": "consulta@ejemplo.cl",
                 "delegacion": delegacion,
                 "cargo": cargo_consulta,
-                "rol": "consulta",
                 "usuario": usuario_consulta,
             },
         )
@@ -150,8 +150,7 @@ class Command(BaseCommand):
             nombre="Administración municipal",
             defaults={"descripcion": "Parámetros, catálogos, metas y cuentas del SGR."},
         )
-        usuario_admin = _usuario_demo("admin.demo", "Administrador", "Demostración")
-        conceder_permisos_parametros(usuario_admin)
+        usuario_admin = _usuario_demo("admin.demo", "Administrador", "Demostración", GRUPO_ADMINISTRADOR)
         Funcionario.objects.update_or_create(
             identificador="DEMO-ADM",
             defaults={
@@ -159,7 +158,6 @@ class Command(BaseCommand):
                 "correo": "admin@ejemplo.cl",
                 "delegacion": delegacion,
                 "cargo": cargo_admin,
-                "rol": "administrador",
                 "usuario": usuario_admin,
             },
         )
@@ -169,13 +167,28 @@ class Command(BaseCommand):
             funcionario=funcionario,
             defaults={"objetivo": 10, "ponderador": 100},
         )
-        Actividad.objects.get_or_create(
+        hoy = timezone.localdate()
+        actividad_aprobada, creada = Actividad.objects.get_or_create(
             funcionario=funcionario,
             periodo=periodo,
             item=item,
             descripcion="Operativo territorial de demostración",
-            defaults={"accion": "Orientación y coordinación ficticia", "estado": "validada"},
+            defaults={"accion": "Orientación y coordinación ficticia", "estado": "validada", "fecha": hoy, "contacto": "Junta de vecinos demo", "telefono": "+56 9 1111 2222"},
         )
+        if creada:
+            TareaPreparatoria.objects.create(actividad=actividad_aprobada, tipo="local", descripcion="Sede vecinal reservada", realizada=True, realizada_en=timezone.now())
+        if hoy.weekday() < 5:
+            pendiente, creada = Actividad.objects.get_or_create(
+                funcionario=funcionario,
+                periodo=periodo,
+                item=item,
+                descripcion="Celebración Día del Adulto Mayor en sede vecinal",
+                defaults={"accion": "Coordinación con club de adulto mayor", "fecha": hoy, "contacto": "Presidenta del club", "telefono": "+56 9 3333 4444"},
+            )
+            if creada:
+                TareaPreparatoria.objects.create(actividad=pendiente, tipo="sillas", descripcion="40 sillas y 6 mesas", realizada=True, realizada_en=timezone.now())
+                TareaPreparatoria.objects.create(actividad=pendiente, tipo="colacion", descripcion="Colación para 40 personas")
+                TareaPreparatoria.objects.create(actividad=pendiente, tipo="animacion", descripcion="Grupo folclórico")
         caso, _ = Caso.objects.get_or_create(
             identificacion="CASO-DEMO-001",
             defaults={
@@ -208,19 +221,22 @@ class Command(BaseCommand):
         )
 
         self.stdout.write(self.style.SUCCESS(
-            "Datos demo SGR cargados. Cuentas: funcionario.demo, delegado.demo, consulta.demo y admin.demo. Clave: Serena-demo-2026."
+            "Datos demo SGR cargados. Cuentas: admin.demo (Administrador), delegado.demo y consulta.demo (Supervisor), "
+            "funcionario.demo (Administrativo). Clave: Serena-demo-2026."
         ))
 
 
-def _usuario_demo(username, nombre, apellido):
+def _usuario_demo(username, nombre, apellido, grupo):
     usuario, _ = get_user_model().objects.get_or_create(
         username=username,
         defaults={"email": f"{username}@ejemplo.cl", "first_name": nombre, "last_name": apellido},
     )
     usuario.first_name = nombre
     usuario.last_name = apellido
-    usuario.is_staff = True
+    usuario.email = usuario.email or f"{username}@ejemplo.cl"
+    usuario.is_staff = False
     usuario.is_superuser = False
     usuario.set_password(CLAVE_DEMO)
     usuario.save()
+    asignar_grupo(usuario, grupo)
     return usuario

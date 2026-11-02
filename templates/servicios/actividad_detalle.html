@@ -22,10 +22,30 @@
             <div><dt>Teléfono</dt><dd>{{ actividad.telefono|default:"Sin teléfono" }}</dd></div>
             <div><dt>Vínculo con la agenda</dt><dd>{% if actividad.compromiso %}{{ actividad.compromiso.solicitante }} · {{ actividad.compromiso.fecha_comprometida|date:"d/m/Y" }}{% else %}Sin compromiso asociado{% endif %}</dd></div>
             <div><dt>Estado</dt><dd><span class="estado estado-{{ actividad.estado }}">{{ actividad.get_estado_display }}</span></dd></div>
+            <div><dt>Suma al cumplimiento</dt><dd>{% if actividad.puntua %}Sí{% else %}No: requiere todas las tareas realizadas y la aprobación del Supervisor{% endif %}</dd></div>
+            {% if actividad.revisada_por %}<div><dt>Revisión</dt><dd>{{ actividad.revisada_por.get_full_name|default:actividad.revisada_por.username }} · {{ actividad.revisada_en|date:"d/m/Y H:i" }}{% if actividad.observacion_revision %} — {{ actividad.observacion_revision }}{% endif %}</dd></div>{% endif %}
         </dl>
+        <h2 class="h5 mt-4">Tareas preparatorias ({{ actividad.tareas_realizadas }} de {{ actividad.total_tareas }} realizadas)</h2>
+        <ul class="list-group mb-4">
+            {% for tarea in tareas %}
+            <li class="list-group-item d-flex justify-content-between align-items-center gap-2">
+                <span>{% if tarea.realizada %}<span class="badge text-bg-success me-2">Realizada</span>{% else %}<span class="badge text-bg-warning me-2">Pendiente</span>{% endif %}<strong>{{ tarea.get_tipo_display }}</strong>{% if tarea.descripcion %} · {{ tarea.descripcion }}{% endif %}</span>
+                {% if editable %}
+                <form method="post" action="{% url 'servicios:tarea_marcar' actividad.pk tarea.pk %}">
+                    {% csrf_token %}
+                    <input type="hidden" name="realizada" value="{% if tarea.realizada %}0{% else %}1{% endif %}">
+                    <button class="btn btn-sm {% if tarea.realizada %}btn-outline-secondary{% else %}btn-success{% endif %}" type="submit">{% if tarea.realizada %}Deshacer{% else %}Marcar realizada{% endif %}</button>
+                </form>
+                {% endif %}
+            </li>
+            {% empty %}
+            <li class="list-group-item text-secondary">Sin tareas preparatorias.</li>
+            {% endfor %}
+        </ul>
+        {% if not editable and actividad.estado == 'pendiente' %}<div class="alert alert-secondary">La semana laboral de esta actividad cerró: queda bloqueada y no se traspasa.</div>{% endif %}
         <div class="d-flex flex-wrap gap-2">
             <a class="btn btn-outline-secondary" href="{% url 'servicios:actividades' %}">Volver al listado</a>
-            {% if actividad.estado != 'anulada' and actividad.periodo.estado == 'abierto' %}
+            {% if editable and actividad.periodo.estado == 'abierto' %}
             <a class="btn btn-primary" href="{% url 'servicios:actividad_editar' actividad.pk %}">Editar</a>
             <form method="post" action="{% url 'servicios:actividad_anular' actividad.pk %}">
                 {% csrf_token %}

@@ -3,7 +3,7 @@ from django.core.exceptions import ValidationError
 
 from institucional.models import Delegacion, Funcionario
 
-from .models import MAXIMO_GESTIONES_POR_CASO, TELEFONO_ACTIVIDAD, Actividad, Caso, Compromiso, Gestion, ItemMedicion, Periodo, Servicio
+from .models import MAXIMO_GESTIONES_POR_CASO, TELEFONO_ACTIVIDAD, Actividad, TareaPreparatoria, Caso, Compromiso, Gestion, ItemMedicion, Periodo, Servicio
 
 
 class ActividadForm(forms.ModelForm):
@@ -82,6 +82,41 @@ class ActividadForm(forms.ModelForm):
 		if compromiso and funcionario and compromiso.delegacion_id != funcionario.delegacion_id:
 			self.add_error("compromiso", "El compromiso debe ser de la misma delegación del funcionario.")
 		return cleaned
+
+
+class TareaForm(forms.Form):
+	tipo = forms.ChoiceField(
+		label="Tarea",
+		choices=[("", "Selecciona una tarea")] + TareaPreparatoria.TIPOS,
+		widget=forms.Select(attrs={"class": "form-select"}),
+	)
+	descripcion = forms.CharField(
+		label="Detalle",
+		max_length=200,
+		required=False,
+		widget=forms.TextInput(attrs={"class": "form-control", "placeholder": "Ej.: 40 sillas a Bodega municipal"}),
+	)
+
+
+class TareaFormSetBase(forms.BaseFormSet):
+	def clean(self):
+		if any(self.errors):
+			return
+		if not any(form.has_changed() for form in self.forms):
+			raise ValidationError("Agrega al menos una tarea preparatoria.")
+
+
+TareaFormSet = forms.formset_factory(TareaForm, formset=TareaFormSetBase, extra=4)
+
+
+class RevisionForm(forms.Form):
+	decision = forms.ChoiceField(choices=[("aprobar", "Aprobar"), ("rechazar", "Rechazar")], widget=forms.HiddenInput)
+	observacion = forms.CharField(
+		label="Observación",
+		required=False,
+		max_length=500,
+		widget=forms.Textarea(attrs={"class": "form-control", "rows": 2}),
+	)
 
 
 class CasoForm(forms.ModelForm):

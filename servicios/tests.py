@@ -1,5 +1,6 @@
 import uuid
 from datetime import date, timedelta
+from unittest import mock
 
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
@@ -8,9 +9,26 @@ from django.test import TestCase
 from django.urls import reverse
 from django.utils import timezone
 
+from institucional.cuentas import asignar_grupo
 from institucional.models import Cargo, Delegacion, Funcionario
+from laserena.permisos import GRUPO_ADMINISTRADOR, GRUPO_ADMINISTRATIVO, GRUPO_SUPERVISOR
 
 from .models import Actividad, Caso, Compromiso, Gestion, ItemMedicion, Meta, Periodo, Servicio
+
+HOY_PRUEBAS = date(2026, 6, 17)
+_localdate_real = timezone.localdate
+
+
+def fijar_hoy(test, hoy=HOY_PRUEBAS):
+	"""Fija la fecha local para probar las reglas de semana laboral sin depender del reloj."""
+	patcher = mock.patch("django.utils.timezone.localdate", side_effect=lambda *a, **k: hoy if not a and not k else _localdate_real(*a, **k))
+	patcher.start()
+	test.addCleanup(patcher.stop)
+
+
+def con_grupo(usuario, grupo):
+	asignar_grupo(usuario, grupo)
+	return usuario
 
 
 class ReglasSgrTest(TestCase):
@@ -76,12 +94,14 @@ class PanelesPrivadosTest(TestCase):
 		"servicios:casos",
 		"servicios:agenda",
 		"servicios:consulta",
+		"servicios:aprobaciones",
 		"institucional:panel",
 	)
+	MENU = ("servicios:actividades", "servicios:consulta", "servicios:aprobaciones", "organizaciones:listado", "institucional:usuarios", "institucional:grupos")
 
 	def setUp(self):
 		modelo_usuario = get_user_model()
-		self.staff = modelo_usuario.objects.create_user(username="staff-demo", password="demo", is_staff=True)
+		self.staff = con_grupo(modelo_usuario.objects.create_user(username="staff-demo", password="demo"), GRUPO_ADMINISTRADOR)
 		self.vecino = modelo_usuario.objects.create_user(username="vecino-demo", password="demo")
 
 	def test_visitante_es_enviado_al_login(self):
@@ -102,11 +122,11 @@ class PanelesPrivadosTest(TestCase):
 
 	def test_menu_oculta_paneles_a_visitantes(self):
 		respuesta = self.client.get(reverse("institucional:inicio"))
-		for nombre in self.PANELES:
+		for nombre in self.MENU:
 			self.assertNotContains(respuesta, f'href="{reverse(nombre)}"')
 		self.client.force_login(self.staff)
 		respuesta = self.client.get(reverse("institucional:inicio"))
-		for nombre in self.PANELES:
+		for nombre in self.MENU:
 			self.assertContains(respuesta, f'href="{reverse(nombre)}"')
 
 
@@ -120,7 +140,7 @@ class InyeccionSqlTest(TestCase):
 	]
 
 	def setUp(self):
-		self.staff = get_user_model().objects.create_user(username="staff-demo", password="demo", is_staff=True)
+		self.staff = con_grupo(get_user_model().objects.create_user(username="staff-demo", password="demo"), GRUPO_ADMINISTRADOR)
 		Servicio.objects.create(slug="licencia", nombre="Licencia de conducir", categoria="Tránsito", unidad="Tránsito", descripcion="Demo")
 
 	def test_busquedas_no_ejecutan_sql_inyectado(self):
@@ -150,9 +170,10 @@ class MantenedoresCristhopherTest(TestCase):
 	"""SCRUM-10, SCRUM-12, SCRUM-15, SCRUM-16, SCRUM-17, SCRUM-18 y SCRUM-21."""
 
 	def setUp(self):
+		fijar_hoy(self)
 		modelo = get_user_model()
-		self.user = modelo.objects.create_user(username="func-centro", password="clave-demo-123", is_staff=True)
-		self.otro = modelo.objects.create_user(username="func-norte", password="clave-demo-123", is_staff=True)
+		self.user = con_grupo(modelo.objects.create_user(username="func-centro", password="clave-demo-123"), GRUPO_ADMINISTRATIVO)
+		self.otro = con_grupo(modelo.objects.create_user(username="func-norte", password="clave-demo-123"), GRUPO_ADMINISTRATIVO)
 		self.centro = Delegacion.objects.create(nombre="Centro sprint", slug="centro-sprint", territorio="Centro", enfoque="Demo")
 		self.norte = Delegacion.objects.create(nombre="Norte sprint", slug="norte-sprint", territorio="Norte", enfoque="Demo")
 		self.cargo = Cargo.objects.create(nombre="Gestor sprint")
@@ -165,13 +186,13 @@ class MantenedoresCristhopherTest(TestCase):
 		self.ajeno = Funcionario.objects.create(
 			usuario=self.otro, identificador="F-N", nombre_completo="Luis Norte", delegacion=self.norte, cargo=self.cargo,
 		)
-		self.delegado_user = modelo.objects.create_user(username="delegado-centro", password="clave-demo-123", is_staff=True)
-		self.consulta_user = modelo.objects.create_user(username="consulta-centro", password="clave-demo-123", is_staff=True)
+		self.delegado_user = con_grupo(modelo.objects.create_user(username="delegado-centro", password="clave-demo-123"), GRUPO_SUPERVISOR)
+		self.consulta_user = con_grupo(modelo.objects.create_user(username="consulta-centro", password="clave-demo-123"), GRUPO_SUPERVISOR)
 		Funcionario.objects.create(
-			usuario=self.delegado_user, identificador="F-D", nombre_completo="Jefa Centro", delegacion=self.centro, cargo=self.cargo, rol="delegado",
+			usuario=self.delegado_user, identificador="F-D", nombre_completo="Jefa Centro", delegacion=self.centro, cargo=self.cargo,
 		)
 		Funcionario.objects.create(
-			usuario=self.consulta_user, identificador="F-Q", nombre_completo="Consulta Centro", delegacion=self.centro, cargo=self.cargo, rol="consulta",
+			usuario=self.consulta_user, identificador="F-Q", nombre_completo="Consulta Centro", delegacion=self.centro, cargo=self.cargo,
 		)
 		self.item = ItemMedicion.objects.create(codigo="SPR-001", nombre="Ítem sprint")
 		self.periodo = Periodo.objects.create(nombre="Sprint 2026", fecha_inicio=date(2026, 1, 1), fecha_termino=date(2026, 12, 31))
@@ -189,6 +210,12 @@ class MantenedoresCristhopherTest(TestCase):
 			"accion": "Orientación a la junta de vecinos",
 			"contacto": "Junta de vecinos",
 			"telefono": "+56 9 1111 2222",
+			"tareas-TOTAL_FORMS": "4",
+			"tareas-INITIAL_FORMS": "0",
+			"tareas-MIN_NUM_FORMS": "0",
+			"tareas-MAX_NUM_FORMS": "1000",
+			"tareas-0-tipo": "sillas",
+			"tareas-0-descripcion": "20 sillas",
 		}
 		datos.update(extra)
 		return datos
@@ -436,19 +463,19 @@ class MantenedoresCristhopherTest(TestCase):
 		self.assertEqual(resumen.status_code, 200)
 		self.assertGreaterEqual(resumen.context["pendientes"], 1)
 		self.assertContains(resumen, "Ana Centro")
-		self.assertNotContains(resumen, "Consulta operativa")
 		detalle = self.client.get(reverse("servicios:compromiso_detalle", args=[compromiso.pk]))
 		self.assertEqual(detalle.status_code, 200)
 		self.assertContains(detalle, "Historial de estados")
 		self.assertNotContains(detalle, "Editar")
-		self.assertEqual(self.client.get(reverse("servicios:consulta")).status_code, 403)
+		self.assertEqual(self.client.get(reverse("servicios:consulta")).status_code, 200)
+		self.assertEqual(self.client.get(reverse("servicios:aprobaciones")).status_code, 200)
 		self.assertEqual(self.client.get(reverse("servicios:actividad_nueva")).status_code, 403)
 		self.assertEqual(self.client.post(reverse("servicios:compromiso_editar", args=[compromiso.pk]), self._datos_compromiso()).status_code, 403)
 		menu = self.client.get(reverse("institucional:inicio"))
 		self.assertContains(menu, "Cerrar sesión")
 		self.assertContains(menu, reverse("institucional:salir"))
-		self.assertContains(menu, reverse("servicios:resumen_agenda"))
-		self.assertNotContains(menu, reverse("servicios:consulta"))
+		self.assertContains(menu, reverse("servicios:aprobaciones"))
+		self.assertContains(menu, reverse("servicios:consulta"))
 		self.assertNotContains(menu, reverse("servicios:actividades"))
 		salida = self.client.post(reverse("institucional:salir"))
 		self.assertRedirects(salida, reverse("institucional:acceso"))
@@ -466,16 +493,170 @@ class MantenedoresCristhopherTest(TestCase):
 			"servicios:caso_nuevo",
 			"servicios:agenda",
 			"servicios:compromiso_nuevo",
-			"servicios:resumen_agenda",
 			"servicios:dashboard",
 			"institucional:panel",
 		):
 			self.assertEqual(self.client.get(reverse(nombre)).status_code, 403, nombre)
 		self.assertEqual(self.client.post(reverse("servicios:actividad_nueva"), self._datos_actividad()).status_code, 403)
-		self.assertEqual(self.client.get("/admin/").status_code, 403)
+		self.assertEqual(self.client.get("/admin/").status_code, 404)
 		menu = self.client.get(reverse("institucional:inicio"))
 		self.assertContains(menu, "Cerrar sesión")
 		self.assertContains(menu, reverse("institucional:salir"))
 		self.assertContains(menu, reverse("servicios:consulta"))
 		self.assertNotContains(menu, reverse("servicios:actividades"))
-		self.assertNotContains(menu, reverse("servicios:resumen_agenda"))
+
+
+class TransaccionRegistrarActividadTest(TestCase):
+	"""Reglas de la transacción: tareas, aprobación, tope 120 %, 7 por día y cierre semanal."""
+
+	def setUp(self):
+		fijar_hoy(self)
+		modelo = get_user_model()
+		self.centro = Delegacion.objects.create(nombre="Centro tx", slug="centro-tx", territorio="Centro", enfoque="Demo")
+		self.norte = Delegacion.objects.create(nombre="Norte tx", slug="norte-tx", territorio="Norte", enfoque="Demo")
+		self.cargo = Cargo.objects.create(nombre="Gestor tx")
+		self.user = con_grupo(modelo.objects.create_user(username="fun-tx", password="x"), GRUPO_ADMINISTRATIVO)
+		self.funcionario = Funcionario.objects.create(usuario=self.user, identificador="TX-1", nombre_completo="Ana Tx", delegacion=self.centro, cargo=self.cargo)
+		self.supervisor = con_grupo(modelo.objects.create_user(username="sup-tx", password="x"), GRUPO_SUPERVISOR)
+		Funcionario.objects.create(usuario=self.supervisor, identificador="TX-S", nombre_completo="Jefa Tx", delegacion=self.centro, cargo=self.cargo)
+		self.supervisor_norte = con_grupo(modelo.objects.create_user(username="sup-norte", password="x"), GRUPO_SUPERVISOR)
+		Funcionario.objects.create(usuario=self.supervisor_norte, identificador="TX-N", nombre_completo="Jefe Norte", delegacion=self.norte, cargo=self.cargo)
+		self.item = ItemMedicion.objects.create(codigo="TX-001", nombre="Ítem tx")
+		self.periodo = Periodo.objects.create(nombre="Período tx", fecha_inicio=date(2026, 1, 1), fecha_termino=date(2026, 12, 31))
+
+	def _actividad(self, fecha=HOY_PRUEBAS, tareas=("sillas", "colacion")):
+		from .models import TareaPreparatoria
+		from .transacciones import registrar_actividad
+
+		actividad = Actividad(periodo=self.periodo, item=self.item, fecha=fecha, descripcion="Celebración vecinal", accion="Coordinar")
+		return registrar_actividad(actividad, [TareaPreparatoria(tipo=tipo) for tipo in tareas], self.funcionario, self.user)
+
+	def _datos(self, fecha="2026-06-17", **extra):
+		datos = {
+			"fecha": fecha, "periodo": str(self.periodo.pk), "item": str(self.item.pk),
+			"descripcion": "Día del niño", "accion": "Coordinación", "contacto": "JJVV", "telefono": "+56 9 1234 5678",
+			"tareas-TOTAL_FORMS": "4", "tareas-INITIAL_FORMS": "0", "tareas-MIN_NUM_FORMS": "0", "tareas-MAX_NUM_FORMS": "1000",
+			"tareas-0-tipo": "regalos", "tareas-0-descripcion": "50 regalos",
+			"tareas-1-tipo": "local", "tareas-1-descripcion": "Sede vecinal",
+		}
+		datos.update(extra)
+		return datos
+
+	def test_registra_actividad_y_tareas_en_una_sola_transaccion(self):
+		self.client.force_login(self.user)
+		respuesta = self.client.post(reverse("servicios:actividad_nueva"), self._datos(), follow=True)
+		actividad = Actividad.objects.get()
+		self.assertContains(respuesta, "2 tareas preparatorias")
+		self.assertEqual(actividad.tareas.count(), 2)
+		self.assertEqual(actividad.estado, "pendiente")
+		from .models import Auditoria
+		self.assertTrue(Auditoria.objects.filter(accion="registrar_actividad", identificador=str(actividad.codigo_evidencia)).exists())
+
+	def test_sin_tareas_no_se_guarda_nada(self):
+		self.client.force_login(self.user)
+		datos = self._datos(**{"tareas-0-tipo": "", "tareas-0-descripcion": "", "tareas-1-tipo": "", "tareas-1-descripcion": ""})
+		respuesta = self.client.post(reverse("servicios:actividad_nueva"), datos)
+		self.assertContains(respuesta, "al menos una tarea")
+		self.assertEqual(Actividad.objects.count(), 0)
+
+	def test_error_en_una_tarea_revierte_toda_la_transaccion(self):
+		from .models import TareaPreparatoria
+		from .transacciones import registrar_actividad
+
+		actividad = Actividad(periodo=self.periodo, item=self.item, fecha=HOY_PRUEBAS, descripcion="X", accion="Y")
+		with self.assertRaises(ValidationError):
+			registrar_actividad(actividad, [TareaPreparatoria(tipo="sillas"), TareaPreparatoria(tipo="no-existe")], self.funcionario, self.user)
+		self.assertEqual(Actividad.objects.count(), 0)
+		self.assertEqual(TareaPreparatoria.objects.count(), 0)
+
+	def test_tareas_no_suman_hasta_completar_y_aprobar(self):
+		from .transacciones import marcar_tarea, revisar_actividad
+
+		meta = Meta.objects.create(periodo=self.periodo, item=self.item, funcionario=self.funcionario, objetivo=1, ponderador=100)
+		actividad = self._actividad()
+		tareas = list(actividad.tareas.all())
+		marcar_tarea(tareas[0], True, self.user)
+		self.assertEqual(meta.cumplimiento, 0)
+		with self.assertRaises(ValidationError):
+			revisar_actividad(actividad, "aprobar", self.supervisor)
+		marcar_tarea(tareas[1], True, self.user)
+		self.assertEqual(meta.cumplimiento, 0)
+		revisar_actividad(actividad, "aprobar", self.supervisor)
+		actividad.refresh_from_db()
+		self.assertTrue(actividad.puntua)
+		self.assertEqual(meta.cumplimiento, 100)
+		with self.assertRaises(ValidationError):
+			marcar_tarea(tareas[1], False, self.user)
+
+	def test_rechazo_exige_motivo_y_no_suma(self):
+		from .transacciones import revisar_actividad
+
+		meta = Meta.objects.create(periodo=self.periodo, item=self.item, funcionario=self.funcionario, objetivo=1, ponderador=100)
+		actividad = self._actividad(tareas=("sillas",))
+		with self.assertRaises(ValidationError):
+			revisar_actividad(actividad, "rechazar", self.supervisor, "")
+		revisar_actividad(actividad, "rechazar", self.supervisor, "Sin respaldo")
+		self.assertEqual(meta.cumplimiento, 0)
+
+	def test_tope_de_120_por_item(self):
+		meta = Meta.objects.create(periodo=self.periodo, item=self.item, funcionario=self.funcionario, objetivo=2, ponderador=100)
+		for dia in (15, 16, 17):
+			actividad = self._actividad(fecha=date(2026, 6, dia), tareas=("sillas",))
+			actividad.tareas.update(realizada=True)
+			Actividad.objects.filter(pk=actividad.pk).update(estado="validada")
+		self.assertEqual(meta.avance_aprobado, 3)
+		self.assertEqual(meta.cumplimiento, 120)
+
+	def test_maximo_siete_actividades_por_dia(self):
+		for _ in range(7):
+			self._actividad(tareas=("sillas",))
+		with self.assertRaisesMessage(ValidationError, "máximo diario"):
+			self._actividad(tareas=("sillas",))
+		Actividad.objects.filter(pk=Actividad.objects.first().pk).update(estado="anulada")
+		self._actividad(tareas=("sillas",))
+		self.assertEqual(Actividad.objects.exclude(estado="anulada").filter(fecha=HOY_PRUEBAS).count(), 7)
+
+	def test_solo_dias_habiles_de_la_semana_en_curso(self):
+		for fecha, mensaje in (
+			(date(2026, 6, 18), "fecha futura"),
+			(date(2026, 6, 12), "ya cerró"),
+			(date(2026, 6, 13), "lunes a viernes"),
+		):
+			with self.assertRaisesMessage(ValidationError, mensaje):
+				self._actividad(fecha=fecha)
+		self._actividad(fecha=date(2026, 6, 15))
+		self.assertEqual(Actividad.objects.count(), 1)
+
+	def test_fin_de_semana_no_se_ingresa_ni_lo_de_la_semana_que_cerro(self):
+		fijar_hoy(self, date(2026, 6, 20))
+		with self.assertRaisesMessage(ValidationError, "ya cerró"):
+			self._actividad(fecha=date(2026, 6, 19))
+
+	def test_semana_cerrada_bloquea_tareas_edicion_y_aprobacion(self):
+		from .transacciones import marcar_tarea, revisar_actividad
+
+		actividad = self._actividad(tareas=("sillas",))
+		fijar_hoy(self, date(2026, 6, 22))
+		with self.assertRaisesMessage(ValidationError, "bloqueada"):
+			marcar_tarea(actividad.tareas.first(), True, self.user)
+		with self.assertRaisesMessage(ValidationError, "bloqueada"):
+			revisar_actividad(actividad, "aprobar", self.supervisor)
+		self.client.force_login(self.user)
+		self.client.post(reverse("servicios:actividad_anular", args=[actividad.pk]))
+		actividad.refresh_from_db()
+		self.assertEqual(actividad.estado, "pendiente")
+		self.assertRedirects(self.client.get(reverse("servicios:actividad_editar", args=[actividad.pk])), reverse("servicios:actividad_detalle", args=[actividad.pk]))
+
+	def test_supervisor_aprueba_solo_su_delegacion_y_administrativo_no_aprueba(self):
+		actividad = self._actividad(tareas=("sillas",))
+		actividad.tareas.update(realizada=True)
+		self.client.force_login(self.user)
+		self.assertEqual(self.client.post(reverse("servicios:actividad_revisar", args=[actividad.pk]), {"decision": "aprobar"}).status_code, 403)
+		self.client.force_login(self.supervisor_norte)
+		self.assertEqual(self.client.post(reverse("servicios:actividad_revisar", args=[actividad.pk]), {"decision": "aprobar"}).status_code, 404)
+		self.client.force_login(self.supervisor)
+		self.assertContains(self.client.get(reverse("servicios:aprobaciones")), "Celebración vecinal")
+		self.client.post(reverse("servicios:actividad_revisar", args=[actividad.pk]), {"decision": "aprobar"})
+		actividad.refresh_from_db()
+		self.assertEqual(actividad.estado, "validada")
+		self.assertEqual(actividad.revisada_por, self.supervisor)

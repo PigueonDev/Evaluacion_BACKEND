@@ -24,7 +24,7 @@
             {% if compromiso.observacion %}<div><dt>Observación</dt><dd>{{ compromiso.observacion }}</dd></div>{% endif %}
         </dl>
         <div class="d-flex flex-wrap gap-2">
-            {% if rol_sgr == 'delegado' %}
+            {% if es_supervisor %}
             <a class="btn btn-outline-secondary" href="{% url 'servicios:resumen_agenda' %}">Volver al resumen</a>
             {% else %}
             <a class="btn btn-outline-secondary" href="{% url 'servicios:agenda' %}">Volver a la agenda</a>

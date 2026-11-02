@@ -4,10 +4,10 @@
 
 {% block contenido %}
 {% url 'servicios:actividades' as url_actividades %}
-{% include "includes/cabecera.html" with antetitulo="Registro individual" titulo=titulo bajada="La actividad queda pendiente de verificación. El identificador lo genera el sistema al guardar." seccion="Actividades" seccion_url=url_actividades %}
+{% include "includes/cabecera.html" with antetitulo="Transacción · Registro de actividad" titulo=titulo bajada="La actividad y sus tareas preparatorias se guardan juntas. Suma al cumplimiento solo cuando todas las tareas estén realizadas y el Supervisor la apruebe." seccion="Actividades" seccion_url=url_actividades %}
 
 <section class="container py-5">
-    <div class="row justify-content-center">
+    <div class="row justify-content-center g-4">
         <div class="col-lg-8">
             <article class="tarjeta-info">
                 {% if not hay_periodo_abierto %}
@@ -19,13 +19,39 @@
                 <form method="post" novalidate>
                     {% csrf_token %}
                     {% include "servicios/includes/campos.html" %}
-                    <div class="d-flex flex-wrap gap-2">
+                    {% if formset %}
+                    <h2 class="h5 mt-4">Tareas preparatorias</h2>
+                    <p class="small text-secondary">Gestiones previas (sillas, colación, regalos, local, animadores…). No suman al porcentaje por sí solas; se marcan como realizadas en el detalle de la actividad.</p>
+                    {{ formset.management_form }}
+                    {% for error in formset.non_form_errors %}<div class="alert alert-danger py-2">{{ error }}</div>{% endfor %}
+                    {% for tarea in formset %}
+                    <div class="row g-2 mb-2">
+                        <div class="col-md-5">{{ tarea.tipo }}{% for error in tarea.tipo.errors %}<div class="invalid-feedback d-block">{{ error }}</div>{% endfor %}</div>
+                        <div class="col-md-7">{{ tarea.descripcion }}</div>
+                    </div>
+                    {% endfor %}
+                    {% endif %}
+                    <div class="d-flex flex-wrap gap-2 mt-4">
                         <button class="btn btn-primary" type="submit">Guardar actividad</button>
                         <a class="btn btn-outline-secondary" href="{% url 'servicios:actividades' %}">Volver al listado</a>
                     </div>
                 </form>
             </article>
         </div>
+        {% if formset %}
+        <div class="col-lg-4">
+            <article class="tarjeta-info">
+                <h2 class="h6 text-uppercase text-secondary">Reglas de ingreso</h2>
+                <ul class="small mb-0">
+                    <li>Semana laboral en curso: <strong>{{ semana_inicio|date:"d/m" }} al {{ semana_fin|date:"d/m" }}</strong>{% if not semana_abierta_hoy %} (cerrada){% endif %}.</li>
+                    <li>Hoy llevas <strong>{{ hoy_registradas }} de {{ maximo_diario }}</strong> actividades permitidas.</li>
+                    <li>Solo días hábiles, sin fechas futuras ni de semanas anteriores.</li>
+                    <li>Al cerrar la semana las actividades quedan bloqueadas y no se traspasan.</li>
+                    <li>Tope de cumplimiento por ítem: 120 %.</li>
+                </ul>
+            </article>
+        </div>
+        {% endif %}
     </div>
 </section>
 {% endblock %}
