@@ -100,6 +100,15 @@
                         <li class="nav-item"><a class="nav-link {% if pagina_activa == 'aprobaciones' %}active{% endif %}" href="{% url 'servicios:aprobaciones' %}">Aprobaciones</a></li>
                         <li class="nav-item"><a class="nav-link {% if pagina_activa == 'consulta' %}active{% endif %}" href="{% url 'servicios:consulta' %}">Consulta</a></li>
                         {% endif %}
+                        {% if perms.oficina.view_carta %}
+                        <li class="nav-item"><a class="nav-link {% if pagina_activa == 'cartas' %}active{% endif %}" href="{% url 'oficina:cartas' %}">Cartas</a></li>
+                        {% endif %}
+                        {% if perms.oficina.view_beneficionino %}
+                        <li class="nav-item"><a class="nav-link {% if pagina_activa == 'beneficios' %}active{% endif %}" href="{% url 'oficina:beneficios' %}">Beneficios</a></li>
+                        {% endif %}
+                        {% if perms.oficina.view_ausencia %}
+                        <li class="nav-item"><a class="nav-link {% if pagina_activa == 'ausencias' %}active{% endif %}" href="{% url 'oficina:ausencias' %}">Ausencias</a></li>
+                        {% endif %}
                         {% if es_personal %}
                         <li class="nav-item"><a class="nav-link {% if pagina_activa == 'organizaciones' %}active{% endif %}" href="{% url 'organizaciones:listado' %}">Organizaciones</a></li>
                         {% endif %}

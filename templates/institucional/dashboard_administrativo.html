@@ -24,8 +24,26 @@
         <div class="panel-tabla-encabezado"><h2 class="h5 mb-0">Mis metas{% if periodo %} · {{ periodo.nombre }}{% endif %}</h2></div>
         <div class="table-responsive"><table class="table tabla-municipal align-middle mb-0">
             <thead><tr><th>Ítem</th><th>Ponderador</th><th>Aprobadas</th><th style="min-width:200px">Cumplimiento (máx. 120 %)</th></tr></thead>
-            <tbody>{% for fila in metas %}<tr><td>{{ fila.meta.item }}</td><td>{{ fila.meta.ponderador|floatformat:0 }} %</td><td>{{ fila.meta.avance_aprobado }} / {{ fila.meta.objetivo|floatformat:0 }}</td><td><div class="progress"><div class="progress-bar semaforo-fondo-{{ fila.semaforo }}" style="width: {{ fila.cumplimiento|floatformat:0 }}%"></div></div><span class="small">{{ fila.cumplimiento|floatformat:1 }} %</span></td></tr>{% empty %}<tr><td colspan="4" class="text-center text-secondary py-4">No tienes metas asignadas en el período abierto.</td></tr>{% endfor %}</tbody>
+            <tbody>{% for fila in metas %}<tr><td>{{ fila.meta.item }}</td><td>{{ fila.meta.ponderador|floatformat:0 }} %</td><td>{{ fila.meta.avance_aprobado }} / {{ fila.meta.objetivo|floatformat:"-2" }}</td><td><div class="progress"><div class="progress-bar semaforo-fondo-{{ fila.semaforo }}" style="width: {{ fila.cumplimiento|floatformat:0 }}%"></div></div><span class="small">{{ fila.cumplimiento|floatformat:1 }} %</span></td></tr>{% empty %}<tr><td colspan="4" class="text-center text-secondary py-4">No tienes metas asignadas en el período abierto.</td></tr>{% endfor %}</tbody>
         </table></div>
+    </div>
+    <div class="row g-4 mt-1">
+        <div class="col-lg-7">
+            <div class="panel-tabla h-100">
+                <div class="panel-tabla-encabezado d-flex justify-content-between align-items-center"><h2 class="h5 mb-0">Cartas derivadas a mí</h2><a class="btn btn-outline-primary btn-sm" href="{% url 'oficina:cartas' %}">Ver todas</a></div>
+                <div class="table-responsive"><table class="table tabla-municipal align-middle mb-0">
+                    <thead><tr><th>Folio</th><th>Asunto</th><th>Plazo</th><th>Estado</th></tr></thead>
+                    <tbody>{% for carta in cartas_derivadas %}<tr><td><a href="{% url 'oficina:carta_detalle' carta.pk %}">{{ carta.folio }}</a></td><td>{{ carta.asunto|truncatewords:8 }}</td><td>{{ carta.plazo_respuesta|date:"d/m"|default:"—" }}{% if carta.vencida %} <span class="badge text-bg-danger">Vencida</span>{% endif %}</td><td>{{ carta.get_estado_display }}</td></tr>{% empty %}<tr><td colspan="4" class="text-center text-secondary py-4">No tienes cartas pendientes de respuesta.</td></tr>{% endfor %}</tbody>
+                </table></div>
+            </div>
+        </div>
+        <div class="col-lg-5">
+            <article class="tarjeta-info h-100">
+                <h2 class="h5">Ausencias y beneficios</h2>
+                <ul class="small ps-3">{% for a in mis_ausencias %}<li><a href="{% url 'oficina:ausencia_detalle' a.pk %}">{{ a.get_motivo_display }}</a>: {{ a.fecha_inicio|date:"d/m" }}–{{ a.fecha_termino|date:"d/m" }} (metas ajustadas)</li>{% empty %}<li class="text-secondary">No tienes ausencias vigentes.</li>{% endfor %}</ul>
+                <div class="d-grid gap-2"><a class="btn btn-outline-primary" href="{% url 'oficina:beneficios' %}">Beneficios para niños</a><a class="btn btn-success" href="{% url 'oficina:beneficio_crear' %}">Registrar beneficio</a></div>
+            </article>
+        </div>
     </div>
 </section>
 {% endblock %}

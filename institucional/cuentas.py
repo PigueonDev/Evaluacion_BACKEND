@@ -5,7 +5,7 @@ from django.db.models import Q
 
 from laserena.permisos import GRUPO_ADMINISTRADOR, GRUPO_ADMINISTRATIVO, GRUPO_SUPERVISOR
 
-APPS_ADMINISTRADOR = ("institucional", "servicios", "organizaciones")
+APPS_ADMINISTRADOR = ("institucional", "servicios", "oficina", "organizaciones")
 MODELOS_AUTH_ADMINISTRADOR = ("user", "group")
 
 PERMISOS_SUPERVISOR = (
@@ -19,6 +19,18 @@ PERMISOS_SUPERVISOR = (
     "servicios.view_compromiso",
     "servicios.view_meta",
     "institucional.view_funcionario",
+    "oficina.view_carta",
+    "oficina.add_carta",
+    "oficina.change_carta",
+    "oficina.delete_carta",
+    "oficina.view_beneficionino",
+    "oficina.add_beneficionino",
+    "oficina.change_beneficionino",
+    "oficina.delete_beneficionino",
+    "oficina.view_ausencia",
+    "oficina.add_ausencia",
+    "oficina.anular_ausencia",
+    "oficina.view_ajustemeta",
 )
 
 PERMISOS_ADMINISTRATIVO = (
@@ -37,6 +49,12 @@ PERMISOS_ADMINISTRATIVO = (
     "servicios.view_compromiso",
     "servicios.add_compromiso",
     "servicios.change_compromiso",
+    "oficina.view_carta",
+    "oficina.change_carta",
+    "oficina.view_beneficionino",
+    "oficina.add_beneficionino",
+    "oficina.change_beneficionino",
+    "oficina.view_ausencia",
 )
 
 

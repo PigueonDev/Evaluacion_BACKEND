@@ -11,7 +11,7 @@ from django.core.paginator import Paginator
 from django.db.models import Count, ProtectedError, Q
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
-from django.urls import reverse, reverse_lazy
+from django.urls import reverse
 from django.utils import timezone
 
 from laserena.permisos import (
@@ -19,6 +19,7 @@ from laserena.permisos import (
     GRUPO_ADMINISTRATIVO,
     GRUPO_SUPERVISOR,
     GRUPOS_SGR,
+    acotar_ambito,
     es_administracion,
     grupo_usuario,
     parametro_permitido,
@@ -28,11 +29,12 @@ from laserena.permisos import (
     texto_busqueda,
 )
 from laserena.seguridad import ip_cliente
+from oficina.models import Ausencia, BeneficioNino, Carta
 from organizaciones.models import OrganizacionComunitaria
 from servicios.models import Actividad, Auditoria, Caso, Compromiso, ItemMedicion, Meta, Periodo, Servicio
 from servicios.reglas import MAXIMO_ACTIVIDADES_POR_DIA, fin_semana_laboral, inicio_semana
 
-from .forms import AccesoForm, GrupoForm, NuevaClaveForm, RecuperarClaveForm, UsuarioForm
+from .forms import AccesoForm, GrupoForm, UsuarioForm
 from .models import Autoridad, Cargo, Delegacion, Funcionario, Municipio
 
 User = get_user_model()
@@ -102,29 +104,6 @@ class AccesoView(auth_views.LoginView):
         return super().form_valid(form)
 
 
-class RecuperarClaveView(auth_views.PasswordResetView):
-    template_name = "institucional/recuperar/solicitar.html"
-    email_template_name = "institucional/recuperar/correo.txt"
-    html_email_template_name = "institucional/recuperar/correo.html"
-    subject_template_name = "institucional/recuperar/asunto.txt"
-    form_class = RecuperarClaveForm
-    success_url = reverse_lazy("institucional:recuperar_enviado")
-
-
-class RecuperarClaveEnviadoView(auth_views.PasswordResetDoneView):
-    template_name = "institucional/recuperar/enviado.html"
-
-
-class RecuperarClaveConfirmarView(auth_views.PasswordResetConfirmView):
-    template_name = "institucional/recuperar/nueva_clave.html"
-    form_class = NuevaClaveForm
-    success_url = reverse_lazy("institucional:recuperar_listo")
-
-
-class RecuperarClaveListoView(auth_views.PasswordResetCompleteView):
-    template_name = "institucional/recuperar/listo.html"
-
-
 @solo_grupos(GRUPO_SUPERVISOR, GRUPO_ADMINISTRATIVO)
 def mi_panel(request):
     """Dashboard según el grupo del usuario autenticado."""
@@ -154,6 +133,9 @@ def mi_panel(request):
             "aprobadas_semana": actividades.filter(estado="validada", fecha__gte=semana).count(),
             "compromisos_vencidos": compromisos.exclude(estado="realizado").filter(fecha_comprometida__lt=hoy).count(),
             "organizaciones_por_verificar": OrganizacionComunitaria.objects.filter(estado="sin_verificar").count(),
+            "cartas_abiertas": acotar_ambito(Carta.objects.exclude(estado__in=("respondida", "archivada")), request.user, "delegacion").count(),
+            "beneficios_por_entregar": acotar_ambito(BeneficioNino.objects.filter(estado="registrado"), request.user, "delegacion").count(),
+            "ausencias_vigentes": acotar_ambito(Ausencia.objects.filter(estado="vigente", fecha_termino__gte=hoy), request.user, "funcionario__delegacion").select_related("funcionario")[:5],
             "metas": [{"meta": meta, "cumplimiento": meta.cumplimiento, "semaforo": meta.semaforo()} for meta in metas],
         })
         return render(request, "institucional/dashboard_supervisor.html", contexto)
@@ -173,6 +155,8 @@ def mi_panel(request):
         "pendientes_aprobacion": actividades.filter(estado="pendiente", fecha__gte=semana).count(),
         "metas": filas,
         "cumplimiento_total": min(total_ponderado, float(periodo.tope_cumplimiento)) if periodo else 0,
+        "cartas_derivadas": Carta.objects.filter(derivada_a=perfil).exclude(estado__in=("respondida", "archivada")).order_by("plazo_respuesta")[:5] if perfil else [],
+        "mis_ausencias": Ausencia.objects.filter(funcionario=perfil, estado="vigente").order_by("-fecha_inicio")[:3] if perfil else [],
     })
     return render(request, "institucional/dashboard_administrativo.html", contexto)
 
@@ -186,12 +170,19 @@ def panel(request):
     semana = inicio_semana(hoy)
     usuarios_por_grupo = dict(Group.objects.filter(name__in=GRUPOS_SGR).annotate(total=Count("user")).values_list("name", "total"))
     organizaciones = dict(OrganizacionComunitaria.objects.values_list("estado").annotate(total=Count("id")))
+    cartas = dict(Carta.objects.values_list("estado").annotate(total=Count("id")))
+    beneficios = dict(BeneficioNino.objects.values_list("estado").annotate(total=Count("id")))
     actividades = dict(Actividad.objects.filter(fecha__gte=semana).values_list("estado").annotate(total=Count("id")))
     contexto = {
         "usuarios_por_grupo": [(nombre, usuarios_por_grupo.get(nombre, 0)) for nombre in GRUPOS_SGR],
         "total_usuarios": User.objects.filter(is_active=True).count(),
         "organizaciones": [(etiqueta, organizaciones.get(codigo, 0)) for codigo, etiqueta in OrganizacionComunitaria.ESTADOS],
         "total_organizaciones": sum(organizaciones.values()),
+        "cartas": [(etiqueta, cartas.get(codigo, 0)) for codigo, etiqueta in Carta.ESTADOS],
+        "total_cartas": sum(cartas.values()),
+        "beneficios": [(etiqueta, beneficios.get(codigo, 0)) for codigo, etiqueta in BeneficioNino.ESTADOS],
+        "total_beneficios": sum(beneficios.values()),
+        "ausencias_vigentes": Ausencia.objects.filter(estado="vigente").count(),
         "actividades_semana": [(etiqueta, actividades.get(codigo, 0)) for codigo, etiqueta in Actividad.ESTADOS],
         "semana_inicio": semana,
         "semana_fin": fin_semana_laboral(hoy),

@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+
+{% block titulo %}{{ beneficio.nombre_nino }} · SGR{% endblock %}
+
+{% block contenido %}
+{% url 'oficina:beneficios' as url_listado %}
+{% include "includes/cabecera.html" with antetitulo=beneficio.get_tipo_display titulo=beneficio.nombre_nino seccion="Beneficios para niños" seccion_url=url_listado %}
+
+<section class="container py-5">
+    <div class="row g-4">
+        <div class="col-lg-8">
+            <article class="tarjeta-info">
+                <dl class="ficha-datos">
+                    <div><dt>Estado</dt><dd><span class="badge {% if beneficio.estado == 'entregado' %}text-bg-success{% elif beneficio.estado == 'anulado' %}text-bg-secondary{% else %}text-bg-warning{% endif %}">{{ beneficio.get_estado_display }}</span>{% if beneficio.fecha_entrega %} · {{ beneficio.fecha_entrega|date:"d/m/Y" }}{% endif %}</dd></div>
+                    <div><dt>RUT</dt><dd>{{ beneficio.rut_formateado }}</dd></div>
+                    <div><dt>Fecha de nacimiento</dt><dd>{{ beneficio.fecha_nacimiento|date:"d/m/Y" }} ({{ beneficio.edad }} años)</dd></div>
+                    <div><dt>Sexo</dt><dd>{{ beneficio.get_sexo_display }}</dd></div>
+                    <div><dt>Beneficio</dt><dd>{{ beneficio.get_tipo_display }}{% if beneficio.descripcion %} · {{ beneficio.descripcion }}{% endif %}</dd></div>
+                    <div><dt>Apoderado</dt><dd>{{ beneficio.apoderado }}{% if beneficio.telefono_apoderado %} · {{ beneficio.telefono_apoderado }}{% endif %}</dd></div>
+                    <div><dt>Delegación</dt><dd>{{ beneficio.delegacion }}</dd></div>
+                    <div><dt>Organización</dt><dd>{{ beneficio.organizacion|default:"No asociada" }}</dd></div>
+                    <div><dt>Registrado por</dt><dd>{{ beneficio.registrado_por.get_full_name|default:beneficio.registrado_por.username }} el {{ beneficio.creado_en|date:"d/m/Y H:i" }}</dd></div>
+                </dl>
+                <div class="d-flex flex-wrap gap-2">
+                    <a class="btn btn-outline-secondary" href="{% url 'oficina:beneficios' %}">Volver al listado</a>
+                    {% if perms.oficina.change_beneficionino %}<a class="btn btn-primary" href="{% url 'oficina:beneficio_editar' beneficio.pk %}">Editar</a>{% endif %}
+                    {% if perms.oficina.delete_beneficionino %}<a class="btn btn-outline-danger" href="{% url 'oficina:beneficio_eliminar' beneficio.pk %}">Eliminar</a>{% endif %}
+                </div>
+            </article>
+        </div>
+    </div>
+</section>
+{% endblock %}

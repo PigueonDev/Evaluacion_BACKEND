@@ -7,10 +7,13 @@ Proyecto Django con tres aplicaciones (`institucional`, `servicios` y `organizac
 ### Evaluación Sumativa 3
 - **Autenticación:** login, logout, bloqueo tras 5 intentos fallidos y vistas protegidas.
 - **Perfiles con Grupos de Django:** `Administrador` (coordinación, crea usuarios), `Supervisor` (delegado) y `Administrativo` (funcionario). La migración `institucional/0006_roles_a_grupos` traslada el antiguo campo `rol` a grupos (el rol "consulta" pasa a Supervisor) y `0007` elimina el campo. Los permisos de cada grupo se sincronizan tras cada `migrate` (`institucional/cuentas.py`).
-- **Recuperación de contraseña por correo con token** (`/acceso/recuperar/`): enlace firmado de un solo uso que vence en una hora (`PASSWORD_RESET_TIMEOUT`). En la demo los correos se guardan en `correos_enviados/`; para SMTP real cambia `EMAIL_BACKEND` en `.env`.
 - **Dashboard por perfil** en `/panel/`.
-- **Mantenedores CRUD:** usuarios y grupos (`/administracion/usuarios/`, `/administracion/grupos/`) y organizaciones comunitarias (`/organizaciones/`), con búsqueda, filtros y paginación.
+- **Mantenedores CRUD (4, grupo de 2 integrantes):** usuarios y grupos (`/administracion/usuarios/`, `/administracion/grupos/`), organizaciones comunitarias (`/organizaciones/`), cartas de Oficina de Partes (`/oficina/cartas/`: folio correlativo, derivación, estado y respuesta) y beneficios para niños (`/oficina/beneficios/`: RUT chileno validado por módulo 11 y único en todas las delegaciones). Todos con búsqueda, filtros y paginación.
 - **Transacción "Registrar actividad"** (`servicios/transacciones.py`, `transaction.atomic`): actividad + tareas preparatorias + auditoría. Las tareas no suman; la actividad suma al cumplimiento solo con todas sus tareas realizadas y la aprobación del Supervisor. Tope 120 % por ítem, máximo 7 actividades por día, ingreso solo dentro de los 5 días hábiles de su semana; al cerrar la semana todo queda bloqueado y no se traspasa.
+- **Transacción "Registrar ausencia"** (`oficina/transacciones.py`, `transaction.atomic`): ausencia + ajuste proporcional de las metas del período (crea la meta personal si solo existe la del cargo) + registro del semáforo antes/después + auditoría. Si algo falla no queda nada a medias. Se puede anular y las metas se restituyen.
+- **Alcance:** la recuperación de contraseña por correo quedó fuera por decisión del equipo; el login y el logout se mantienen.
+
+Integrantes: Cristhopher Rubio y Rodrigo Maximiliano Álvarez Montero.
 
 ## Requisitos
 - Python 3.9 o superior
@@ -31,7 +34,7 @@ python manage.py runserver
 
 Cuentas demo (clave `Serena-demo-2026`): `admin.demo` (Administrador), `delegado.demo` y `consulta.demo` (Supervisor), `funcionario.demo` (Administrativo).
 
-Pruebas: `python manage.py test` (incluye las reglas de la transacción, permisos por grupo, recuperación de contraseña e importación).
+Pruebas: `python manage.py test` (incluye las reglas de la transacción, permisos por grupo, mantenedores de la Oficina de Partes y beneficios, la transacción de ausencias e importación).
 
 Abrir http://127.0.0.1:8000/
 
@@ -53,8 +56,10 @@ Abrir http://127.0.0.1:8000/
 | `/servicios/consulta/` | servicios | Consulta operativa de solo lectura (SCRUM-21) |
 | `/servicios/aprobaciones/` | servicios | Supervisor aprueba o rechaza actividades de su delegación |
 | `/acceso/` | institucional | Login (solo cuentas con grupo SGR) |
-| `/acceso/recuperar/` | institucional | Recuperación de contraseña por correo con token |
 | `/panel/` | institucional | Dashboard según el grupo |
+| `/oficina/cartas/` | oficina | CRUD de cartas de Oficina de Partes |
+| `/oficina/beneficios/` | oficina | CRUD de beneficios para niños |
+| `/oficina/ausencias/` | oficina | Transacción Registrar ausencia |
 | `/administracion/` | institucional | Dashboard del Administrador |
 | `/administracion/usuarios/` | institucional | CRUD de usuarios |
 | `/administracion/grupos/` | institucional | CRUD de grupos y permisos |

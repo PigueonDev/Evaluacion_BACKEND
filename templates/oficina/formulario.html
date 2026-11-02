@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+
+{% block titulo %}{{ titulo }} · SGR{% endblock %}
+
+{% block contenido %}
+{% url url_listado as url_seccion %}
+{% include "includes/cabecera.html" with antetitulo="Mantenedor" titulo=titulo seccion=seccion seccion_url=url_seccion %}
+
+<section class="container py-5">
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+            <article class="tarjeta-info">
+                <form method="post" novalidate>
+                    {% csrf_token %}
+                    {% include "servicios/includes/campos.html" %}
+                    <div class="d-flex flex-wrap gap-2">
+                        <button class="btn btn-primary" type="submit">Guardar</button>
+                        <a class="btn btn-outline-secondary" href="{% if objeto %}{% url url_detalle objeto.pk %}{% else %}{{ url_seccion }}{% endif %}">Cancelar</a>
+                    </div>
+                </form>
+            </article>
+        </div>
+    </div>
+</section>
+{% endblock %}

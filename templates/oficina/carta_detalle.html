@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+
+{% block titulo %}Carta {{ carta.folio }} · SGR{% endblock %}
+
+{% block contenido %}
+{% url 'oficina:cartas' as url_listado %}
+{% include "includes/cabecera.html" with antetitulo=carta.folio titulo=carta.asunto seccion="Cartas" seccion_url=url_listado %}
+
+<section class="container py-5">
+    <div class="row g-4">
+        <div class="col-lg-8">
+            <article class="tarjeta-info">
+                <dl class="ficha-datos">
+                    <div><dt>Estado</dt><dd><span class="badge {% if carta.estado == 'respondida' %}text-bg-success{% elif carta.estado == 'archivada' %}text-bg-secondary{% elif carta.estado == 'ingresada' %}text-bg-warning{% else %}text-bg-info{% endif %}">{{ carta.get_estado_display }}</span>{% if carta.vencida %} <span class="badge text-bg-danger">Plazo vencido</span>{% endif %}</dd></div>
+                    <div><dt>Tipo</dt><dd>{{ carta.get_tipo_display }}</dd></div>
+                    <div><dt>Fecha de ingreso</dt><dd>{{ carta.fecha_ingreso|date:"d/m/Y" }}</dd></div>
+                    <div><dt>Remitente</dt><dd>{{ carta.remitente }}{% if carta.contacto_remitente %} · {{ carta.contacto_remitente }}{% endif %}</dd></div>
+                    <div><dt>Organización</dt><dd>{{ carta.organizacion|default:"No asociada" }}</dd></div>
+                    <div><dt>Delegación</dt><dd>{{ carta.delegacion }}</dd></div>
+                    <div><dt>Derivada a</dt><dd>{{ carta.derivada_a.nombre_completo|default:"Sin derivar" }}</dd></div>
+                    <div><dt>Plazo de respuesta</dt><dd>{{ carta.plazo_respuesta|date:"d/m/Y"|default:"Sin plazo" }}</dd></div>
+                    <div><dt>Detalle</dt><dd>{{ carta.detalle|linebreaksbr|default:"—" }}</dd></div>
+                    <div><dt>Respuesta</dt><dd>{% if carta.respuesta %}{{ carta.respuesta|linebreaksbr }}<div class="small text-secondary">{{ carta.fecha_respuesta|date:"d/m/Y" }}</div>{% else %}Pendiente{% endif %}</dd></div>
+                    <div><dt>Registrada por</dt><dd>{{ carta.registrada_por.get_full_name|default:carta.registrada_por.username }} el {{ carta.creada_en|date:"d/m/Y H:i" }}</dd></div>
+                </dl>
+                <div class="d-flex flex-wrap gap-2">
+                    <a class="btn btn-outline-secondary" href="{% url 'oficina:cartas' %}">Volver al listado</a>
+                    {% if perms.oficina.change_carta %}<a class="btn btn-primary" href="{% url 'oficina:carta_editar' carta.pk %}">{% if es_administrativo %}Registrar respuesta{% else %}Editar{% endif %}</a>{% endif %}
+                    {% if perms.oficina.delete_carta %}<a class="btn btn-outline-danger" href="{% url 'oficina:carta_eliminar' carta.pk %}">Eliminar</a>{% endif %}
+                </div>
+            </article>
+        </div>
+    </div>
+</section>
+{% endblock %}

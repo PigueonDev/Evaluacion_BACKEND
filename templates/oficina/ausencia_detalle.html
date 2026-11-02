@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+
+{% block titulo %}Ausencia · SGR{% endblock %}
+
+{% block contenido %}
+{% url 'oficina:ausencias' as url_listado %}
+{% include "includes/cabecera.html" with antetitulo=ausencia.get_motivo_display titulo=ausencia.funcionario.nombre_completo seccion="Ausencias" seccion_url=url_listado %}
+
+<section class="container py-5">
+    <div class="row g-4">
+        <div class="col-lg-5">
+            <article class="tarjeta-info">
+                <dl class="ficha-datos">
+                    <div><dt>Estado</dt><dd><span class="badge {% if ausencia.estado == 'vigente' %}text-bg-info{% else %}text-bg-secondary{% endif %}">{{ ausencia.get_estado_display }}</span>{% if ausencia.anulada_por %} · por {{ ausencia.anulada_por.username }} el {{ ausencia.anulada_en|date:"d/m/Y H:i" }}{% endif %}</dd></div>
+                    <div><dt>Período</dt><dd>{{ ausencia.periodo }}</dd></div>
+                    <div><dt>Fechas</dt><dd>{{ ausencia.fecha_inicio|date:"d/m/Y" }} al {{ ausencia.fecha_termino|date:"d/m/Y" }} ({{ ausencia.dias }} días)</dd></div>
+                    <div><dt>Delegación</dt><dd>{{ ausencia.funcionario.delegacion }}</dd></div>
+                    <div><dt>Observación</dt><dd>{{ ausencia.observacion|default:"—" }}</dd></div>
+                    <div><dt>Registrada por</dt><dd>{{ ausencia.registrada_por.get_full_name|default:ausencia.registrada_por.username }} el {{ ausencia.registrada_en|date:"d/m/Y H:i" }}</dd></div>
+                </dl>
+                <div class="d-flex flex-wrap gap-2">
+                    <a class="btn btn-outline-secondary" href="{{ url_listado }}">Volver</a>
+                    {% if perms.oficina.anular_ausencia and ausencia.estado == 'vigente' %}
+                    <form method="post" action="{% url 'oficina:ausencia_anular' ausencia.pk %}">{% csrf_token %}<button class="btn btn-outline-danger" type="submit">Anular y restituir metas</button></form>
+                    {% endif %}
+                </div>
+            </article>
+        </div>
+        <div class="col-lg-7">
+            <div class="panel-tabla">
+                <div class="panel-tabla-encabezado"><h2 class="h5 mb-0">Metas ajustadas</h2></div>
+                <div class="table-responsive">
+                    <table class="table tabla-municipal align-middle mb-0">
+                        <thead><tr><th>Ítem</th><th>Objetivo</th><th>Semáforo</th></tr></thead>
+                        <tbody>
+                        {% for ajuste in ajustes %}
+                        <tr>
+                            <td>{{ ajuste.meta.item }}{% if ajuste.meta_creada %}<div class="small text-secondary">Meta personal creada desde la del cargo</div>{% endif %}</td>
+                            <td class="text-nowrap">{{ ajuste.objetivo_anterior|floatformat:2 }} → <strong>{{ ajuste.objetivo_nuevo|floatformat:2 }}</strong></td>
+                            <td class="text-nowrap"><span class="semaforo semaforo-{{ ajuste.semaforo_anterior }}">{{ ajuste.semaforo_anterior|capfirst }}</span> → <span class="semaforo semaforo-{{ ajuste.semaforo_nuevo }}">{{ ajuste.semaforo_nuevo|capfirst }}</span></td>
+                        </tr>
+                        {% empty %}
+                        <tr><td colspan="3" class="text-center text-secondary py-4">Sin ajustes.</td></tr>
+                        {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+{% endblock %}

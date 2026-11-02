@@ -1,5 +1,5 @@
 import json
-from datetime import date
+from datetime import date, timedelta
 from pathlib import Path
 
 from django.contrib.auth import get_user_model
@@ -9,7 +9,10 @@ from django.utils import timezone
 
 from institucional.cuentas import asegurar_grupos, asignar_grupo
 from institucional.models import Autoridad, Cargo, Delegacion, Funcionario, Municipio
+from laserena.rut import normalizar_rut
 from laserena.permisos import GRUPO_ADMINISTRADOR, GRUPO_ADMINISTRATIVO, GRUPO_SUPERVISOR
+from oficina.models import Ausencia, BeneficioNino, Carta
+from oficina.transacciones import registrar_ausencia
 from servicios.models import Actividad, Caso, Compromiso, Gestion, ItemMedicion, Meta, Periodo, Servicio, TareaPreparatoria
 
 CLAVE_DEMO = "Serena-demo-2026"
@@ -124,7 +127,7 @@ class Command(BaseCommand):
         funcionario.save()
         cargo_delegado, _ = Cargo.objects.get_or_create(nombre="Delegado territorial", defaults={"descripcion": "Jefatura de la delegación."})
         usuario_delegado = _usuario_demo("delegado.demo", "Delegado", "Demostración", GRUPO_SUPERVISOR)
-        Funcionario.objects.update_or_create(
+        delegado, _ = Funcionario.objects.update_or_create(
             identificador="DEMO-DEL",
             defaults={
                 "nombre_completo": "Delegado de demostración",
@@ -220,6 +223,20 @@ class Command(BaseCommand):
             },
         )
 
+        Meta.objects.get_or_create(
+            periodo=periodo,
+            item=item,
+            funcionario=delegado,
+            defaults={"objetivo": 12, "ponderador": 100},
+        )
+        _cartas_demo(delegacion, funcionario, usuario_admin)
+        _beneficios_demo(delegacion, usuario_delegado)
+        if not Ausencia.objects.filter(funcionario=delegado).exists():
+            registrar_ausencia(
+                Ausencia(funcionario=delegado, periodo=periodo, fecha_inicio=date(2026, 2, 2), fecha_termino=date(2026, 2, 13), motivo="feriado", observacion="Feriado legal de demostración"),
+                usuario_admin,
+            )
+
         self.stdout.write(self.style.SUCCESS(
             "Datos demo SGR cargados. Cuentas: admin.demo (Administrador), delegado.demo y consulta.demo (Supervisor), "
             "funcionario.demo (Administrativo). Clave: Serena-demo-2026."
@@ -240,3 +257,40 @@ def _usuario_demo(username, nombre, apellido, grupo):
     usuario.save()
     asignar_grupo(usuario, grupo)
     return usuario
+
+
+def _cartas_demo(delegacion, funcionario, usuario):
+    cartas = [
+        ("Junta de Vecinos Villa El Faro", "Solicitud de luminarias en pasaje Los Aromos", "derivada", None),
+        ("Club de Adulto Mayor Renacer", "Invitación a aniversario del club", "respondida", "Se confirma asistencia del delegado y apoyo con sillas."),
+        ("Vecina del sector centro", "Reclamo por microbasural en calle Cordovez", "ingresada", None),
+    ]
+    for remitente, asunto, estado, respuesta in cartas:
+        if Carta.objects.filter(asunto=asunto).exists():
+            continue
+        hoy = timezone.localdate()
+        Carta.objects.create(
+            remitente=remitente, asunto=asunto, estado=estado, delegacion=delegacion, registrada_por=usuario,
+            tipo="invitacion" if "Invitación" in asunto else ("reclamo" if "Reclamo" in asunto else "solicitud"),
+            derivada_a=funcionario if estado != "ingresada" else None,
+            plazo_respuesta=hoy + timedelta(days=10), respuesta=respuesta or "", fecha_respuesta=hoy if respuesta else None,
+        )
+
+
+def _beneficios_demo(delegacion, usuario):
+    ninos = [
+        ("24.567.891-6", "Martina Rojas Pizarro", date(2017, 5, 14), "F", "Constanza Pizarro", "entregado"),
+        ("25.123.456-6", "Benjamín Castillo Araya", date(2018, 9, 2), "M", "Rodrigo Castillo", "registrado"),
+        ("23.987.654-4", "Josefa Tapia Molina", date(2016, 12, 20), "F", "Paola Molina", "registrado"),
+    ]
+    for rut, nombre, nacimiento, sexo, apoderado, estado in ninos:
+        beneficio = BeneficioNino(
+            rut_nino=rut, nombre_nino=nombre, fecha_nacimiento=nacimiento, sexo=sexo, apoderado=apoderado,
+            tipo="regalo_navidad", descripcion="Juguete según edad", delegacion=delegacion, estado=estado,
+            fecha_entrega=timezone.localdate() if estado == "entregado" else None, registrado_por=usuario,
+        )
+        beneficio.full_clean(exclude=["rut_nino"])
+        beneficio.rut_nino = normalizar_rut(rut)
+        BeneficioNino.objects.get_or_create(rut_nino=beneficio.rut_nino, defaults={
+            campo.name: getattr(beneficio, campo.name) for campo in BeneficioNino._meta.concrete_fields if campo.name not in ("id", "rut_nino", "creado_en", "actualizado_en")
+        })

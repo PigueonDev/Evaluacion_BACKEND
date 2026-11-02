@@ -26,7 +26,7 @@
                 <div class="panel-tabla-encabezado"><h2 class="h5 mb-0">Metas de la delegación (tope 120 % por ítem)</h2></div>
                 <div class="table-responsive"><table class="table tabla-municipal align-middle mb-0">
                     <thead><tr><th>Ítem</th><th>Funcionario</th><th>Avance</th><th>Cumplimiento</th></tr></thead>
-                    <tbody>{% for fila in metas %}<tr><td>{{ fila.meta.item.codigo }}</td><td>{{ fila.meta.funcionario.nombre_completo|default:fila.meta.cargo }}</td><td>{{ fila.meta.avance_aprobado }} / {{ fila.meta.objetivo|floatformat:0 }}</td><td><span class="semaforo semaforo-{{ fila.semaforo }}"></span> {{ fila.cumplimiento|floatformat:1 }} %</td></tr>{% empty %}<tr><td colspan="4" class="text-center text-secondary py-4">Sin metas en el período abierto.</td></tr>{% endfor %}</tbody>
+                    <tbody>{% for fila in metas %}<tr><td>{{ fila.meta.item.codigo }}</td><td>{{ fila.meta.funcionario.nombre_completo|default:fila.meta.cargo }}</td><td>{{ fila.meta.avance_aprobado }} / {{ fila.meta.objetivo|floatformat:"-2" }}</td><td><span class="semaforo semaforo-{{ fila.semaforo }}"></span> {{ fila.cumplimiento|floatformat:1 }} %</td></tr>{% empty %}<tr><td colspan="4" class="text-center text-secondary py-4">Sin metas en el período abierto.</td></tr>{% endfor %}</tbody>
                 </table></div>
             </div>
         </div>
@@ -34,6 +34,10 @@
             <article class="tarjeta-info h-100">
                 <h2 class="h5">Agenda</h2>
                 <p class="mb-2">Compromisos vencidos: <strong>{{ compromisos_vencidos }}</strong></p>
+                <p class="mb-2">Cartas sin responder: <strong>{{ cartas_abiertas }}</strong> · Beneficios por entregar: <strong>{{ beneficios_por_entregar }}</strong></p>
+                <h3 class="h6 mt-3">Ausencias vigentes</h3>
+                <ul class="small ps-3">{% for a in ausencias_vigentes %}<li><a href="{% url 'oficina:ausencia_detalle' a.pk %}">{{ a.funcionario.nombre_completo }}</a>: {{ a.fecha_inicio|date:"d/m" }}–{{ a.fecha_termino|date:"d/m" }}</li>{% empty %}<li class="text-secondary">Sin ausencias vigentes.</li>{% endfor %}</ul>
+                <div class="d-grid gap-2 mb-2"><a class="btn btn-outline-primary" href="{% url 'oficina:cartas' %}">Cartas</a><a class="btn btn-outline-primary" href="{% url 'oficina:beneficios' %}">Beneficios para niños</a><a class="btn btn-success" href="{% url 'oficina:ausencia_registrar' %}">Registrar ausencia</a></div>
                 <div class="d-grid gap-2"><a class="btn btn-outline-dark" href="{% url 'servicios:resumen_agenda' %}">Resumen de la agenda</a><a class="btn btn-outline-dark" href="{% url 'servicios:consulta' %}">Consulta de actividades</a></div>
             </article>
         </div>

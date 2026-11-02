@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+
+{% block titulo %}Beneficios para niños · SGR{% endblock %}
+
+{% block contenido %}
+{% include "includes/cabecera.html" with antetitulo="Mantenedor" titulo="Beneficios y regalos para niños" bajada="Registro único por RUT en todo el municipio: un niño o niña no recibe el mismo beneficio en dos delegaciones." %}
+
+<section class="container py-5">
+    <div class="row g-3 mb-4">
+        {% for etiqueta, total, codigo in resumen %}
+        <div class="col-sm-4"><a class="text-decoration-none" href="?estado={{ codigo }}"><div class="kpi {% if codigo == 'entregado' %}kpi-verde{% elif codigo == 'registrado' %}kpi-ambar{% endif %}"><div><span class="kpi-etiqueta">{{ etiqueta }}</span><strong>{{ total }}</strong></div></div></a></div>
+        {% endfor %}
+    </div>
+    <form class="row g-2 align-items-end mb-3" method="get" role="search">
+        <div class="col-md-3"><label class="form-label small fw-semibold" for="q">Buscar</label><input class="form-control" id="q" name="q" type="search" value="{{ busqueda }}" placeholder="RUT, nombre o apoderado"></div>
+        <div class="col-md-2"><label class="form-label small fw-semibold" for="estado">Estado</label><select class="form-select" id="estado" name="estado"><option value="">Todos</option>{% for codigo, etiqueta in estados %}<option value="{{ codigo }}" {% if codigo == estado_activo %}selected{% endif %}>{{ etiqueta }}</option>{% endfor %}</select></div>
+        <div class="col-md-2"><label class="form-label small fw-semibold" for="tipo">Tipo</label><select class="form-select" id="tipo" name="tipo"><option value="">Todos</option>{% for codigo, etiqueta in tipos %}<option value="{{ codigo }}" {% if codigo == tipo_activo %}selected{% endif %}>{{ etiqueta }}</option>{% endfor %}</select></div>
+        {% if es_administracion %}<div class="col-md-3"><label class="form-label small fw-semibold" for="delegacion">Delegación</label><select class="form-select" id="delegacion" name="delegacion"><option value="">Todas</option>{% for d in delegaciones %}<option value="{{ d.pk }}" {% if d.pk|stringformat:"s" == delegacion_activa %}selected{% endif %}>{{ d.nombre }}</option>{% endfor %}</select></div>{% endif %}
+        <div class="col-md-2 d-flex gap-2"><button class="btn btn-primary flex-grow-1" type="submit">Filtrar</button><a class="btn btn-outline-secondary" href="{% url 'oficina:beneficios' %}">Limpiar</a></div>
+    </form>
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+        <p class="mb-0 text-secondary"><strong class="text-dark">{{ total }}</strong> beneficios encontrados.</p>
+        {% if perms.oficina.add_beneficionino %}<a class="btn btn-success" href="{% url 'oficina:beneficio_crear' %}"><svg class="icono"><use href="#i-plus"/></svg>Registrar beneficio</a>{% endif %}
+    </div>
+    <div class="panel-tabla">
+        <div class="table-responsive">
+            <table class="table tabla-municipal align-middle mb-0">
+                <thead><tr><th>RUT</th><th>Niño o niña</th><th>Edad</th><th>Beneficio</th><th>Delegación</th><th>Estado</th><th class="text-end">Acciones</th></tr></thead>
+                <tbody>
+                {% for b in pagina %}
+                <tr>
+                    <td class="text-nowrap">{{ b.rut_formateado }}</td>
+                    <td><a href="{% url 'oficina:beneficio_detalle' b.pk %}">{{ b.nombre_nino }}</a><div class="small text-secondary">Apoderado: {{ b.apoderado }}</div></td>
+                    <td>{{ b.edad }} años</td>
+                    <td>{{ b.get_tipo_display }}<div class="small text-secondary">{{ b.descripcion }}</div></td>
+                    <td>{{ b.delegacion }}</td>
+                    <td><span class="badge {% if b.estado == 'entregado' %}text-bg-success{% elif b.estado == 'anulado' %}text-bg-secondary{% else %}text-bg-warning{% endif %}">{{ b.get_estado_display }}</span></td>
+                    <td class="text-end text-nowrap">
+                        <a class="btn btn-outline-primary btn-sm" href="{% url 'oficina:beneficio_detalle' b.pk %}">Ver</a>
+                        {% if perms.oficina.change_beneficionino %}<a class="btn btn-outline-secondary btn-sm" href="{% url 'oficina:beneficio_editar' b.pk %}">Editar</a>{% endif %}
+                        {% if perms.oficina.delete_beneficionino %}<a class="btn btn-outline-danger btn-sm" href="{% url 'oficina:beneficio_eliminar' b.pk %}">Eliminar</a>{% endif %}
+                    </td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="7" class="text-center text-secondary py-4">No hay beneficios con esos filtros.</td></tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% include "oficina/_paginacion.html" %}
+</section>
+{% endblock %}

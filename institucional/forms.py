@@ -1,6 +1,6 @@
 from django import forms
 from django.contrib.auth import get_user_model
-from django.contrib.auth.forms import AuthenticationForm, PasswordResetForm, SetPasswordForm
+from django.contrib.auth.forms import AuthenticationForm
 from django.contrib.auth.models import Group, Permission
 from django.contrib.auth.password_validation import validate_password
 from django.contrib.auth.validators import UnicodeUsernameValidator
@@ -29,21 +29,6 @@ class AccesoForm(AuthenticationForm):
             raise ValidationError(self.error_messages["sin_perfil"], code="sin_perfil")
 
 
-class RecuperarClaveForm(PasswordResetForm):
-    email = forms.EmailField(
-        label="Correo registrado",
-        max_length=254,
-        widget=forms.EmailInput(attrs={"class": "form-control form-control-lg", "autocomplete": "email", "autofocus": True}),
-    )
-
-
-class NuevaClaveForm(SetPasswordForm):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        for campo in self.fields.values():
-            campo.widget.attrs["class"] = "form-control form-control-lg"
-
-
 def _control(widget):
     widget.attrs.setdefault("class", "form-select" if isinstance(widget, forms.Select) else "form-control")
     return widget
@@ -55,7 +40,7 @@ class UsuarioForm(forms.Form):
     username = forms.CharField(label="Usuario", max_length=150, validators=[UnicodeUsernameValidator()])
     first_name = forms.CharField(label="Nombre", max_length=150)
     last_name = forms.CharField(label="Apellido", max_length=150, required=False)
-    email = forms.EmailField(label="Correo", help_text="Se usa para recuperar la contraseña.")
+    email = forms.EmailField(label="Correo")
     grupo = forms.ModelChoiceField(label="Perfil (grupo)", queryset=Group.objects.none(), empty_label="Selecciona un perfil")
     is_active = forms.BooleanField(label="Cuenta activa", required=False, initial=True)
     identificador = forms.CharField(label="Identificador de funcionario", max_length=30, required=False, help_text="Código interno único, por ejemplo F-104.")

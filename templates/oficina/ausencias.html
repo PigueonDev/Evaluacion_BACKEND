@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+
+{% block titulo %}Ausencias · SGR{% endblock %}
+
+{% block contenido %}
+{% include "includes/cabecera.html" with antetitulo="Transacción" titulo="Ausencias del personal" bajada="Al registrar una ausencia, las metas del período se ajustan en proporción a los días no disponibles y el semáforo se recalcula en la misma operación." %}
+
+<section class="container py-5">
+    <form class="row g-2 align-items-end mb-3" method="get" role="search">
+        <div class="col-md-5"><label class="form-label small fw-semibold" for="q">Buscar</label><input class="form-control" id="q" name="q" type="search" value="{{ busqueda }}" placeholder="Nombre del funcionario"></div>
+        <div class="col-md-3"><label class="form-label small fw-semibold" for="estado">Estado</label><select class="form-select" id="estado" name="estado"><option value="">Todos</option>{% for codigo, etiqueta in estados %}<option value="{{ codigo }}" {% if codigo == estado_activo %}selected{% endif %}>{{ etiqueta }}</option>{% endfor %}</select></div>
+        <div class="col-md-2 d-flex gap-2"><button class="btn btn-primary flex-grow-1" type="submit">Filtrar</button><a class="btn btn-outline-secondary" href="{% url 'oficina:ausencias' %}">Limpiar</a></div>
+    </form>
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+        <p class="mb-0 text-secondary"><strong class="text-dark">{{ total }}</strong> ausencias registradas.</p>
+        {% if perms.oficina.add_ausencia %}<a class="btn btn-success" href="{% url 'oficina:ausencia_registrar' %}"><svg class="icono"><use href="#i-plus"/></svg>Registrar ausencia</a>{% endif %}
+    </div>
+    <div class="panel-tabla">
+        <div class="table-responsive">
+            <table class="table tabla-municipal align-middle mb-0">
+                <thead><tr><th>Funcionario</th><th>Desde</th><th>Hasta</th><th>Días</th><th>Motivo</th><th>Estado</th><th class="text-end">Detalle</th></tr></thead>
+                <tbody>
+                {% for a in pagina %}
+                <tr>
+                    <td>{{ a.funcionario.nombre_completo }}<div class="small text-secondary">{{ a.funcionario.delegacion }}</div></td>
+                    <td>{{ a.fecha_inicio|date:"d/m/Y" }}</td>
+                    <td>{{ a.fecha_termino|date:"d/m/Y" }}</td>
+                    <td>{{ a.dias }}</td>
+                    <td>{{ a.get_motivo_display }}</td>
+                    <td><span class="badge {% if a.estado == 'vigente' %}text-bg-info{% else %}text-bg-secondary{% endif %}">{{ a.get_estado_display }}</span></td>
+                    <td class="text-end"><a class="btn btn-outline-primary btn-sm" href="{% url 'oficina:ausencia_detalle' a.pk %}">Ver ajustes</a></td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="7" class="text-center text-secondary py-4">No hay ausencias registradas.</td></tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% include "oficina/_paginacion.html" %}
+</section>
+{% endblock %}

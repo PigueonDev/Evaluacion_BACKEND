@@ -1,8 +1,0 @@
-<!DOCTYPE html>
-<html lang="es"><body style="font-family:Arial,sans-serif;color:#1f2937">
-<h2 style="color:#0b3d6e">Recuperación de contraseña</h2>
-<p>Hola {{ user.get_short_name|default:user.get_username }}:</p>
-<p>Recibimos una solicitud para restablecer la contraseña de tu cuenta <strong>{{ user.get_username }}</strong> en el Sistema de Gestión de Resultados.</p>
-<p><a href="{{ protocol }}://{{ domain }}{% url 'institucional:recuperar_confirmar' uidb64=uid token=token %}" style="background:#0b3d6e;color:#fff;padding:10px 18px;border-radius:6px;text-decoration:none">Crear nueva contraseña</a></p>
-<p style="font-size:13px;color:#6b7280">El enlace vence en una hora y sirve una sola vez. Si no lo solicitaste, ignora este mensaje.</p>
-</body></html>
