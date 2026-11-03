@@ -106,6 +106,22 @@ LOGOUT_REDIRECT_URL = "institucional:acceso"
 PHPMYADMIN_URL = os.getenv("PHPMYADMIN_URL", "/phpmyadmin/")
 PHPMYADMIN_DB = os.getenv("DB_NAME", "sgr_laserena")
 
+# Correo para la recuperación de contraseña: SMTP de Gmail con contraseña de aplicación.
+# Sin credenciales se usa el backend de archivo (correos_enviados/) para que el sitio no falle.
+EMAIL_BACKEND = os.getenv("EMAIL_BACKEND", "django.core.mail.backends.smtp.EmailBackend")
+EMAIL_HOST = os.getenv("EMAIL_HOST", "smtp.gmail.com")
+EMAIL_PORT = int(os.getenv("EMAIL_PORT", "587"))
+EMAIL_USE_TLS = os.getenv("EMAIL_USE_TLS", "True").lower() == "true"
+EMAIL_HOST_USER = os.getenv("EMAIL_HOST_USER", "")
+EMAIL_HOST_PASSWORD = os.getenv("EMAIL_HOST_PASSWORD", "").replace(" ", "")
+EMAIL_TIMEOUT = int(os.getenv("EMAIL_TIMEOUT", "15"))
+EMAIL_FILE_PATH = os.getenv("EMAIL_FILE_PATH", str(BASE_DIR / "correos_enviados"))
+if EMAIL_BACKEND.endswith("smtp.EmailBackend") and not (EMAIL_HOST_USER and EMAIL_HOST_PASSWORD):
+    EMAIL_BACKEND = "django.core.mail.backends.filebased.EmailBackend"
+# Gmail reemplaza el remitente por la cuenta autenticada; por eso el valor por defecto es esa cuenta.
+DEFAULT_FROM_EMAIL = os.getenv("DEFAULT_FROM_EMAIL") or (f"SGR La Serena <{EMAIL_HOST_USER}>" if EMAIL_HOST_USER else "SGR La Serena <no-responder@laserena.cl>")
+PASSWORD_RESET_TIMEOUT = int(os.getenv("PASSWORD_RESET_TIMEOUT", str(60 * 60)))
+
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 # Caché compartida entre los workers de Gunicorn (necesaria para contar intentos de login fallidos).
@@ -147,8 +163,10 @@ LOGGING = {
     "loggers": {
         "laserena.seguridad": {"handlers": ["consola"], "level": "INFO", "propagate": False},
         "django.security": {"handlers": ["consola"], "level": "WARNING", "propagate": False},
+        "institucional": {"handlers": ["consola"], "level": "WARNING", "propagate": False},
     },
 }
 
 if sys.argv[1:2] == ["test"]:
     LOGGING["loggers"]["laserena.seguridad"]["level"] = "CRITICAL"
+    LOGGING["loggers"]["institucional"]["level"] = "CRITICAL"

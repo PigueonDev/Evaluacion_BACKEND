@@ -11,7 +11,7 @@ from django.core.paginator import Paginator
 from django.db.models import Count, ProtectedError, Q
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
-from django.urls import reverse
+from django.urls import reverse, reverse_lazy
 from django.utils import timezone
 
 from laserena.permisos import (
@@ -34,7 +34,7 @@ from organizaciones.models import OrganizacionComunitaria
 from servicios.models import Actividad, Auditoria, Caso, Compromiso, ItemMedicion, Meta, Periodo, Servicio
 from servicios.reglas import MAXIMO_ACTIVIDADES_POR_DIA, fin_semana_laboral, inicio_semana
 
-from .forms import AccesoForm, GrupoForm, UsuarioForm
+from .forms import AccesoForm, GrupoForm, NuevaClaveForm, RecuperarClaveForm, UsuarioForm
 from .models import Autoridad, Cargo, Delegacion, Funcionario, Municipio
 
 User = get_user_model()
@@ -102,6 +102,29 @@ class AccesoView(auth_views.LoginView):
     def form_valid(self, form):
         cache.delete(_clave_intentos(self.request))
         return super().form_valid(form)
+
+
+class RecuperarClaveView(auth_views.PasswordResetView):
+    template_name = "institucional/recuperar/solicitar.html"
+    email_template_name = "institucional/recuperar/correo.txt"
+    html_email_template_name = "institucional/recuperar/correo.html"
+    subject_template_name = "institucional/recuperar/asunto.txt"
+    form_class = RecuperarClaveForm
+    success_url = reverse_lazy("institucional:recuperar_enviado")
+
+
+class RecuperarClaveEnviadoView(auth_views.PasswordResetDoneView):
+    template_name = "institucional/recuperar/enviado.html"
+
+
+class RecuperarClaveConfirmarView(auth_views.PasswordResetConfirmView):
+    template_name = "institucional/recuperar/nueva_clave.html"
+    form_class = NuevaClaveForm
+    success_url = reverse_lazy("institucional:recuperar_listo")
+
+
+class RecuperarClaveListoView(auth_views.PasswordResetCompleteView):
+    template_name = "institucional/recuperar/listo.html"
 
 
 @solo_grupos(GRUPO_SUPERVISOR, GRUPO_ADMINISTRATIVO)

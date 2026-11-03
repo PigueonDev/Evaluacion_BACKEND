@@ -1,6 +1,8 @@
+import logging
+
 from django import forms
 from django.contrib.auth import get_user_model
-from django.contrib.auth.forms import AuthenticationForm
+from django.contrib.auth.forms import AuthenticationForm, PasswordResetForm, SetPasswordForm
 from django.contrib.auth.models import Group, Permission
 from django.contrib.auth.password_validation import validate_password
 from django.contrib.auth.validators import UnicodeUsernameValidator
@@ -14,6 +16,7 @@ from .cuentas import APPS_ADMINISTRADOR, MODELOS_AUTH_ADMINISTRADOR, asignar_gru
 from .models import Cargo, Delegacion, Funcionario
 
 User = get_user_model()
+registro = logging.getLogger(__name__)
 
 
 class AccesoForm(AuthenticationForm):
@@ -29,6 +32,33 @@ class AccesoForm(AuthenticationForm):
             raise ValidationError(self.error_messages["sin_perfil"], code="sin_perfil")
 
 
+class RecuperarClaveForm(PasswordResetForm):
+    """Envía el enlace solo a cuentas activas con ese correo; un fallo SMTP no rompe la página."""
+
+    email = forms.EmailField(
+        label="Correo registrado",
+        max_length=254,
+        widget=forms.EmailInput(attrs={"class": "form-control form-control-lg", "autocomplete": "email", "autofocus": True}),
+    )
+
+    def get_users(self, email):
+        return (usuario for usuario in super().get_users(email) if usuario.is_active and grupo_usuario(usuario) is not None)
+
+    def send_mail(self, *args, **kwargs):
+        try:
+            super().send_mail(*args, **kwargs)
+        except Exception:
+            # Misma respuesta al usuario para no revelar si el correo existe; el detalle queda en el log.
+            registro.exception("No se pudo enviar el correo de recuperación de contraseña")
+
+
+class NuevaClaveForm(SetPasswordForm):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        for campo in self.fields.values():
+            campo.widget.attrs["class"] = "form-control form-control-lg"
+
+
 def _control(widget):
     widget.attrs.setdefault("class", "form-select" if isinstance(widget, forms.Select) else "form-control")
     return widget
@@ -40,7 +70,7 @@ class UsuarioForm(forms.Form):
     username = forms.CharField(label="Usuario", max_length=150, validators=[UnicodeUsernameValidator()])
     first_name = forms.CharField(label="Nombre", max_length=150)
     last_name = forms.CharField(label="Apellido", max_length=150, required=False)
-    email = forms.EmailField(label="Correo")
+    email = forms.EmailField(label="Correo", help_text="Se usa para recuperar la contraseña.")
     grupo = forms.ModelChoiceField(label="Perfil (grupo)", queryset=Group.objects.none(), empty_label="Selecciona un perfil")
     is_active = forms.BooleanField(label="Cuenta activa", required=False, initial=True)
     identificador = forms.CharField(label="Identificador de funcionario", max_length=30, required=False, help_text="Código interno único, por ejemplo F-104.")

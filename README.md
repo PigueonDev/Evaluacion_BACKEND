@@ -11,7 +11,7 @@ Proyecto Django con tres aplicaciones (`institucional`, `servicios` y `organizac
 - **Mantenedores CRUD (4, grupo de 2 integrantes):** usuarios y grupos (`/administracion/usuarios/`, `/administracion/grupos/`), organizaciones comunitarias (`/organizaciones/`), cartas de Oficina de Partes (`/oficina/cartas/`: folio correlativo, derivación, estado y respuesta) y beneficios para niños (`/oficina/beneficios/`: RUT chileno validado por módulo 11 y único en todas las delegaciones). Todos con búsqueda, filtros y paginación.
 - **Transacción "Registrar actividad"** (`servicios/transacciones.py`, `transaction.atomic`): actividad + tareas preparatorias + auditoría. Las tareas no suman; la actividad suma al cumplimiento solo con todas sus tareas realizadas y la aprobación del Supervisor. Tope 120 % por ítem, máximo 7 actividades por día, ingreso solo dentro de los 5 días hábiles de su semana; al cerrar la semana todo queda bloqueado y no se traspasa.
 - **Transacción "Registrar ausencia"** (`oficina/transacciones.py`, `transaction.atomic`): ausencia + ajuste proporcional de las metas del período (crea la meta personal si solo existe la del cargo) + registro del semáforo antes/después + auditoría. Si algo falla no queda nada a medias. Se puede anular y las metas se restituyen.
-- **Alcance:** la recuperación de contraseña por correo quedó fuera por decisión del equipo; el login y el logout se mantienen.
+- **Recuperación de contraseña por correo con token** (`/acceso/recuperar/`): enlace firmado de un solo uso que vence en una hora. Se envía por SMTP de Gmail (contraseña de aplicación en `.env`: `EMAIL_HOST_USER`, `EMAIL_HOST_PASSWORD`) en HTML y texto, solo a cuentas activas con ese correo. Sin credenciales, los correos se guardan en `correos_enviados/` y el sitio sigue funcionando; un error SMTP se registra en el log sin romper la página.
 
 Integrantes: Cristhopher Rubio y Rodrigo Maximiliano Álvarez Montero.
 
@@ -56,6 +56,7 @@ Abrir http://127.0.0.1:8000/
 | `/servicios/consulta/` | servicios | Consulta operativa de solo lectura (SCRUM-21) |
 | `/servicios/aprobaciones/` | servicios | Supervisor aprueba o rechaza actividades de su delegación |
 | `/acceso/` | institucional | Login (solo cuentas con grupo SGR) |
+| `/acceso/recuperar/` | institucional | Recuperación de contraseña por correo con token |
 | `/panel/` | institucional | Dashboard según el grupo |
 | `/oficina/cartas/` | oficina | CRUD de cartas de Oficina de Partes |
 | `/oficina/beneficios/` | oficina | CRUD de beneficios para niños |

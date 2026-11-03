@@ -1,0 +1,28 @@
+{% with enlace=protocol|add:"://"|add:domain %}{% url 'institucional:recuperar_confirmar' uidb64=uid token=token as ruta %}<!DOCTYPE html>
+<html lang="es">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Recuperación de contraseña</title></head>
+<body style="margin:0;padding:0;background:#f3f4f6;font-family:Arial,Helvetica,sans-serif;color:#1f2937">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f3f4f6;padding:24px 0">
+  <tr><td align="center">
+    <table role="presentation" width="560" cellpadding="0" cellspacing="0" style="max-width:560px;width:100%;background:#ffffff;border-radius:10px;overflow:hidden;border:1px solid #e5e7eb">
+      <tr><td style="background:#b30000;padding:20px 28px;color:#ffffff">
+        <div style="font-size:20px;font-weight:bold">La Serena</div>
+        <div style="font-size:12px;letter-spacing:1px;text-transform:uppercase;opacity:.85">Ilustre Municipalidad · Sistema de Gestión de Resultados</div>
+      </td></tr>
+      <tr><td style="padding:28px">
+        <h1 style="margin:0 0 12px;font-size:22px;color:#7f1d1d">Recuperación de contraseña</h1>
+        <p style="margin:0 0 12px;font-size:15px">Hola {{ user.get_short_name|default:user.get_username }}:</p>
+        <p style="margin:0 0 20px;font-size:15px;line-height:1.5">Recibimos una solicitud para restablecer la contraseña de tu cuenta <strong>{{ user.get_username }}</strong>. Presiona el botón para crear una nueva.</p>
+        <table role="presentation" cellpadding="0" cellspacing="0" style="margin:0 0 20px"><tr><td style="background:#b30000;border-radius:6px">
+          <a href="{{ enlace }}{{ ruta }}" style="display:inline-block;padding:12px 22px;color:#ffffff;font-weight:bold;font-size:15px;text-decoration:none">Crear nueva contraseña</a>
+        </td></tr></table>
+        <p style="margin:0 0 8px;font-size:13px;color:#6b7280">Si el botón no funciona, copia este enlace en tu navegador:</p>
+        <p style="margin:0 0 20px;font-size:13px;word-break:break-all"><a href="{{ enlace }}{{ ruta }}" style="color:#b30000">{{ enlace }}{{ ruta }}</a></p>
+        <p style="margin:0;font-size:13px;color:#6b7280;line-height:1.5">El enlace vence en una hora y sirve una sola vez. Si no pediste este cambio, ignora el mensaje: tu contraseña actual sigue vigente.</p>
+      </td></tr>
+      <tr><td style="background:#111827;color:#9ca3af;padding:14px 28px;font-size:12px">Arturo Prat 451, La Serena · Mesa central +56 51 220 6600 · Este correo se envió automáticamente, no lo respondas.</td></tr>
+    </table>
+  </td></tr>
+</table>
+</body>
+</html>{% endwith %}

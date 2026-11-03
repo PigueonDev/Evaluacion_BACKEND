@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block titulo %}Recuperar contraseña · Municipalidad de La Serena{% endblock %}
+
+{% block contenido %}
+<section class="acceso-fondo" style="--imagen-portada: url('{% static 'img/edificio_municipal.png' %}')">
+    <div class="container py-5">
+        <div class="row justify-content-center">
+            <div class="col-md-8 col-lg-5">
+                <div class="tarjeta-acceso">
+                    <div class="text-center mb-4">
+                        <img src="{% static 'img/escudo_la_serena.png' %}" alt="Escudo de La Serena" class="logo-acceso">
+                        {% block encabezado %}{% endblock %}
+                    </div>
+                    {% block cuerpo %}{% endblock %}
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+{% endblock %}

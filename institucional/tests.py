@@ -1,15 +1,18 @@
 import os
+import re
 import shutil
 import tempfile
+from unittest import mock
 
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Group
 from django.contrib.auth.password_validation import validate_password
+from django.core import mail
 from django.core.cache import cache
 from django.core.exceptions import ValidationError
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.core.management import call_command
-from django.test import TestCase
+from django.test import TestCase, override_settings
 from django.urls import reverse
 
 from laserena.permisos import GRUPO_ADMINISTRADOR, GRUPO_ADMINISTRATIVO, GRUPO_SUPERVISOR, grupo_usuario
@@ -94,6 +97,75 @@ class AccesoFuncionariosTest(TestCase):
 			self.client.post(url, {"username": "admin-demo", "password": "incorrecta"})
 		respuesta = self.client.post(url, {"username": "admin-demo", "password": CLAVE})
 		self.assertRedirects(respuesta, reverse("institucional:mi_panel"), target_status_code=302)
+
+
+@override_settings(EMAIL_BACKEND="django.core.mail.backends.locmem.EmailBackend")
+class RecuperacionClaveTest(TestCase):
+	def setUp(self):
+		cache.clear()
+		self.usuario = crear_usuario("funcionario.demo", GRUPO_ADMINISTRATIVO)
+
+	def _enlace(self):
+		self.assertEqual(len(mail.outbox), 1)
+		return re.search(r"https?://[^/]+(/acceso/recuperar/[^\s]+/)", mail.outbox[0].body).group(1)
+
+	def test_flujo_completo_con_token(self):
+		respuesta = self.client.post(reverse("institucional:recuperar"), {"email": "funcionario.demo@ejemplo.cl"})
+		self.assertRedirects(respuesta, reverse("institucional:recuperar_enviado"))
+		self.assertIn("Recuperación de contraseña", mail.outbox[0].subject)
+		enlace = self._enlace()
+		formulario = self.client.get(enlace, follow=True)
+		self.assertContains(formulario, "Crea tu nueva contraseña")
+		url_formulario = formulario.redirect_chain[-1][0]
+		final = self.client.post(url_formulario, {"new_password1": "Faro-Nuevo-2026!", "new_password2": "Faro-Nuevo-2026!"})
+		self.assertRedirects(final, reverse("institucional:recuperar_listo"))
+		self.usuario.refresh_from_db()
+		self.assertTrue(self.usuario.check_password("Faro-Nuevo-2026!"))
+		entrada = self.client.post(reverse("institucional:acceso"), {"username": "funcionario.demo", "password": "Faro-Nuevo-2026!"})
+		self.assertEqual(entrada.status_code, 302)
+		self.client.logout()
+		reutilizado = self.client.get(enlace, follow=True)
+		self.assertContains(reutilizado, "Enlace no válido")
+
+	def test_token_alterado_no_sirve(self):
+		self.client.post(reverse("institucional:recuperar"), {"email": "funcionario.demo@ejemplo.cl"})
+		enlace = self._enlace()
+		alterado = enlace.rstrip("/")[:-3] + "zzz/"
+		self.assertContains(self.client.get(alterado), "Enlace no válido")
+
+	def test_correo_desconocido_no_revela_nada(self):
+		respuesta = self.client.post(reverse("institucional:recuperar"), {"email": "nadie@ejemplo.cl"})
+		self.assertRedirects(respuesta, reverse("institucional:recuperar_enviado"))
+		self.assertEqual(len(mail.outbox), 0)
+
+	def test_cuenta_inactiva_no_recibe_correo(self):
+		self.usuario.is_active = False
+		self.usuario.save()
+		respuesta = self.client.post(reverse("institucional:recuperar"), {"email": "funcionario.demo@ejemplo.cl"})
+		self.assertRedirects(respuesta, reverse("institucional:recuperar_enviado"))
+		self.assertEqual(len(mail.outbox), 0)
+
+	def test_correo_html_y_texto(self):
+		self.client.post(reverse("institucional:recuperar"), {"email": "FUNCIONARIO.demo@ejemplo.cl"})
+		mensaje = mail.outbox[0]
+		self.assertEqual(mensaje.to, ["funcionario.demo@ejemplo.cl"])
+		html, tipo = mensaje.alternatives[0]
+		self.assertEqual(tipo, "text/html")
+		self.assertIn("Crear nueva contraseña", html)
+		self.assertIn("/acceso/recuperar/", mensaje.body)
+
+	def test_falla_smtp_no_rompe_el_sitio(self):
+		with mock.patch("django.core.mail.EmailMultiAlternatives.send", side_effect=OSError("SMTP caído")):
+			respuesta = self.client.post(reverse("institucional:recuperar"), {"email": "funcionario.demo@ejemplo.cl"})
+		self.assertRedirects(respuesta, reverse("institucional:recuperar_enviado"))
+
+	def test_clave_debil_se_rechaza(self):
+		self.client.post(reverse("institucional:recuperar"), {"email": "funcionario.demo@ejemplo.cl"})
+		formulario = self.client.get(self._enlace(), follow=True)
+		respuesta = self.client.post(formulario.redirect_chain[-1][0], {"new_password1": "1234567890", "new_password2": "1234567890"})
+		self.assertEqual(respuesta.status_code, 200)
+		self.usuario.refresh_from_db()
+		self.assertTrue(self.usuario.check_password(CLAVE))
 
 
 class SeguridadSitioTest(TestCase):

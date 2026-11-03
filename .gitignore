@@ -8,3 +8,4 @@ db.sqlite3
 .env
 media/
 .cache/
+correos_enviados/
