@@ -45,10 +45,17 @@ class Servicio(models.Model):
 
 
 class ItemMedicion(models.Model):
+	TIPOS_MEDICION = [
+		("conteo", "Conteo de actividades aprobadas"),
+		("tasa_tubo", "Porcentaje de ingresos al tubo realizados"),
+		("emergencia", "Emergencia: cumple si atendió al menos una"),
+		("sin_puntaje", "Otra gestión: se registra, no puntúa"),
+	]
 	codigo = models.CharField(max_length=30, unique=True)
 	nombre = models.CharField(max_length=160)
 	descripcion = models.TextField(blank=True)
 	unidad = models.CharField(max_length=40, default="cantidad")
+	tipo_medicion = models.CharField("tipo de medición", max_length=20, choices=TIPOS_MEDICION, default="conteo")
 	activo = models.BooleanField(default=True)
 
 	class Meta:
@@ -68,6 +75,12 @@ class Periodo(models.Model):
 	tope_item = models.DecimalField(max_digits=5, decimal_places=2, default=120)
 	umbral_colectivo = models.DecimalField(max_digits=5, decimal_places=2, default=80)
 	umbral_ambar = models.DecimalField(max_digits=5, decimal_places=2, default=60)
+	bono_felicitacion = models.DecimalField("puntos por felicitación", max_digits=5, decimal_places=2, default=10)
+	maximo_felicitaciones = models.PositiveSmallIntegerField("felicitaciones que suman como máximo", default=3)
+	descuento_reclamo = models.DecimalField("puntos que descuenta cada reclamo", max_digits=5, decimal_places=2, default=20)
+
+	class Meta:
+		ordering = ["-fecha_inicio"]
 
 	def clean(self):
 		if self.fecha_termino < self.fecha_inicio:
@@ -76,6 +89,32 @@ class Periodo(models.Model):
 	@property
 	def dias_totales(self):
 		return (self.fecha_termino - self.fecha_inicio).days + 1
+
+	def dias_transcurridos(self, fecha=None):
+		fecha = fecha or timezone.localdate()
+		if fecha < self.fecha_inicio:
+			return 0
+		return min((fecha - self.fecha_inicio).days + 1, self.dias_totales)
+
+	def avance_esperado(self, fecha=None):
+		"""Porcentaje del período transcurrido: el «objetivo al día de hoy» de la hoja SEMAFORO."""
+		fecha = fecha or timezone.localdate()
+		if fecha <= self.fecha_inicio:
+			return 0
+		if fecha >= self.fecha_termino:
+			return 100
+		return self.dias_transcurridos(fecha) / self.dias_totales * 100
+
+	def semaforo(self, cumplimiento, fecha=None):
+		esperado = self.avance_esperado(fecha)
+		if cumplimiento >= esperado:
+			return "verde"
+		if cumplimiento >= esperado * float(self.umbral_ambar) / 100:
+			return "ambar"
+		return "rojo"
+
+	def anterior(self):
+		return Periodo.objects.filter(fecha_termino__lt=self.fecha_inicio).order_by("-fecha_termino").first()
 
 	def __str__(self):
 		return self.nombre
@@ -99,37 +138,45 @@ class Meta(models.Model):
 	def __str__(self):
 		return f"{self.item} - {self.periodo}"
 
+	def _filtrar_responsable(self, queryset, campo):
+		if self.funcionario_id:
+			return queryset.filter(**{campo: self.funcionario})
+		if self.cargo_id:
+			return queryset.filter(**{f"{campo}__cargo": self.cargo})
+		return queryset.none()
+
+	def compromisos_del_periodo(self):
+		compromisos = Compromiso.objects.filter(
+			activo=True, fecha_comprometida__gte=self.periodo.fecha_inicio, fecha_comprometida__lte=self.periodo.fecha_termino,
+		)
+		return self._filtrar_responsable(compromisos, "responsable")
+
 	@property
 	def avance_aprobado(self):
+		"""Avance en la unidad del ítem: actividades aprobadas o, en «tasa_tubo», % de ingresos al tubo realizados."""
+		if self.item.tipo_medicion == "tasa_tubo":
+			compromisos = self.compromisos_del_periodo()
+			total = compromisos.count()
+			return round(compromisos.filter(estado="realizado").count() * 100 / total, 2) if total else 0
 		actividades = Actividad.objects.puntuables().filter(periodo=self.periodo, item=self.item)
-		if self.funcionario_id:
-			actividades = actividades.filter(funcionario=self.funcionario)
-		elif self.cargo_id:
-			actividades = actividades.filter(funcionario__cargo=self.cargo)
-		return actividades.count()
+		return self._filtrar_responsable(actividades, "funcionario").count()
 
 	@property
 	def cumplimiento(self):
-		return min((self.avance_aprobado / float(self.objetivo)) * 100, float(self.periodo.tope_item))
+		tipo = self.item.tipo_medicion
+		if tipo == "sin_puntaje":
+			return 0
+		avance = self.avance_aprobado
+		if tipo == "emergencia":
+			return 100 if avance else 0
+		return min((avance / float(self.objetivo)) * 100, float(self.periodo.tope_item))
 
 	@property
 	def resultado_ponderado(self):
 		return float(self.ponderador) * self.cumplimiento / 100
 
 	def semaforo(self, fecha=None):
-		fecha = fecha or timezone.localdate()
-		if fecha <= self.periodo.fecha_inicio:
-			esperado = 0
-		elif fecha >= self.periodo.fecha_termino:
-			esperado = 100
-		else:
-			transcurridos = (fecha - self.periodo.fecha_inicio).days + 1
-			esperado = transcurridos / self.periodo.dias_totales * 100
-		if self.cumplimiento >= esperado:
-			return "verde"
-		if self.cumplimiento >= esperado * float(self.periodo.umbral_ambar) / 100:
-			return "ambar"
-		return "rojo"
+		return self.periodo.semaforo(self.cumplimiento, fecha)
 
 
 class ActividadQuerySet(models.QuerySet):
@@ -146,11 +193,13 @@ class Actividad(models.Model):
 	item = models.ForeignKey(ItemMedicion, on_delete=models.PROTECT, related_name="actividades")
 	servicio = models.ForeignKey(Servicio, on_delete=models.PROTECT, null=True, blank=True, related_name="actividades")
 	compromiso = models.ForeignKey("Compromiso", on_delete=models.SET_NULL, null=True, blank=True, related_name="actividades")
+	codigo_verificador = models.CharField("código verificador", max_length=30, unique=True, null=True, blank=True, editable=False)
 	fecha = models.DateField(default=timezone.now)
 	descripcion = models.TextField()
 	accion = models.TextField()
 	contacto = models.CharField(max_length=160, blank=True)
 	telefono = models.CharField(max_length=30, blank=True)
+	derivado_a = models.ForeignKey("institucional.UnidadMunicipal", on_delete=models.SET_NULL, null=True, blank=True, related_name="actividades_derivadas", verbose_name="derivado a")
 	estado = models.CharField(max_length=20, choices=ESTADOS, default="pendiente")
 	creada_en = models.DateTimeField(auto_now_add=True)
 	revisada_por = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name="actividades_revisadas")
@@ -206,10 +255,26 @@ class Actividad(models.Model):
 			anterior = Actividad.objects.filter(pk=self.pk).values_list("codigo_evidencia", flat=True).first()
 			if anterior and self.codigo_evidencia != anterior:
 				raise ValidationError("El código de evidencia es inmutable y no se reutiliza.")
+		if not self.codigo_verificador and self.funcionario_id and self.periodo_id:
+			self.codigo_verificador = self._siguiente_codigo_verificador()
 		super().save(*args, **kwargs)
 
+	def _siguiente_codigo_verificador(self):
+		"""Código de la matriz: área + mes + día + correlativo del área en el período (COM1-1006-004)."""
+		prefijo = self.funcionario.prefijo_codigo
+		if not prefijo:
+			return None
+		fecha = self.fecha.date() if isinstance(self.fecha, datetime) else self.fecha
+		usados = Actividad.objects.filter(periodo_id=self.periodo_id, codigo_verificador__startswith=f"{prefijo}-").count()
+		correlativo = usados + 1
+		while True:
+			codigo = f"{prefijo}-{fecha:%m%d}-{correlativo:03d}"
+			if not Actividad.objects.filter(codigo_verificador=codigo).exists():
+				return codigo
+			correlativo += 1
+
 	def __str__(self):
-		return f"{self.codigo_evidencia} - {self.funcionario.nombre_completo}"
+		return f"{self.codigo_verificador or self.codigo_evidencia} - {self.funcionario.nombre_completo}"
 
 
 class TareaPreparatoria(models.Model):
@@ -239,10 +304,68 @@ class TareaPreparatoria(models.Model):
 		return self.descripcion or self.get_tipo_display()
 
 
+TIPOS_ATENCION_SOCIAL = [
+	("informes_sociales", "Informes sociales"),
+	("gestion_subsidios", "Gestión de subsidios"),
+	("derivaciones", "Derivaciones"),
+	("otras_gestiones", "Otras gestiones sociales"),
+	("entrega_emergencia", "Entrega de emergencia"),
+]
+SUBATENCIONES_SOCIALES = [
+	("informe_aporte_economico", "Informe aporte económico"),
+	("informe_aporte_material", "Informe aporte material"),
+	("informe_institucion", "Informe institución"),
+	("ips", "IPS"),
+	("pgu", "PGU"),
+	("suf", "SUF"),
+	("sap", "SAP"),
+	("derivacion", "Derivación a otra unidad"),
+	("orientacion_social", "Orientación social"),
+	("exencion_aseo", "Exención pago aseo domiciliario"),
+	("emergencia", "Emergencia"),
+	("otros", "Otros"),
+]
+SUBATENCIONES_POR_TIPO = {
+	"informes_sociales": ("informe_aporte_economico", "informe_aporte_material", "informe_institucion"),
+	"gestion_subsidios": ("ips", "pgu", "suf", "sap"),
+	"derivaciones": ("derivacion",),
+	"otras_gestiones": ("orientacion_social", "exencion_aseo", "otros"),
+	"entrega_emergencia": ("emergencia",),
+}
+FORMA_POR_SUBATENCION = {
+	"informe_aporte_economico": "Dinero",
+	"informe_aporte_material": "Material",
+	"informe_institucion": "Documento",
+	"ips": "Documento",
+	"pgu": "Aporte",
+	"suf": "Aporte",
+	"sap": "Aporte",
+}
+# Plazos de las hojas de Gestor Social: (desde, hasta, días máximos, etiqueta).
+PLAZOS_ATENCION_SOCIAL = (
+	("fecha_ingreso", "fecha_programada_visita", 10, "Ingreso a visita programada"),
+	("fecha_programada_visita", "fecha_visita", 0, "Visita programada a visita realizada"),
+	("fecha_visita", "fecha_entrega_informe", 4, "Visita a entrega del informe"),
+	("fecha_entrega_informe", "fecha_entrega_beneficio", 4, "Informe a entrega del beneficio"),
+	("fecha_ingreso", "fecha_entrega_beneficio", 20, "Ingreso a entrega del beneficio"),
+)
+
+
 class Caso(models.Model):
 	identificacion = models.CharField(max_length=30, unique=True)
 	nombre = models.CharField(max_length=160)
 	delegacion = models.ForeignKey("institucional.Delegacion", on_delete=models.PROTECT, related_name="casos")
+	tipo_atencion = models.CharField("tipo de atención", max_length=30, choices=TIPOS_ATENCION_SOCIAL, blank=True)
+	sub_atencion = models.CharField("subatención", max_length=30, choices=SUBATENCIONES_SOCIALES, blank=True)
+	rut = models.CharField("RUT", max_length=12, blank=True)
+	telefono = models.CharField("teléfono", max_length=30, blank=True)
+	requiere_visita = models.BooleanField("requiere visita", default=False)
+	fecha_ingreso = models.DateField("fecha de ingreso", default=timezone.localdate)
+	fecha_programada_visita = models.DateField("fecha programada de visita", null=True, blank=True)
+	fecha_visita = models.DateField("fecha de visita", null=True, blank=True)
+	fecha_entrega_informe = models.DateField("fecha de entrega del informe", null=True, blank=True)
+	fecha_entrega_beneficio = models.DateField("fecha de entrega del beneficio", null=True, blank=True)
+	devoluciones_informe = models.PositiveSmallIntegerField("devoluciones del informe", default=0)
 	observacion = models.TextField(blank=True)
 	activo = models.BooleanField(default=True)
 	creado_en = models.DateTimeField(auto_now_add=True)
@@ -262,6 +385,53 @@ class Caso(models.Model):
 	def atenciones_contadas(self):
 		"""Cada gestión vigente aporta una sola vez al informe del caso."""
 		return self.gestiones_vigentes.count()
+
+	@property
+	def forma(self):
+		return FORMA_POR_SUBATENCION.get(self.sub_atencion, "")
+
+	def plazos(self):
+		"""Tramos de la atención social con sus días y si exceden el máximo de la matriz."""
+		tramos = []
+		for desde, hasta, maximo, etiqueta in PLAZOS_ATENCION_SOCIAL:
+			inicio, fin = getattr(self, desde), getattr(self, hasta)
+			if inicio and fin:
+				dias = (fin - inicio).days
+				tramos.append({"etiqueta": etiqueta, "dias": dias, "maximo": maximo, "excedido": dias > maximo})
+		return tramos
+
+	@property
+	def plazos_excedidos(self):
+		return [tramo for tramo in self.plazos() if tramo["excedido"]]
+
+	def clean(self):
+		from laserena.rut import normalizar_rut
+
+		errores = {}
+		if self.sub_atencion and not self.tipo_atencion:
+			errores["tipo_atencion"] = "Indica el tipo de atención de la subatención."
+		elif self.sub_atencion and self.sub_atencion not in SUBATENCIONES_POR_TIPO.get(self.tipo_atencion, ()):
+			errores["sub_atencion"] = "La subatención no corresponde al tipo de atención elegido."
+		if self.rut:
+			try:
+				self.rut = normalizar_rut(self.rut)
+			except ValidationError as error:
+				errores["rut"] = error.messages
+		telefono = (self.telefono or "").strip()
+		if telefono and not TELEFONO_ACTIVIDAD.match(telefono):
+			errores["telefono"] = "El teléfono debe contener entre 8 y 15 dígitos."
+		orden = ("fecha_ingreso", "fecha_programada_visita", "fecha_visita", "fecha_entrega_informe", "fecha_entrega_beneficio")
+		anteriores = []
+		for campo in orden:
+			valor = getattr(self, campo)
+			if valor and any(valor < previo for previo in anteriores):
+				errores[campo] = "Esta fecha no puede ser anterior a las etapas previas de la atención."
+			if valor:
+				anteriores.append(valor)
+		if (self.fecha_programada_visita or self.fecha_visita) and not self.requiere_visita:
+			errores["requiere_visita"] = "Marca «requiere visita» si registras fechas de visita."
+		if errores:
+			raise ValidationError(errores)
 
 
 class Gestion(models.Model):
@@ -328,12 +498,18 @@ class Validacion(models.Model):
 
 
 class Compromiso(models.Model):
+	"""Ingreso al tubo de trabajo de la delegación."""
+
 	ESTADOS = [("ingresado", "Ingresado"), ("pendiente", "Pendiente"), ("proceso", "En proceso"), ("realizado", "Realizado")]
+	AMBITOS = [("interno", "Interno (INT)"), ("externo", "Externo (EXT)")]
 	delegacion = models.ForeignKey("institucional.Delegacion", on_delete=models.PROTECT, related_name="compromisos")
 	responsable = models.ForeignKey("institucional.Funcionario", on_delete=models.PROTECT, related_name="compromisos")
+	fecha_solicitud = models.DateField("fecha de solicitud", default=timezone.localdate)
+	ambito = models.CharField("interno o externo", max_length=10, choices=AMBITOS, default="externo")
 	origen = models.CharField(max_length=160)
 	solicitante = models.CharField(max_length=160)
 	territorio = models.CharField(max_length=160)
+	area_apoyo = models.ForeignKey("institucional.UnidadMunicipal", on_delete=models.SET_NULL, null=True, blank=True, related_name="compromisos_apoyados", verbose_name="área de apoyo")
 	descripcion = models.TextField()
 	fecha_comprometida = models.DateField()
 	estado = models.CharField(max_length=20, choices=ESTADOS, default="ingresado")
