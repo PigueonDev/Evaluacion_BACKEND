@@ -674,7 +674,10 @@ def consulta(request):
     if hasta:
         actividades = actividades.filter(fecha__lte=hasta)
     if busqueda:
-        actividades = actividades.filter(Q(descripcion__icontains=busqueda) | Q(accion__icontains=busqueda) | Q(funcionario__nombre_completo__icontains=busqueda))
+        actividades = actividades.filter(
+            Q(descripcion__icontains=busqueda) | Q(accion__icontains=busqueda) | Q(funcionario__nombre_completo__icontains=busqueda)
+            | Q(codigo_verificador__iexact=busqueda.replace(" ", ""))
+        )
     contexto = {
         "actividades": actividades,
         "delegaciones": delegaciones,

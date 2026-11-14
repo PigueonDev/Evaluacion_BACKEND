@@ -72,7 +72,7 @@
             </div>
             <div class="col-md-8 col-lg-6">
                 <label class="form-label fw-semibold" for="q-consulta">Texto</label>
-                <input class="form-control" id="q-consulta" name="q" type="search" value="{{ busqueda }}" placeholder="Descripción, acción o funcionario">
+                <input class="form-control" id="q-consulta" name="q" type="search" value="{{ busqueda }}" placeholder="Descripción, acción, funcionario o código (COM1-1006-004)">
             </div>
             <div class="col-md-4 col-lg-3 d-flex align-items-end gap-2">
                 <button class="btn btn-primary" type="submit">Filtrar</button>
@@ -94,7 +94,7 @@
                     <td>{{ actividad.funcionario.nombre_completo }}</td>
                     <td>{{ actividad.funcionario.delegacion.nombre }}</td>
                     <td><code>{{ actividad.item.codigo }}</code></td>
-                    <td><a href="{% url 'servicios:consulta_actividad' actividad.pk %}?{{ consulta_query }}">{{ actividad.descripcion|truncatewords:12 }}</a></td>
+                    <td><a href="{% url 'servicios:consulta_actividad' actividad.pk %}?{{ consulta_query }}">{{ actividad.descripcion|truncatewords:12 }}</a>{% if actividad.codigo_verificador %}<div class="small text-secondary">{{ actividad.codigo_verificador }}</div>{% endif %}</td>
                     <td><span class="estado estado-{{ actividad.estado }}">{{ actividad.get_estado_display }}</span></td>
                 </tr>
                 {% empty %}
