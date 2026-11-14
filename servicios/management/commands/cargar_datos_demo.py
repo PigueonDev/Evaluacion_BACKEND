@@ -124,7 +124,7 @@ class Command(BaseCommand):
                 identificador=identificador,
                 defaults={
                     "nombre_completo": nombre_completo,
-                    "correo": f"{username.split('.')[0]}@ejemplo.cl",
+                    "correo": usuario.email,
                     "delegacion": delegacion,
                     "cargo": Cargo.objects.get(nombre=cargo),
                     "codigo_area": codigo_area,
