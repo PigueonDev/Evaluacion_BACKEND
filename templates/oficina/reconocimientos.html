@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+
+{% block titulo %}Felicitaciones y reclamos · SGR{% endblock %}
+
+{% block contenido %}
+{% include "includes/cabecera.html" with antetitulo="Matriz SGR" titulo="Felicitaciones y reclamos" bajada="Solo cuentan los registros escritos (correo o WhatsApp al delegado, o libro de observaciones). Cada felicitación suma al cumplimiento del colaborador, con un máximo por período; cada reclamo descuenta." %}
+
+<section class="container py-5">
+    <div class="row g-3 mb-4">
+        {% for etiqueta, total, codigo in resumen %}
+        <div class="col-6 col-md-3"><a class="text-decoration-none" href="?tipo={{ codigo }}"><div class="kpi {% if codigo == 'felicitacion' %}kpi-verde{% else %}kpi-ambar{% endif %}"><div><span class="kpi-etiqueta">{{ etiqueta }}s vigentes</span><strong>{{ total }}</strong></div></div></a></div>
+        {% endfor %}
+    </div>
+    <form class="row g-2 align-items-end mb-3" method="get" role="search">
+        <div class="col-md-5"><label class="form-label small fw-semibold" for="q">Buscar</label><input class="form-control" id="q" name="q" type="search" value="{{ busqueda }}" placeholder="Colaborador o persona usuaria"></div>
+        <div class="col-md-3"><label class="form-label small fw-semibold" for="tipo">Tipo</label><select class="form-select" id="tipo" name="tipo"><option value="">Todos</option>{% for codigo, etiqueta in tipos %}<option value="{{ codigo }}" {% if codigo == tipo_activo %}selected{% endif %}>{{ etiqueta }}</option>{% endfor %}</select></div>
+        <div class="col-md-2 d-flex gap-2"><button class="btn btn-primary flex-grow-1" type="submit">Filtrar</button><a class="btn btn-outline-secondary" href="{% url 'oficina:reconocimientos' %}">Limpiar</a></div>
+    </form>
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+        <p class="mb-0 text-secondary"><strong class="text-dark">{{ total }}</strong> registros.{% if es_administrativo %} Ves solo los que se refieren a ti.{% endif %}</p>
+        {% if perms.oficina.add_reconocimiento %}<a class="btn btn-success" href="{% url 'oficina:reconocimiento_crear' %}"><svg class="icono"><use href="#i-plus"/></svg>Registrar</a>{% endif %}
+    </div>
+    <div class="panel-tabla">
+        <div class="table-responsive">
+            <table class="table tabla-municipal align-middle mb-0">
+                <thead><tr><th>Fecha</th><th>Tipo</th><th>Colaborador</th><th>Persona usuaria y situación</th><th>Medio</th><th>Período</th><th>Estado</th>{% if perms.oficina.change_reconocimiento %}<th class="text-end">Acción</th>{% endif %}</tr></thead>
+                <tbody>
+                {% for r in pagina %}
+                <tr>
+                    <td class="text-nowrap">{{ r.fecha|date:"d/m/Y" }}</td>
+                    <td><span class="badge {% if r.tipo == 'felicitacion' %}text-bg-success{% else %}text-bg-danger{% endif %}">{{ r.get_tipo_display }}</span></td>
+                    <td>{{ r.funcionario.nombre_completo }}<div class="small text-secondary">{{ r.funcionario.cargo }} · {{ r.funcionario.delegacion }}</div></td>
+                    <td>{{ r.usuario_nombre }}<div class="small text-secondary">{{ r.situacion|truncatewords:14 }}</div></td>
+                    <td>{{ r.get_medio_display }}</td>
+                    <td class="small">{{ r.periodo.nombre }}</td>
+                    <td><span class="badge {% if r.estado == 'vigente' %}text-bg-info{% else %}text-bg-secondary{% endif %}">{{ r.get_estado_display }}</span></td>
+                    {% if perms.oficina.change_reconocimiento %}<td class="text-end">{% if r.estado == 'vigente' %}<form method="post" action="{% url 'oficina:reconocimiento_anular' r.pk %}">{% csrf_token %}<button class="btn btn-outline-danger btn-sm" type="submit">Anular</button></form>{% endif %}</td>{% endif %}
+                </tr>
+                {% empty %}
+                <tr><td colspan="8" class="text-center text-secondary py-4">No hay felicitaciones ni reclamos registrados.</td></tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% include "oficina/_paginacion.html" %}
+</section>
+{% endblock %}

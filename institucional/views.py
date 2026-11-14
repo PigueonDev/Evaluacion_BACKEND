@@ -29,13 +29,14 @@ from laserena.permisos import (
     texto_busqueda,
 )
 from laserena.seguridad import ip_cliente
-from oficina.models import Ausencia, BeneficioNino, Carta
+from oficina.models import Ausencia, BeneficioNino, Carta, Reconocimiento
 from organizaciones.models import OrganizacionComunitaria
 from servicios.models import Actividad, Auditoria, Caso, Compromiso, ItemMedicion, Meta, Periodo, Servicio
+from servicios.desempeno import resumen_equipo, resumen_funcionario
 from servicios.reglas import MAXIMO_ACTIVIDADES_POR_DIA, fin_semana_laboral, inicio_semana
 
-from .forms import AccesoForm, GrupoForm, NuevaClaveForm, RecuperarClaveForm, UsuarioForm
-from .models import Autoridad, Cargo, Delegacion, Funcionario, Municipio
+from .forms import AccesoForm, CargoForm, GrupoForm, NuevaClaveForm, RecuperarClaveForm, UnidadMunicipalForm, UsuarioForm
+from .models import Autoridad, Cargo, Delegacion, Funcionario, Municipio, UnidadMunicipal
 
 User = get_user_model()
 USUARIOS_POR_PAGINA = 20
@@ -141,13 +142,11 @@ def mi_panel(request):
     if grupo == GRUPO_SUPERVISOR:
         actividades = Actividad.objects.select_related("funcionario", "item").prefetch_related("tareas")
         compromisos = Compromiso.objects.filter(activo=True)
-        metas = Meta.objects.select_related("item", "periodo", "funcionario", "cargo")
+        equipo = Funcionario.objects.filter(activo=True).select_related("cargo", "delegacion")
         if perfil is not None:
             actividades = actividades.filter(funcionario__delegacion=perfil.delegacion)
             compromisos = compromisos.filter(delegacion=perfil.delegacion)
-            metas = metas.filter(funcionario__delegacion=perfil.delegacion)
-        if periodo:
-            metas = metas.filter(periodo=periodo)
+            equipo = equipo.filter(delegacion=perfil.delegacion)
         pendientes = actividades.filter(estado="pendiente", fecha__gte=semana)
         contexto.update({
             "pendientes": pendientes[:8],
@@ -159,25 +158,24 @@ def mi_panel(request):
             "cartas_abiertas": acotar_ambito(Carta.objects.exclude(estado__in=("respondida", "archivada")), request.user, "delegacion").count(),
             "beneficios_por_entregar": acotar_ambito(BeneficioNino.objects.filter(estado="registrado"), request.user, "delegacion").count(),
             "ausencias_vigentes": acotar_ambito(Ausencia.objects.filter(estado="vigente", fecha_termino__gte=hoy), request.user, "funcionario__delegacion").select_related("funcionario")[:5],
-            "metas": [{"meta": meta, "cumplimiento": meta.cumplimiento, "semaforo": meta.semaforo()} for meta in metas],
+            "equipo": resumen_equipo(equipo, periodo, hoy) if periodo else None,
+            "reclamos_periodo": Reconocimiento.objects.filter(periodo=periodo, tipo="reclamo", estado="vigente", funcionario__in=equipo).count() if periodo else 0,
         })
         return render(request, "institucional/dashboard_supervisor.html", contexto)
     actividades = Actividad.objects.none()
-    metas = Meta.objects.none()
+    desempeno = None
     if perfil is not None:
         actividades = Actividad.objects.filter(funcionario=perfil).select_related("item").prefetch_related("tareas")
-        metas = Meta.objects.filter(funcionario=perfil).select_related("item", "periodo")
         if periodo:
-            metas = metas.filter(periodo=periodo)
-    filas = [{"meta": meta, "cumplimiento": meta.cumplimiento, "semaforo": meta.semaforo()} for meta in metas]
-    total_ponderado = sum(float(fila["meta"].ponderador) * fila["cumplimiento"] / 100 for fila in filas)
+            desempeno = resumen_funcionario(perfil, periodo, hoy)
     contexto.update({
         "hoy_registradas": actividades.filter(fecha=hoy).exclude(estado="anulada").count(),
         "maximo_diario": MAXIMO_ACTIVIDADES_POR_DIA,
         "semana": actividades.filter(fecha__gte=semana).exclude(estado="anulada"),
         "pendientes_aprobacion": actividades.filter(estado="pendiente", fecha__gte=semana).count(),
-        "metas": filas,
-        "cumplimiento_total": min(total_ponderado, float(periodo.tope_cumplimiento)) if periodo else 0,
+        "desempeno": desempeno,
+        "metas": desempeno["filas"] if desempeno else [],
+        "cumplimiento_total": desempeno["total"] if desempeno else 0,
         "cartas_derivadas": Carta.objects.filter(derivada_a=perfil).exclude(estado__in=("respondida", "archivada")).order_by("plazo_respuesta")[:5] if perfil else [],
         "mis_ausencias": Ausencia.objects.filter(funcionario=perfil, estado="vigente").order_by("-fecha_inicio")[:3] if perfil else [],
     })
@@ -333,6 +331,65 @@ def grupo_eliminar(request, pk):
         messages.success(request, f"Grupo {nombre} eliminado.")
         return redirect("institucional:grupos")
     return render(request, "institucional/grupos/eliminar.html", {"grupo": grupo, "pagina_activa": "grupos"})
+
+
+@solo_administracion
+def cargos(request):
+    """Cargos de la matriz: perfil que les corresponde, sigla del código y metas del trimestre vigente."""
+    periodo = Periodo.objects.filter(estado="abierto").order_by("-fecha_inicio").first()
+    metas = Meta.objects.filter(periodo=periodo, funcionario__isnull=True).select_related("item") if periodo else Meta.objects.none()
+    por_cargo = {}
+    for meta in metas:
+        por_cargo.setdefault(meta.cargo_id, []).append(meta)
+    filas = []
+    for cargo in Cargo.objects.annotate(total_funcionarios=Count("funcionarios", filter=Q(funcionarios__activo=True))).order_by("-activo", "nombre"):
+        metas_cargo = sorted(por_cargo.get(cargo.pk, []), key=lambda m: (-m.ponderador, m.item.codigo))
+        filas.append({"cargo": cargo, "metas": metas_cargo, "suma": sum((m.ponderador for m in metas_cargo), 0)})
+    return render(request, "institucional/cargos/listado.html", {"filas": filas, "periodo": periodo, "pagina_activa": "cargos"})
+
+
+@solo_administracion
+def cargo_editar(request, pk):
+    cargo = get_object_or_404(Cargo, pk=pk)
+    form = CargoForm(request.POST or None, instance=cargo)
+    if request.method == "POST" and form.is_valid():
+        form.save()
+        messages.success(request, f"Cargo {cargo.nombre} actualizado.")
+        return redirect("institucional:cargos")
+    return render(request, "oficina/formulario.html", {
+        "form": form, "titulo": f"Editar cargo {cargo.nombre}", "seccion": "Cargos", "url_listado": "institucional:cargos", "pagina_activa": "cargos",
+    })
+
+
+@solo_administracion
+def unidades(request):
+    busqueda = texto_busqueda(request)
+    queryset = UnidadMunicipal.objects.all()
+    if busqueda:
+        queryset = queryset.filter(Q(nombre__icontains=busqueda) | Q(sigla__icontains=busqueda))
+    return render(request, "institucional/unidades/listado.html", {"unidades": queryset, "busqueda": busqueda, "pagina_activa": "unidades"})
+
+
+@solo_administracion
+def unidad_crear(request):
+    return _unidad_formulario(request, UnidadMunicipal(), "Crear unidad municipal")
+
+
+@solo_administracion
+def unidad_editar(request, pk):
+    unidad = get_object_or_404(UnidadMunicipal, pk=pk)
+    return _unidad_formulario(request, unidad, f"Editar {unidad.nombre}")
+
+
+def _unidad_formulario(request, unidad, titulo):
+    form = UnidadMunicipalForm(request.POST or None, instance=unidad)
+    if request.method == "POST" and form.is_valid():
+        unidad = form.save()
+        messages.success(request, f"Unidad {unidad.nombre} guardada.")
+        return redirect("institucional:unidades")
+    return render(request, "oficina/formulario.html", {
+        "form": form, "titulo": titulo, "seccion": "Unidades municipales", "url_listado": "institucional:unidades", "pagina_activa": "unidades",
+    })
 
 
 def verificar_acceso(request):

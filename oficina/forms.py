@@ -1,12 +1,14 @@
 from django import forms
 
-from institucional.models import Delegacion, Funcionario
+from django.utils import timezone
+
+from institucional.models import Delegacion, Funcionario, UnidadMunicipal
 from laserena.permisos import perfil_de_ambito
 from laserena.rut import normalizar_rut
 from organizaciones.models import OrganizacionComunitaria
 from servicios.models import Periodo
 
-from .models import Ausencia, BeneficioNino, Carta
+from .models import Ausencia, BeneficioNino, Carta, Reconocimiento
 
 FECHA = {"type": "date", "class": "form-control"}
 
@@ -42,11 +44,12 @@ class CartaForm(_FormularioConAmbito):
 	class Meta:
 		model = Carta
 		fields = [
-			"fecha_ingreso", "tipo", "remitente", "contacto_remitente", "asunto", "detalle", "delegacion",
-			"organizacion", "derivada_a", "estado", "plazo_respuesta", "respuesta", "fecha_respuesta",
+			"fecha_ingreso", "numero_oficina_partes", "destinatario", "tipo", "remitente", "contacto_remitente", "asunto", "detalle",
+			"fecha_actividad", "delegacion", "organizacion", "encargado_seguimiento", "pronunciamiento", "derivada_a", "derivada_a_unidad",
+			"estado", "resolucion", "plazo_respuesta", "respuesta", "fecha_respuesta",
 		]
 		widgets = {
-			"fecha_ingreso": forms.DateInput(), "plazo_respuesta": forms.DateInput(), "fecha_respuesta": forms.DateInput(),
+			"fecha_ingreso": forms.DateInput(), "plazo_respuesta": forms.DateInput(), "fecha_respuesta": forms.DateInput(), "fecha_actividad": forms.DateInput(),
 			"detalle": forms.Textarea(attrs={"rows": 3}), "respuesta": forms.Textarea(attrs={"rows": 3}),
 		}
 
@@ -57,6 +60,29 @@ class CartaForm(_FormularioConAmbito):
 			funcionarios = funcionarios.filter(delegacion=self.perfil.delegacion)
 		self.fields["derivada_a"].queryset = funcionarios
 		self.fields["derivada_a"].label_from_instance = lambda f: f"{f.nombre_completo} · {f.delegacion}"
+		unidades = UnidadMunicipal.objects.filter(activa=True)
+		for nombre in ("encargado_seguimiento", "derivada_a_unidad"):
+			self.fields[nombre].queryset = unidades
+		self.fields["numero_oficina_partes"].help_text = "Número que asigna la Oficina de Partes municipal. El folio OP-AAAA-NNNN del SGR se genera solo."
+		self.fields["resolucion"].help_text = "Estado del tubo de cartas de la matriz. Al responder o archivar pasa a Finalizada si sigue En proceso."
+		_opcionales_con_valor_actual(self, "destinatario", "pronunciamiento", "resolucion")
+
+	def clean(self):
+		return _completar_con_valor_actual(self, super().clean())
+
+
+def _opcionales_con_valor_actual(form, *campos):
+	"""Campos de la matriz que, si no vienen en el envío, conservan el valor de la carta (o su valor por defecto)."""
+	form.campos_con_valor_actual = campos
+	for nombre in campos:
+		form.fields[nombre].required = False
+
+
+def _completar_con_valor_actual(form, cleaned):
+	for nombre in form.campos_con_valor_actual:
+		if not cleaned.get(nombre):
+			cleaned[nombre] = getattr(form.instance, nombre)
+	return cleaned
 
 
 class CartaSeguimientoForm(forms.ModelForm):
@@ -64,13 +90,17 @@ class CartaSeguimientoForm(forms.ModelForm):
 
 	class Meta:
 		model = Carta
-		fields = ["estado", "respuesta", "fecha_respuesta"]
+		fields = ["estado", "resolucion", "respuesta", "fecha_respuesta"]
 		widgets = {"fecha_respuesta": forms.DateInput(), "respuesta": forms.Textarea(attrs={"rows": 4})}
 
 	def __init__(self, *args, usuario=None, **kwargs):
 		super().__init__(*args, **kwargs)
 		self.fields["estado"].choices = [c for c in Carta.ESTADOS if c[0] in ("derivada", "en_respuesta", "respondida")]
 		_estilar(self)
+		_opcionales_con_valor_actual(self, "resolucion")
+
+	def clean(self):
+		return _completar_con_valor_actual(self, super().clean())
 
 
 class BeneficioForm(_FormularioConAmbito):
@@ -113,4 +143,31 @@ class AusenciaForm(forms.ModelForm):
 		periodo = self.fields["periodo"].queryset.first()
 		if periodo and not self.is_bound:
 			self.initial.setdefault("periodo", periodo.pk)
+		_estilar(self)
+
+
+class ReconocimientoForm(forms.ModelForm):
+	"""El delegado registra felicitaciones y reclamos escritos de su delegación."""
+
+	class Meta:
+		model = Reconocimiento
+		fields = ["tipo", "funcionario", "periodo", "fecha", "usuario_nombre", "contacto", "ubicacion", "situacion", "medio"]
+		widgets = {"fecha": forms.DateInput(), "situacion": forms.Textarea(attrs={"rows": 3})}
+
+	def __init__(self, *args, usuario=None, **kwargs):
+		super().__init__(*args, **kwargs)
+		perfil = perfil_de_ambito(usuario)
+		funcionarios = Funcionario.objects.filter(activo=True).select_related("delegacion", "cargo")
+		if perfil is not None:
+			funcionarios = funcionarios.filter(delegacion=perfil.delegacion).exclude(pk=perfil.pk)
+		self.fields["funcionario"].queryset = funcionarios
+		self.fields["funcionario"].label_from_instance = lambda f: f"{f.nombre_completo} · {f.cargo} · {f.delegacion}"
+		self.fields["periodo"].queryset = Periodo.objects.filter(estado="abierto")
+		periodo = self.fields["periodo"].queryset.first()
+		if not self.is_bound:
+			self.initial.setdefault("fecha", timezone.localdate())
+			if periodo:
+				self.initial.setdefault("periodo", periodo.pk)
+		self.fields["medio"].help_text = "La matriz solo acepta felicitaciones y reclamos por escrito."
+		self.fields["situacion"].help_text = "Los reclamos deben referirse a la atención del funcionario."
 		_estilar(self)
