@@ -91,10 +91,10 @@ def resumen_funcionario(funcionario, periodo, hoy=None):
 def resumen_equipo(funcionarios, periodo, hoy=None):
 	"""Filas del RESUMEN ordenadas por cumplimiento, con ranking y promedio del equipo."""
 	filas = [resumen_funcionario(funcionario, periodo, hoy) for funcionario in funcionarios]
-	filas.sort(key=lambda fila: (-fila["total"], fila["funcionario"].nombre_completo))
-	for posicion, fila in enumerate(filas, start=1):
-		fila["ranking"] = posicion
+	filas.sort(key=lambda fila: (not fila["filas"], -fila["total"], fila["funcionario"].nombre_completo))
 	con_metas = [fila for fila in filas if fila["filas"]]
+	for posicion, fila in enumerate(filas, start=1):
+		fila["ranking"] = posicion if fila["filas"] else None
 	promedio = sum(fila["total"] for fila in con_metas) / len(con_metas) if con_metas else 0
 	return {
 		"filas": filas,

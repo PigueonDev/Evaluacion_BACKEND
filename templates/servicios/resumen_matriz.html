@@ -34,7 +34,7 @@
                 <tbody>
                 {% for fila in equipo.filas %}
                 <tr>
-                    <td>{{ fila.ranking }}</td>
+                    <td>{{ fila.ranking|default:"—" }}</td>
                     <td>
                         <strong>{{ fila.funcionario.nombre_completo }}</strong>{% if fila.alerta_rrhh %} <span class="badge text-bg-danger" title="Reclamos en dos trimestres seguidos">Informar a RRHH</span>{% endif %}
                         <div class="small text-secondary">{{ fila.funcionario.cargo }}{% if fila.funcionario.prefijo_codigo %} · {{ fila.funcionario.prefijo_codigo }}{% endif %}{% if not delegacion %} · {{ fila.funcionario.delegacion }}{% endif %}</div>
