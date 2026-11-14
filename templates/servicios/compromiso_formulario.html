@@ -16,6 +16,7 @@
                 <form method="post" novalidate>
                     {% csrf_token %}
                     {% include "servicios/includes/campos.html" %}
+                    <datalist id="sectores-delegacion">{% for sector in form.sectores %}<option value="{{ sector }}">{% endfor %}</datalist>
                     <div class="d-flex flex-wrap gap-2">
                         <button class="btn btn-primary" type="submit">{% if compromiso %}Guardar cambios{% else %}Publicar compromiso{% endif %}</button>
                         <a class="btn btn-outline-secondary" href="{% url 'servicios:agenda' %}">Volver a la agenda</a>

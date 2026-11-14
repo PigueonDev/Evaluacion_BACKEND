@@ -9,11 +9,13 @@
 <section class="container py-5">
     <article class="tarjeta-info mb-4">
         <dl class="ficha-datos">
+            <div><dt>Fecha de solicitud</dt><dd>{{ compromiso.fecha_solicitud|date:"d/m/Y" }} · {{ compromiso.get_ambito_display }}</dd></div>
             <div><dt>Fecha comprometida</dt><dd>{{ compromiso.fecha_comprometida|date:"d/m/Y" }}</dd></div>
             <div><dt>Delegación</dt><dd>{{ compromiso.delegacion.nombre }}</dd></div>
             <div><dt>Responsable</dt><dd>{{ compromiso.responsable.nombre_completo }}</dd></div>
             <div><dt>Territorio</dt><dd>{{ compromiso.territorio }}</dd></div>
             <div><dt>Origen</dt><dd>{{ compromiso.origen }}</dd></div>
+            <div><dt>Área o persona de apoyo</dt><dd>{{ compromiso.area_apoyo|default:"Sin apoyo de otra unidad" }}</dd></div>
             <div><dt>Descripción</dt><dd>{{ compromiso.descripcion }}</dd></div>
             <div><dt>Estado</dt><dd>
                 <span class="estado estado-{{ compromiso.estado }}">{{ compromiso.get_estado_display }}</span>

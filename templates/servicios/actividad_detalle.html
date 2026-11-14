@@ -9,6 +9,7 @@
 <section class="container py-5">
     <article class="tarjeta-info">
         <p class="text-secondary mb-2">Identificador de evidencia</p>
+        {% if actividad.codigo_verificador %}<p class="mb-1"><span class="small text-secondary">Código verificador de la matriz</span> <code class="fs-5">{{ actividad.codigo_verificador }}</code></p>{% endif %}
         <p class="codigo-evidencia mb-4">{{ actividad.codigo_evidencia }}</p>
         <dl class="ficha-datos">
             <div><dt>Fecha</dt><dd>{{ actividad.fecha|date:"d/m/Y" }}</dd></div>
@@ -20,7 +21,8 @@
             <div><dt>Acción realizada</dt><dd>{{ actividad.accion }}</dd></div>
             <div><dt>Contacto</dt><dd>{{ actividad.contacto|default:"Sin contacto" }}</dd></div>
             <div><dt>Teléfono</dt><dd>{{ actividad.telefono|default:"Sin teléfono" }}</dd></div>
-            <div><dt>Vínculo con la agenda</dt><dd>{% if actividad.compromiso %}{{ actividad.compromiso.solicitante }} · {{ actividad.compromiso.fecha_comprometida|date:"d/m/Y" }}{% else %}Sin compromiso asociado{% endif %}</dd></div>
+            <div><dt>Derivado a</dt><dd>{{ actividad.derivado_a|default:"Sin derivación" }}</dd></div>
+            <div><dt>Ingreso al tubo</dt><dd>{% if actividad.compromiso %}{{ actividad.compromiso.solicitante }} · {{ actividad.compromiso.fecha_comprometida|date:"d/m/Y" }}{% else %}Sin compromiso asociado{% endif %}</dd></div>
             <div><dt>Estado</dt><dd><span class="estado estado-{{ actividad.estado }}">{{ actividad.get_estado_display }}</span></dd></div>
             <div><dt>Suma al cumplimiento</dt><dd>{% if actividad.puntua %}Sí{% else %}No: requiere todas las tareas realizadas y la aprobación del Supervisor{% endif %}</dd></div>
             {% if actividad.revisada_por %}<div><dt>Revisión</dt><dd>{{ actividad.revisada_por.get_full_name|default:actividad.revisada_por.username }} · {{ actividad.revisada_en|date:"d/m/Y H:i" }}{% if actividad.observacion_revision %} — {{ actividad.observacion_revision }}{% endif %}</dd></div>{% endif %}

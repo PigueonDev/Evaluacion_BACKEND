@@ -14,6 +14,7 @@ User = get_user_model()
 EXTENSIONES_EVIDENCIA = ["pdf", "jpg", "jpeg", "png", "webp"]
 TAMANO_MAXIMO_EVIDENCIA = 5 * 1024 * 1024
 TELEFONO_ACTIVIDAD = re.compile(r"^\+?[0-9][0-9\s-]{7,18}$")
+CODIGO_VERIFICADOR = re.compile(r"^[A-Z0-9]{2,10}-\d{4}-\d{3,}$")
 MAXIMO_GESTIONES_POR_CASO = 3
 DIAS_COMPROMISO_PROXIMO = 7
 TRANSICIONES_COMPROMISO = {

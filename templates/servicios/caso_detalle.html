@@ -11,6 +11,10 @@
         <dl class="ficha-datos">
             <div><dt>Identificación principal</dt><dd><code>{{ caso.identificacion }}</code></dd></div>
             <div><dt>Delegación</dt><dd>{{ caso.delegacion.nombre }}</dd></div>
+            {% if caso.rut or caso.telefono %}<div><dt>RUT y teléfono</dt><dd>{{ caso.rut|default:"Sin RUT" }} · {{ caso.telefono|default:"Sin teléfono" }}</dd></div>{% endif %}
+            {% if caso.tipo_atencion %}<div><dt>Atención</dt><dd>{{ caso.get_tipo_atencion_display }}{% if caso.sub_atencion %} · {{ caso.get_sub_atencion_display }}{% endif %}{% if caso.forma %} <span class="text-secondary">(forma: {{ caso.forma }})</span>{% endif %}</dd></div>{% endif %}
+            <div><dt>Ingreso</dt><dd>{{ caso.fecha_ingreso|date:"d/m/Y" }}{% if caso.requiere_visita %} · requiere visita{% endif %}{% if caso.devoluciones_informe %} · informe devuelto {{ caso.devoluciones_informe }} vez/veces{% endif %}</dd></div>
+            {% with tramos=caso.plazos %}{% if tramos %}<div><dt>Plazos de la matriz</dt><dd><ul class="list-unstyled mb-0">{% for tramo in tramos %}<li>{% if tramo.excedido %}<span class="estado estado-rechazada">Fuera de plazo</span>{% else %}<span class="estado estado-validada">En plazo</span>{% endif %} {{ tramo.etiqueta }}: {{ tramo.dias }} día(s), máximo {{ tramo.maximo }}</li>{% endfor %}</ul></dd></div>{% endif %}{% endwith %}
             <div><dt>Atenciones contadas</dt><dd>{{ atenciones }} de 3</dd></div>
             <div><dt>Estado del caso</dt><dd>{% if caso.activo %}Activo{% else %}Inactivo{% endif %}</dd></div>
             {% if caso.observacion %}<div><dt>Observación</dt><dd>{{ caso.observacion }}</dd></div>{% endif %}
@@ -37,7 +41,7 @@
                     <td>{{ gestion.numero }}</td>
                     <td>{{ gestion.fecha|date:"d/m/Y" }}</td>
                     <td>{{ gestion.descripcion }}</td>
-                    <td>{% if gestion.actividad %}<code class="small">{{ gestion.actividad.codigo_evidencia|truncatechars:13 }}</code>{% else %}Sin actividad{% endif %}</td>
+                    <td>{% if gestion.actividad %}<code class="small">{{ gestion.actividad.codigo_verificador|default:gestion.actividad.codigo_evidencia|truncatechars:15 }}</code>{% else %}Sin actividad{% endif %}</td>
                     <td>{% if gestion.activa %}1{% else %}0{% endif %}</td>
                     <td class="text-nowrap">
                         <a href="{% url 'servicios:gestion_editar' caso.pk gestion.pk %}">Editar</a>

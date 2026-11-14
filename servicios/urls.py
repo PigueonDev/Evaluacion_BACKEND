@@ -26,6 +26,7 @@ urlpatterns = [
     path("agenda/", views.agenda, name="agenda"),
     path("agenda/nueva/", views.compromiso_nuevo, name="compromiso_nuevo"),
     path("agenda/resumen/", views.resumen_agenda, name="resumen_agenda"),
+    path("matriz/resumen/", views.resumen_matriz, name="resumen_matriz"),
     path("agenda/<int:pk>/", views.compromiso_detalle, name="compromiso_detalle"),
     path("agenda/<int:pk>/editar/", views.compromiso_editar, name="compromiso_editar"),
     path("agenda/<int:pk>/desactivar/", views.compromiso_desactivar, name="compromiso_desactivar"),

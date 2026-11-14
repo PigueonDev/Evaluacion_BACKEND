@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+
+{% block titulo %}Resumen de la matriz · SGR{% endblock %}
+
+{% block contenido %}
+{% include "includes/cabecera.html" with antetitulo="Matriz SGR" titulo="Resumen y semáforo del equipo" bajada="Cumplimiento ponderado por colaborador como en las hojas RESUMEN y SEMAFORO: ítems del cargo con tope de 120 %, felicitaciones y reclamos, y tope de 150 % por colaborador." %}
+
+<section class="container py-5">
+    <form class="row g-2 align-items-end mb-4" method="get">
+        <div class="col-md-4"><label class="form-label small fw-semibold" for="periodo">Período</label>
+            <select class="form-select" id="periodo" name="periodo">{% for p in periodos %}<option value="{{ p.pk }}" {% if p.pk == periodo.pk %}selected{% endif %}>{{ p.nombre }} ({{ p.get_estado_display }})</option>{% endfor %}</select></div>
+        {% if puede_elegir_delegacion %}
+        <div class="col-md-4"><label class="form-label small fw-semibold" for="delegacion">Delegación</label>
+            <select class="form-select" id="delegacion" name="delegacion"><option value="">Todo el municipio</option>{% for d in delegaciones %}<option value="{{ d.pk }}" {% if d.pk == delegacion.pk %}selected{% endif %}>{{ d.nombre }}</option>{% endfor %}</select></div>
+        {% endif %}
+        <div class="col-md-2"><button class="btn btn-primary w-100" type="submit">Ver</button></div>
+    </form>
+
+    {% if not periodo %}
+    <div class="alert alert-info">No hay períodos creados. El Administrador puede cargarlos con <code>python manage.py cargar_matriz</code>.</div>
+    {% else %}
+    <p class="periodo-activo mb-4"><svg class="icono"><use href="#i-calendar"/></svg><span>{{ periodo.nombre }}: {{ periodo.fecha_inicio|date:"d/m/Y" }} al {{ periodo.fecha_termino|date:"d/m/Y" }} · {% if delegacion %}Delegación <strong>{{ delegacion.nombre }}</strong>{% else %}Todo el municipio{% endif %}</span></p>
+    <div class="row g-3 mb-4">
+        <div class="col-sm-6 col-lg-3"><div class="kpi"><span class="kpi-icono"><svg><use href="#i-clock"/></svg></span><div><span class="kpi-etiqueta">Objetivo al día de hoy</span><strong>{{ esperado|floatformat:1 }} %</strong></div></div></div>
+        <div class="col-sm-6 col-lg-3"><div class="kpi kpi-verde"><span class="kpi-icono"><svg><use href="#i-chart"/></svg></span><div><span class="kpi-etiqueta">Promedio del equipo</span><strong>{{ equipo.promedio|floatformat:1 }} %</strong></div></div></div>
+        <div class="col-sm-6 col-lg-3"><div class="kpi {% if equipo.cumple_colectivo %}kpi-verde{% else %}kpi-ambar{% endif %}"><span class="kpi-icono"><svg><use href="#i-check"/></svg></span><div><span class="kpi-etiqueta">Mínimo colectivo {{ periodo.umbral_colectivo|floatformat:0 }} %</span><strong>{% if equipo.cumple_colectivo %}Cumple{% else %}No cumple{% endif %}</strong></div></div></div>
+        <div class="col-sm-6 col-lg-3"><div class="kpi"><span class="kpi-icono"><svg><use href="#i-users"/></svg></span><div><span class="kpi-etiqueta">Ingresos del equipo</span><strong>{{ equipo.ingresos }}</strong></div></div></div>
+    </div>
+
+    <div class="panel-tabla">
+        <div class="table-responsive">
+            <table class="table tabla-municipal align-middle mb-0">
+                <thead><tr><th>#</th><th>Colaborador</th><th class="text-end">Gestión</th><th class="text-end">Felic. / reclamos</th><th class="text-end">Total</th><th>Semáforo</th><th>Último ingreso</th><th class="text-end">Ingresos</th><th class="text-end">Diarios</th></tr></thead>
+                <tbody>
+                {% for fila in equipo.filas %}
+                <tr>
+                    <td>{{ fila.ranking }}</td>
+                    <td>
+                        <strong>{{ fila.funcionario.nombre_completo }}</strong>{% if fila.alerta_rrhh %} <span class="badge text-bg-danger" title="Reclamos en dos trimestres seguidos">Informar a RRHH</span>{% endif %}
+                        <div class="small text-secondary">{{ fila.funcionario.cargo }}{% if fila.funcionario.prefijo_codigo %} · {{ fila.funcionario.prefijo_codigo }}{% endif %}{% if not delegacion %} · {{ fila.funcionario.delegacion }}{% endif %}</div>
+                        {% if fila.filas %}
+                        <details class="small mt-1"><summary>Ítems ({{ fila.suma_ponderadores|floatformat:0 }} % ponderado{% if fila.suma_ponderadores != 100 %}, <span class="text-danger">no suma 100 %</span>{% endif %})</summary>
+                            <table class="table table-sm mb-0 mt-1"><thead><tr><th>Ítem</th><th class="text-end">Pond.</th><th class="text-end">Avance / meta</th><th class="text-end">Cumpl.</th></tr></thead><tbody>
+                            {% for item in fila.filas %}<tr><td>{{ item.meta.item.nombre }}</td><td class="text-end">{{ item.meta.ponderador|floatformat:0 }} %</td><td class="text-end">{{ item.avance|floatformat:"-1" }}{% if item.meta.item.tipo_medicion == 'tasa_tubo' %} %{% endif %} / {% if item.meta.item.tipo_medicion == 'emergencia' %}≥ 1{% else %}{{ item.meta.objetivo|floatformat:"-2" }}{% if item.meta.item.tipo_medicion == 'tasa_tubo' %} %{% endif %}{% endif %}</td><td class="text-end"><span class="semaforo semaforo-{{ item.semaforo }}">{{ item.cumplimiento|floatformat:0 }} %</span></td></tr>{% endfor %}
+                            </tbody></table>
+                        </details>
+                        {% endif %}
+                    </td>
+                    <td class="text-end">{{ fila.gestion|floatformat:1 }} %</td>
+                    <td class="text-end"><span class="text-success">+{{ fila.bono|floatformat:0 }}</span> / <span class="text-danger">−{{ fila.descuento|floatformat:0 }}</span><div class="small text-secondary">{{ fila.felicitaciones }} / {{ fila.reclamos }}</div></td>
+                    <td class="text-end fw-bold">{{ fila.total|floatformat:1 }} %</td>
+                    <td>{% if fila.semaforo == 'sin_metas' %}<span class="semaforo semaforo-sin_metas">Sin metas</span>{% else %}<span class="semaforo semaforo-{{ fila.semaforo }}">{% if fila.semaforo == 'ambar' %}Naranjo{% else %}{{ fila.semaforo|capfirst }}{% endif %}</span>{% endif %}</td>
+                    <td>{% if fila.ultimo_ingreso %}{{ fila.ultimo_ingreso|date:"d/m/Y" }}<div class="small {% if fila.dias_sin_ingreso > 7 %}text-danger{% else %}text-secondary{% endif %}">hace {{ fila.dias_sin_ingreso }} día(s)</div>{% else %}<span class="text-secondary">Sin ingresos</span>{% endif %}</td>
+                    <td class="text-end">{{ fila.ingresos }}</td>
+                    <td class="text-end">{{ fila.ingresos_diarios|floatformat:2 }}</td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="9" class="text-center text-secondary py-4">No hay colaboradores activos en este ámbito.</td></tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    <p class="small text-secondary mt-3 mb-0">Semáforo: verde si el total alcanza el objetivo al día; naranjo si llega al {{ periodo.umbral_ambar|floatformat:0 }} % de ese objetivo; rojo bajo ese umbral. Cada felicitación suma {{ periodo.bono_felicitacion|floatformat:0 }} puntos (máximo {{ periodo.maximo_felicitaciones }}) y cada reclamo descuenta {{ periodo.descuento_reclamo|floatformat:0 }}.</p>
+    {% endif %}
+</section>
+{% endblock %}

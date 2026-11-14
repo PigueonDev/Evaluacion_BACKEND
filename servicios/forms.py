@@ -1,9 +1,12 @@
 from django import forms
 from django.core.exceptions import ValidationError
 
-from institucional.models import Delegacion, Funcionario
+from institucional.models import Delegacion, Funcionario, UnidadMunicipal
 
-from .models import MAXIMO_GESTIONES_POR_CASO, TELEFONO_ACTIVIDAD, Actividad, TareaPreparatoria, Caso, Compromiso, Gestion, ItemMedicion, Periodo, Servicio
+from .matriz import SECTORES_POR_DELEGACION
+from .models import MAXIMO_GESTIONES_POR_CASO, SUBATENCIONES_POR_TIPO, SUBATENCIONES_SOCIALES, TELEFONO_ACTIVIDAD, TIPOS_ATENCION_SOCIAL, Actividad, TareaPreparatoria, Caso, Compromiso, Gestion, ItemMedicion, Periodo, Servicio
+
+FECHA = {"type": "date", "class": "form-control"}
 
 
 class ActividadForm(forms.ModelForm):
@@ -16,7 +19,7 @@ class ActividadForm(forms.ModelForm):
 
 	class Meta:
 		model = Actividad
-		fields = ["fecha", "periodo", "item", "servicio", "descripcion", "accion", "contacto", "telefono", "compromiso"]
+		fields = ["fecha", "periodo", "item", "servicio", "descripcion", "accion", "contacto", "telefono", "derivado_a", "compromiso"]
 		labels = {
 			"fecha": "Fecha",
 			"periodo": "Período",
@@ -26,11 +29,13 @@ class ActividadForm(forms.ModelForm):
 			"accion": "Acción realizada",
 			"contacto": "Contacto",
 			"telefono": "Teléfono",
-			"compromiso": "Vínculo con la agenda",
+			"derivado_a": "Derivado a",
+			"compromiso": "Ingreso al tubo",
 		}
 		help_texts = {
 			"telefono": "Opcional. Solo números, espacios o guiones.",
-			"compromiso": "Opcional. Asocia la actividad a un compromiso ya publicado en la misma delegación.",
+			"derivado_a": "Opcional. Unidad municipal o institución a la que se derivó a la persona.",
+			"compromiso": "Opcional. Asocia la actividad a un ingreso del tubo de trabajo de la misma delegación.",
 			"servicio": "Opcional.",
 		}
 		widgets = {
@@ -42,6 +47,7 @@ class ActividadForm(forms.ModelForm):
 			"accion": forms.Textarea(attrs={"class": "form-control", "rows": 3}),
 			"contacto": forms.TextInput(attrs={"class": "form-control"}),
 			"telefono": forms.TextInput(attrs={"class": "form-control", "inputmode": "tel"}),
+			"derivado_a": forms.Select(attrs={"class": "form-select"}),
 			"compromiso": forms.Select(attrs={"class": "form-select"}),
 		}
 
@@ -50,7 +56,15 @@ class ActividadForm(forms.ModelForm):
 		self.funcionario_fijo = funcionario
 		self.fields["fecha"].input_formats = ["%Y-%m-%d"]
 		self.fields["periodo"].queryset = Periodo.objects.filter(estado="abierto").order_by("-fecha_inicio")
-		self.fields["item"].queryset = ItemMedicion.objects.filter(activo=True)
+		# La tasa del tubo se calcula con los compromisos; no se registra como actividad.
+		items = ItemMedicion.objects.filter(activo=True).exclude(tipo_medicion="tasa_tubo")
+		titular = funcionario or (self.instance.funcionario if self.instance.pk else None)
+		if titular is not None and titular.cargo.funciones.exists():
+			items = items.filter(pk__in=titular.cargo.funciones.values("pk"))
+		self.fields["item"].queryset = items
+		self.fields["derivado_a"].queryset = UnidadMunicipal.objects.filter(activa=True)
+		self.fields["derivado_a"].required = False
+		self.fields["derivado_a"].empty_label = "Sin derivación"
 		self.fields["servicio"].queryset = Servicio.objects.filter(activo=True)
 		self.fields["servicio"].required = False
 		self.fields["contacto"].required = False
@@ -122,7 +136,11 @@ class RevisionForm(forms.Form):
 class CasoForm(forms.ModelForm):
 	class Meta:
 		model = Caso
-		fields = ["identificacion", "nombre", "delegacion", "observacion"]
+		fields = [
+			"identificacion", "nombre", "rut", "telefono", "delegacion", "tipo_atencion", "sub_atencion", "fecha_ingreso",
+			"requiere_visita", "fecha_programada_visita", "fecha_visita", "fecha_entrega_informe", "fecha_entrega_beneficio",
+			"devoluciones_informe", "observacion",
+		]
 		labels = {
 			"identificacion": "Identificación principal",
 			"nombre": "Nombre de la persona usuaria",
@@ -131,17 +149,41 @@ class CasoForm(forms.ModelForm):
 		}
 		help_texts = {
 			"identificacion": "Se registra una sola vez. Las gestiones se asocian a este caso y no repiten el identificador.",
+			"sub_atencion": "Debe corresponder al tipo de atención (hoja LISTA de la matriz).",
+			"fecha_programada_visita": "Plazo de la matriz: hasta 10 días desde el ingreso.",
+			"fecha_entrega_informe": "Plazo de la matriz: hasta 4 días desde la visita.",
+			"fecha_entrega_beneficio": "Plazo de la matriz: hasta 4 días desde el informe y 20 desde el ingreso.",
+			"devoluciones_informe": "Veces que el informe social fue devuelto para corrección.",
 		}
 		widgets = {
 			"identificacion": forms.TextInput(attrs={"class": "form-control"}),
 			"nombre": forms.TextInput(attrs={"class": "form-control"}),
+			"rut": forms.TextInput(attrs={"class": "form-control", "placeholder": "12.345.678-5"}),
+			"telefono": forms.TextInput(attrs={"class": "form-control", "inputmode": "tel"}),
 			"delegacion": forms.Select(attrs={"class": "form-select"}),
+			"tipo_atencion": forms.Select(attrs={"class": "form-select"}),
+			"sub_atencion": forms.Select(attrs={"class": "form-select"}),
+			"fecha_ingreso": forms.DateInput(attrs=FECHA, format="%Y-%m-%d"),
+			"requiere_visita": forms.CheckboxInput(attrs={"class": "form-check-input"}),
+			"fecha_programada_visita": forms.DateInput(attrs=FECHA, format="%Y-%m-%d"),
+			"fecha_visita": forms.DateInput(attrs=FECHA, format="%Y-%m-%d"),
+			"fecha_entrega_informe": forms.DateInput(attrs=FECHA, format="%Y-%m-%d"),
+			"fecha_entrega_beneficio": forms.DateInput(attrs=FECHA, format="%Y-%m-%d"),
+			"devoluciones_informe": forms.NumberInput(attrs={"class": "form-control", "min": 0, "max": 3}),
 			"observacion": forms.Textarea(attrs={"class": "form-control", "rows": 3}),
 		}
 
 	def __init__(self, *args, delegacion=None, **kwargs):
 		super().__init__(*args, **kwargs)
 		self.fields["observacion"].required = False
+		for nombre in ("fecha_ingreso", "fecha_programada_visita", "fecha_visita", "fecha_entrega_informe", "fecha_entrega_beneficio"):
+			self.fields[nombre].input_formats = ["%Y-%m-%d"]
+		self.fields["fecha_ingreso"].required = False
+		etiquetas = dict(SUBATENCIONES_SOCIALES)
+		self.fields["sub_atencion"].choices = [("", "Sin subatención")] + [
+			(etiqueta_tipo, [(codigo, etiquetas[codigo]) for codigo in SUBATENCIONES_POR_TIPO[tipo]])
+			for tipo, etiqueta_tipo in TIPOS_ATENCION_SOCIAL
+		]
 		if delegacion is not None:
 			self.fields["delegacion"].queryset = Delegacion.objects.filter(pk=delegacion.pk, activa=True)
 			self.fields["delegacion"].initial = delegacion
@@ -152,6 +194,9 @@ class CasoForm(forms.ModelForm):
 
 	def clean_identificacion(self):
 		return (self.cleaned_data.get("identificacion") or "").strip()
+
+	def clean_fecha_ingreso(self):
+		return self.cleaned_data.get("fecha_ingreso") or self.instance.fecha_ingreso
 
 
 class GestionForm(forms.ModelForm):
@@ -240,13 +285,19 @@ class CompromisoForm(forms.ModelForm):
 
 	class Meta:
 		model = Compromiso
-		fields = ["delegacion", "responsable", "origen", "solicitante", "territorio", "descripcion", "fecha_comprometida", "observacion", "estado"]
+		fields = [
+			"delegacion", "fecha_solicitud", "ambito", "origen", "solicitante", "territorio", "descripcion", "responsable",
+			"area_apoyo", "fecha_comprometida", "observacion", "estado",
+		]
 		labels = {
 			"delegacion": "Delegación",
+			"fecha_solicitud": "Fecha de solicitud",
+			"ambito": "Interno o externo",
 			"responsable": "Responsable",
 			"origen": "Origen",
 			"solicitante": "Solicitante",
-			"territorio": "Territorio",
+			"territorio": "Territorio o sector",
+			"area_apoyo": "Área o persona de apoyo",
 			"descripcion": "Descripción",
 			"fecha_comprometida": "Fecha comprometida",
 			"observacion": "Observación",
@@ -254,10 +305,13 @@ class CompromisoForm(forms.ModelForm):
 		}
 		widgets = {
 			"delegacion": forms.Select(attrs={"class": "form-select"}),
+			"fecha_solicitud": forms.DateInput(attrs=FECHA, format="%Y-%m-%d"),
+			"ambito": forms.Select(attrs={"class": "form-select"}),
 			"responsable": forms.Select(attrs={"class": "form-select"}),
+			"area_apoyo": forms.Select(attrs={"class": "form-select"}),
 			"origen": forms.TextInput(attrs={"class": "form-control"}),
 			"solicitante": forms.TextInput(attrs={"class": "form-control"}),
-			"territorio": forms.TextInput(attrs={"class": "form-control"}),
+			"territorio": forms.TextInput(attrs={"class": "form-control", "list": "sectores-delegacion"}),
 			"descripcion": forms.Textarea(attrs={"class": "form-control", "rows": 3}),
 			"fecha_comprometida": forms.DateInput(attrs={"type": "date", "class": "form-control"}, format="%Y-%m-%d"),
 			"observacion": forms.Textarea(attrs={"class": "form-control", "rows": 2}),
@@ -268,7 +322,17 @@ class CompromisoForm(forms.ModelForm):
 		super().__init__(*args, **kwargs)
 		self.edicion = edicion
 		self.fields["fecha_comprometida"].input_formats = ["%Y-%m-%d"]
+		self.fields["fecha_solicitud"].input_formats = ["%Y-%m-%d"]
+		self.fields["fecha_solicitud"].required = False
+		self.fields["ambito"].required = False
 		self.fields["observacion"].required = False
+		self.fields["area_apoyo"].queryset = UnidadMunicipal.objects.filter(activa=True)
+		self.fields["area_apoyo"].required = False
+		self.fields["area_apoyo"].empty_label = "Sin apoyo de otra unidad"
+		if delegacion is not None:
+			self.sectores = SECTORES_POR_DELEGACION.get(delegacion.slug, [])
+		else:
+			self.sectores = sorted({sector for sectores in SECTORES_POR_DELEGACION.values() for sector in sectores})
 		if delegacion is not None:
 			self.fields["delegacion"].queryset = Delegacion.objects.filter(pk=delegacion.pk, activa=True)
 			self.fields["delegacion"].initial = delegacion.pk
@@ -291,6 +355,16 @@ class CompromisoForm(forms.ModelForm):
 		responsable = cleaned.get("responsable")
 		if delegacion and responsable and responsable.delegacion_id != delegacion.pk:
 			self.add_error("responsable", "El responsable debe pertenecer a la delegación del compromiso.")
+		if not cleaned.get("ambito"):
+			cleaned["ambito"] = self.instance.ambito
+		solicitud, comprometida = cleaned.get("fecha_solicitud"), cleaned.get("fecha_comprometida")
+		if not solicitud:
+			solicitud = self.instance.fecha_solicitud
+			if comprometida and solicitud and comprometida < solicitud:
+				solicitud = comprometida
+			cleaned["fecha_solicitud"] = solicitud
+		elif comprometida and comprometida < solicitud:
+			self.add_error("fecha_comprometida", "La fecha de compromiso no puede ser anterior a la solicitud.")
 		if self.edicion and "estado" in cleaned and not self.instance.puede_transitar(cleaned["estado"]):
 			self.add_error("estado", "Esa transición de estado no está permitida.")
 		return cleaned
