@@ -13,7 +13,7 @@ from django.db.models import Q
 from laserena.permisos import GRUPO_ADMINISTRADOR, GRUPOS_SGR, grupo_usuario
 
 from .cuentas import APPS_ADMINISTRADOR, MODELOS_AUTH_ADMINISTRADOR, asignar_grupo
-from .models import Cargo, Delegacion, Funcionario
+from .models import Cargo, Delegacion, Funcionario, UnidadMunicipal
 
 User = get_user_model()
 registro = logging.getLogger(__name__)
@@ -76,6 +76,10 @@ class UsuarioForm(forms.Form):
     identificador = forms.CharField(label="Identificador de funcionario", max_length=30, required=False, help_text="Código interno único, por ejemplo F-104.")
     delegacion = forms.ModelChoiceField(label="Delegación", queryset=Delegacion.objects.none(), required=False)
     cargo = forms.ModelChoiceField(label="Cargo", queryset=Cargo.objects.none(), required=False)
+    codigo_area = forms.CharField(
+        label="Código de área", max_length=10, required=False,
+        help_text="Prefijo del código verificador (por ejemplo COM1 para el territorial del sector 1). Vacío: usa la sigla del cargo.",
+    )
     clave = forms.CharField(label="Contraseña", required=False, strip=False, widget=forms.PasswordInput(attrs={"autocomplete": "new-password"}))
     clave_confirmacion = forms.CharField(label="Repite la contraseña", required=False, strip=False, widget=forms.PasswordInput(attrs={"autocomplete": "new-password"}))
 
@@ -93,6 +97,7 @@ class UsuarioForm(forms.Form):
                 "identificador": getattr(self.perfil, "identificador", ""),
                 "delegacion": getattr(self.perfil, "delegacion", None),
                 "cargo": getattr(self.perfil, "cargo", None),
+                "codigo_area": getattr(self.perfil, "codigo_area", ""),
             }
         super().__init__(*args, **kwargs)
         self.fields["grupo"].queryset = Group.objects.order_by("name")
@@ -128,9 +133,18 @@ class UsuarioForm(forms.Form):
                 raise ValidationError("Ya existe un funcionario con ese identificador.")
         return identificador
 
+    def clean_codigo_area(self):
+        codigo = "".join(self.cleaned_data["codigo_area"].split()).upper()
+        if codigo and not codigo.isalnum():
+            raise ValidationError("Usa solo letras y números, sin guiones.")
+        return codigo
+
     def clean(self):
         limpio = super().clean()
         grupo = limpio.get("grupo")
+        cargo = limpio.get("cargo")
+        if grupo is not None and cargo is not None and cargo.perfil and grupo.name in GRUPOS_SGR and grupo.name != cargo.perfil:
+            self.add_error("grupo", f"El cargo {cargo.nombre} corresponde al perfil {cargo.perfil}.")
         if grupo is not None and grupo.name in GRUPOS_SGR and grupo.name != GRUPO_ADMINISTRADOR:
             for campo in ("identificador", "delegacion", "cargo"):
                 if not limpio.get(campo):
@@ -180,6 +194,7 @@ class UsuarioForm(forms.Form):
             perfil.correo = datos["email"]
             perfil.delegacion = datos["delegacion"]
             perfil.cargo = datos["cargo"]
+            perfil.codigo_area = datos.get("codigo_area", "")
             perfil.activo = usuario.is_active
             perfil.save()
         return usuario
@@ -216,4 +231,45 @@ class GrupoForm(forms.ModelForm):
             repetidos = repetidos.exclude(pk=self.instance.pk)
         if repetidos.exists():
             raise ValidationError("Ya existe un grupo con ese nombre.")
+        return nombre
+
+
+class CargoForm(forms.ModelForm):
+    class Meta:
+        model = Cargo
+        fields = ["nombre", "sigla", "perfil", "descripcion", "funciones", "activo"]
+        labels = {"descripcion": "Descriptor de funciones", "funciones": "Ítems de la matriz que registra"}
+        widgets = {"descripcion": forms.Textarea(attrs={"rows": 4}), "funciones": forms.CheckboxSelectMultiple}
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["funciones"].queryset = self.fields["funciones"].queryset.filter(activo=True)
+        self.fields["funciones"].help_text = "El formulario de actividad solo ofrece estos ítems a quien tenga el cargo. Sin marcar: todos."
+        for nombre, campo in self.fields.items():
+            if nombre not in ("activo", "funciones"):
+                _control(campo.widget)
+
+    def clean_sigla(self):
+        return "".join(self.cleaned_data["sigla"].split()).upper()
+
+
+class UnidadMunicipalForm(forms.ModelForm):
+    class Meta:
+        model = UnidadMunicipal
+        fields = ["nombre", "sigla", "tipo", "descripcion", "activa"]
+        widgets = {"descripcion": forms.Textarea(attrs={"rows": 3})}
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        for nombre, campo in self.fields.items():
+            if nombre != "activa":
+                _control(campo.widget)
+
+    def clean_nombre(self):
+        nombre = " ".join(self.cleaned_data["nombre"].split())
+        repetidas = UnidadMunicipal.objects.filter(nombre__iexact=nombre)
+        if self.instance.pk:
+            repetidas = repetidas.exclude(pk=self.instance.pk)
+        if repetidas.exists():
+            raise ValidationError("Ya existe una unidad con ese nombre.")
         return nombre

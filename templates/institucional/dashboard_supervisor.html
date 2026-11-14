@@ -23,10 +23,11 @@
     <div class="row g-4">
         <div class="col-lg-8">
             <div class="panel-tabla h-100">
-                <div class="panel-tabla-encabezado"><h2 class="h5 mb-0">Metas de la delegación (tope 120 % por ítem)</h2></div>
+                <div class="panel-tabla-encabezado d-flex justify-content-between align-items-center"><h2 class="h5 mb-0">Semáforo del equipo{% if periodo %} · {{ periodo.nombre }}{% endif %}</h2><a class="btn btn-primary btn-sm" href="{% url 'servicios:resumen_matriz' %}">Resumen de la matriz</a></div>
                 <div class="table-responsive"><table class="table tabla-municipal align-middle mb-0">
-                    <thead><tr><th>Ítem</th><th>Funcionario</th><th>Avance</th><th>Cumplimiento</th></tr></thead>
-                    <tbody>{% for fila in metas %}<tr><td>{{ fila.meta.item.codigo }}</td><td>{{ fila.meta.funcionario.nombre_completo|default:fila.meta.cargo }}</td><td>{{ fila.meta.avance_aprobado }} / {{ fila.meta.objetivo|floatformat:"-2" }}</td><td><span class="semaforo semaforo-{{ fila.semaforo }}"></span> {{ fila.cumplimiento|floatformat:1 }} %</td></tr>{% empty %}<tr><td colspan="4" class="text-center text-secondary py-4">Sin metas en el período abierto.</td></tr>{% endfor %}</tbody>
+                    <thead><tr><th>#</th><th>Colaborador</th><th>Cargo</th><th class="text-end">Total</th><th>Semáforo</th></tr></thead>
+                    <tbody>{% for fila in equipo.filas %}{% if fila.filas %}<tr><td>{{ fila.ranking }}</td><td>{{ fila.funcionario.nombre_completo }}{% if fila.alerta_rrhh %} <span class="badge text-bg-danger">RRHH</span>{% endif %}</td><td class="small">{{ fila.funcionario.cargo }}</td><td class="text-end">{{ fila.total|floatformat:1 }} %</td><td><span class="semaforo semaforo-{{ fila.semaforo }}">{% if fila.semaforo == 'ambar' %}Naranjo{% else %}{{ fila.semaforo|capfirst }}{% endif %}</span></td></tr>{% endif %}{% empty %}<tr><td colspan="5" class="text-center text-secondary py-4">Sin colaboradores con metas en el período abierto.</td></tr>{% endfor %}</tbody>
+                    {% if equipo %}<tfoot><tr><td colspan="5" class="small text-secondary">Promedio del equipo {{ equipo.promedio|floatformat:1 }} % (mínimo colectivo {{ periodo.umbral_colectivo|floatformat:0 }} %) · reclamos del período: {{ reclamos_periodo }}</td></tr></tfoot>{% endif %}
                 </table></div>
             </div>
         </div>
@@ -37,7 +38,7 @@
                 <p class="mb-2">Cartas sin responder: <strong>{{ cartas_abiertas }}</strong> · Beneficios por entregar: <strong>{{ beneficios_por_entregar }}</strong></p>
                 <h3 class="h6 mt-3">Ausencias vigentes</h3>
                 <ul class="small ps-3">{% for a in ausencias_vigentes %}<li><a href="{% url 'oficina:ausencia_detalle' a.pk %}">{{ a.funcionario.nombre_completo }}</a>: {{ a.fecha_inicio|date:"d/m" }}–{{ a.fecha_termino|date:"d/m" }}</li>{% empty %}<li class="text-secondary">Sin ausencias vigentes.</li>{% endfor %}</ul>
-                <div class="d-grid gap-2 mb-2"><a class="btn btn-outline-primary" href="{% url 'oficina:cartas' %}">Cartas</a><a class="btn btn-outline-primary" href="{% url 'oficina:beneficios' %}">Beneficios para niños</a><a class="btn btn-success" href="{% url 'oficina:ausencia_registrar' %}">Registrar ausencia</a></div>
+                <div class="d-grid gap-2 mb-2"><a class="btn btn-outline-primary" href="{% url 'oficina:cartas' %}">Cartas</a><a class="btn btn-outline-primary" href="{% url 'oficina:beneficios' %}">Beneficios para niños</a><a class="btn btn-success" href="{% url 'oficina:ausencia_registrar' %}">Registrar ausencia</a><a class="btn btn-outline-success" href="{% url 'oficina:reconocimiento_crear' %}">Registrar felicitación o reclamo</a></div>
                 <div class="d-grid gap-2"><a class="btn btn-outline-dark" href="{% url 'servicios:resumen_agenda' %}">Resumen de la agenda</a><a class="btn btn-outline-dark" href="{% url 'servicios:consulta' %}">Consulta de actividades</a></div>
             </article>
         </div>

@@ -31,6 +31,11 @@ PERMISOS_SUPERVISOR = (
     "oficina.add_ausencia",
     "oficina.anular_ausencia",
     "oficina.view_ajustemeta",
+    "oficina.view_reconocimiento",
+    "oficina.add_reconocimiento",
+    "oficina.change_reconocimiento",
+    "institucional.view_cargo",
+    "institucional.view_unidadmunicipal",
 )
 
 PERMISOS_ADMINISTRATIVO = (
@@ -55,6 +60,7 @@ PERMISOS_ADMINISTRATIVO = (
     "oficina.add_beneficionino",
     "oficina.change_beneficionino",
     "oficina.view_ausencia",
+    "oficina.view_reconocimiento",
 )
 
 

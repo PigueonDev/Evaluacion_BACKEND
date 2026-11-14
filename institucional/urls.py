@@ -26,4 +26,9 @@ urlpatterns = [
     path("administracion/grupos/nuevo/", views.grupo_crear, name="grupo_crear"),
     path("administracion/grupos/<int:pk>/editar/", views.grupo_editar, name="grupo_editar"),
     path("administracion/grupos/<int:pk>/eliminar/", views.grupo_eliminar, name="grupo_eliminar"),
+    path("administracion/cargos/", views.cargos, name="cargos"),
+    path("administracion/cargos/<int:pk>/editar/", views.cargo_editar, name="cargo_editar"),
+    path("administracion/unidades/", views.unidades, name="unidades"),
+    path("administracion/unidades/nueva/", views.unidad_crear, name="unidad_crear"),
+    path("administracion/unidades/<int:pk>/editar/", views.unidad_editar, name="unidad_editar"),
 ]

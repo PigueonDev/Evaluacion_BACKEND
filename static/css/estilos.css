@@ -1097,3 +1097,5 @@ a {
         padding: 3.5rem 0 6rem;
     }
 }
+.semaforo-sin_metas { background: #eef0f3; color: #5c6670; }
+.semaforo-sin_metas::before { background: #9aa3ab; }

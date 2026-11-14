@@ -17,8 +17,8 @@ from laserena.permisos import (
 )
 from laserena.rut import normalizar_rut
 
-from .forms import AusenciaForm, BeneficioForm, CartaForm, CartaSeguimientoForm
-from .models import Ausencia, BeneficioNino, Carta
+from .forms import AusenciaForm, BeneficioForm, CartaForm, CartaSeguimientoForm, ReconocimientoForm
+from .models import Ausencia, BeneficioNino, Carta, Reconocimiento
 from .transacciones import anular_ausencia, registrar_ausencia
 
 POR_PAGINA = 20
@@ -51,20 +51,27 @@ def cartas(request):
 	cartas = visibles
 	busqueda = texto_busqueda(request)
 	estado = parametro_permitido(request, "estado", dict(Carta.ESTADOS))
+	resolucion = parametro_permitido(request, "resolucion", dict(Carta.RESOLUCIONES))
 	delegacion = _filtro_delegacion(request)
 	if busqueda:
-		cartas = cartas.filter(Q(folio__icontains=busqueda) | Q(remitente__icontains=busqueda) | Q(asunto__icontains=busqueda))
+		cartas = cartas.filter(
+			Q(folio__icontains=busqueda) | Q(numero_oficina_partes__icontains=busqueda) | Q(remitente__icontains=busqueda) | Q(asunto__icontains=busqueda)
+		)
 	if estado:
 		cartas = cartas.filter(estado=estado)
+	if resolucion:
+		cartas = cartas.filter(resolucion=resolucion)
 	if delegacion:
 		cartas = cartas.filter(delegacion_id=delegacion)
 	pagina, parametros = _paginar(request, cartas)
 	resumen = dict(visibles.values_list("estado").annotate(total=Count("id")))
+	resoluciones = dict(visibles.values_list("resolucion").annotate(total=Count("id")))
 	return render(request, "oficina/cartas.html", {
 		"pagina": pagina, "parametros": parametros, "total": pagina.paginator.count,
-		"busqueda": busqueda, "estado_activo": estado, "delegacion_activa": delegacion,
-		"estados": Carta.ESTADOS, "delegaciones": Delegacion.objects.filter(activa=True),
+		"busqueda": busqueda, "estado_activo": estado, "resolucion_activa": resolucion, "delegacion_activa": delegacion,
+		"estados": Carta.ESTADOS, "resoluciones": Carta.RESOLUCIONES, "delegaciones": Delegacion.objects.filter(activa=True),
 		"resumen": [(etiqueta, resumen.get(codigo, 0), codigo) for codigo, etiqueta in Carta.ESTADOS],
+		"resumen_matriz": [(etiqueta, resoluciones.get(codigo, 0), codigo) for codigo, etiqueta in Carta.RESOLUCIONES],
 		"pagina_activa": "cartas",
 	})
 
@@ -264,3 +271,63 @@ def ausencia_anular(request, pk):
 	else:
 		messages.success(request, "Ausencia anulada y metas restituidas.")
 	return redirect("oficina:ausencia_detalle", pk=ausencia.pk)
+
+
+# --- Felicitaciones y reclamos (hoja RECLAMOS de la matriz) ---------------------------
+
+def _reconocimientos_visibles(user):
+	reconocimientos = acotar_ambito(
+		Reconocimiento.objects.select_related("funcionario__delegacion", "funcionario__cargo", "periodo", "registrado_por"),
+		user, "funcionario__delegacion",
+	)
+	if grupo_usuario(user) == GRUPO_ADMINISTRATIVO:
+		reconocimientos = reconocimientos.filter(funcionario=perfil_funcionario(user))
+	return reconocimientos
+
+
+@con_permiso("oficina.view_reconocimiento")
+def reconocimientos(request):
+	visibles = _reconocimientos_visibles(request.user)
+	registros = visibles
+	tipo = parametro_permitido(request, "tipo", dict(Reconocimiento.TIPOS))
+	busqueda = texto_busqueda(request)
+	if tipo:
+		registros = registros.filter(tipo=tipo)
+	if busqueda:
+		registros = registros.filter(Q(funcionario__nombre_completo__icontains=busqueda) | Q(usuario_nombre__icontains=busqueda))
+	pagina, parametros = _paginar(request, registros)
+	vigentes = dict(visibles.filter(estado="vigente").values_list("tipo").annotate(total=Count("id")))
+	return render(request, "oficina/reconocimientos.html", {
+		"pagina": pagina, "parametros": parametros, "total": pagina.paginator.count, "busqueda": busqueda,
+		"tipo_activo": tipo, "tipos": Reconocimiento.TIPOS,
+		"resumen": [(etiqueta, vigentes.get(codigo, 0), codigo) for codigo, etiqueta in Reconocimiento.TIPOS],
+		"pagina_activa": "reconocimientos",
+	})
+
+
+@con_permiso("oficina.add_reconocimiento")
+def reconocimiento_crear(request):
+	form = ReconocimientoForm(request.POST or None, usuario=request.user)
+	if request.method == "POST" and form.is_valid():
+		registro = form.save(commit=False)
+		registro.registrado_por = request.user
+		registro.save()
+		messages.success(request, f"{registro.get_tipo_display()} registrada para {registro.funcionario.nombre_completo}.")
+		return redirect("oficina:reconocimientos")
+	return render(request, "oficina/formulario.html", {
+		"form": form, "titulo": "Registrar felicitación o reclamo", "seccion": "Felicitaciones y reclamos",
+		"url_listado": "oficina:reconocimientos", "pagina_activa": "reconocimientos",
+	})
+
+
+@con_permiso("oficina.change_reconocimiento")
+@require_POST
+def reconocimiento_anular(request, pk):
+	registro = get_object_or_404(_reconocimientos_visibles(request.user), pk=pk)
+	if registro.estado == "anulado":
+		messages.warning(request, "El registro ya estaba anulado.")
+	else:
+		registro.estado = "anulado"
+		registro.save(update_fields=["estado"])
+		messages.success(request, f"{registro.get_tipo_display()} anulada: deja de contar en el cumplimiento.")
+	return redirect("oficina:reconocimientos")

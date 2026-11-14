@@ -23,8 +23,9 @@ from laserena.permisos import (
     texto_busqueda,
 )
 
+from .desempeno import resumen_equipo
 from .forms import ActividadForm, CasoForm, CompromisoForm, GestionForm, RevisionForm, TareaFormSet
-from .models import DIAS_COMPROMISO_PROXIMO, MAXIMO_GESTIONES_POR_CASO, Actividad, Caso, Compromiso, Gestion, HistorialCompromiso, ItemMedicion, Meta, Periodo, Servicio, TareaPreparatoria
+from .models import CODIGO_VERIFICADOR, DIAS_COMPROMISO_PROXIMO, MAXIMO_GESTIONES_POR_CASO, Actividad, Caso, Compromiso, Gestion, HistorialCompromiso, ItemMedicion, Meta, Periodo, Servicio, TareaPreparatoria
 from .reglas import MAXIMO_ACTIVIDADES_POR_DIA, fin_semana_laboral, inicio_semana, semana_abierta
 from .transacciones import actualizar_actividad, marcar_tarea, registrar_actividad, revisar_actividad, tareas_desde_formset
 
@@ -303,12 +304,16 @@ def actividad_por_codigo(request):
     actividad = None
     aviso = ""
     if codigo:
+        filtro = None
         try:
-            UUID(codigo)
+            filtro = {"codigo_evidencia": UUID(codigo)}
         except ValueError:
+            if CODIGO_VERIFICADOR.match(codigo.upper()):
+                filtro = {"codigo_verificador": codigo.upper()}
+        if filtro is None:
             aviso = "El código no tiene el formato de un identificador válido."
         else:
-            actividad = _actividades_ambito(request.user).filter(codigo_evidencia=codigo).first()
+            actividad = _actividades_ambito(request.user).filter(**filtro).first()
             if actividad is None:
                 aviso = "No hay una actividad con ese código en tu ámbito."
     return render(
@@ -561,6 +566,37 @@ def compromiso_desactivar(request, pk):
 
 
 @solo_delegado
+def resumen_matriz(request):
+    """Hojas RESUMEN y SEMAFORO de la matriz: cumplimiento ponderado, semáforo y ranking por colaborador."""
+    periodos = Periodo.objects.all()
+    elegido = parametro_permitido(request, "periodo", {str(pk) for pk in periodos.values_list("pk", flat=True)})
+    periodo = periodos.filter(pk=elegido).first() if elegido else (periodos.filter(estado="abierto").first() or periodos.first())
+    perfil = perfil_de_ambito(request.user)
+    delegaciones = Delegacion.objects.filter(activa=True)
+    if perfil is not None:
+        delegacion = perfil.delegacion
+        delegaciones = delegaciones.filter(pk=delegacion.pk)
+    else:
+        elegida = parametro_permitido(request, "delegacion", {str(pk) for pk in delegaciones.values_list("pk", flat=True)})
+        delegacion = delegaciones.filter(pk=elegida).first() if elegida else None
+    funcionarios = Funcionario.objects.filter(activo=True).select_related("cargo", "delegacion")
+    if delegacion is not None:
+        funcionarios = funcionarios.filter(delegacion=delegacion)
+    hoy = timezone.localdate()
+    equipo = resumen_equipo(funcionarios, periodo, hoy) if periodo else None
+    return render(request, "servicios/resumen_matriz.html", {
+        "periodo": periodo,
+        "periodos": periodos,
+        "delegacion": delegacion,
+        "delegaciones": delegaciones,
+        "puede_elegir_delegacion": perfil is None,
+        "equipo": equipo,
+        "esperado": periodo.avance_esperado(hoy) if periodo else 0,
+        "pagina_activa": "resumen_matriz",
+    })
+
+
+@solo_delegado
 def resumen_agenda(request):
     hoy = timezone.localdate()
     limite = hoy + timedelta(days=DIAS_COMPROMISO_PROXIMO)
@@ -638,7 +674,10 @@ def consulta(request):
     if hasta:
         actividades = actividades.filter(fecha__lte=hasta)
     if busqueda:
-        actividades = actividades.filter(Q(descripcion__icontains=busqueda) | Q(accion__icontains=busqueda) | Q(funcionario__nombre_completo__icontains=busqueda))
+        actividades = actividades.filter(
+            Q(descripcion__icontains=busqueda) | Q(accion__icontains=busqueda) | Q(funcionario__nombre_completo__icontains=busqueda)
+            | Q(codigo_verificador__iexact=busqueda.replace(" ", ""))
+        )
     contexto = {
         "actividades": actividades,
         "delegaciones": delegaciones,

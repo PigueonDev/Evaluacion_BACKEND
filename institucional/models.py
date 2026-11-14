@@ -32,8 +32,30 @@ class Delegacion(models.Model):
 		return self.nombre
 
 
+class UnidadMunicipal(models.Model):
+	"""Departamento, sección o institución que apoya, recibe derivaciones o sigue cartas."""
+
+	TIPOS = [("interna", "Unidad municipal"), ("externa", "Institución externa")]
+	nombre = models.CharField("nombre", max_length=120, unique=True)
+	sigla = models.CharField("sigla", max_length=20, blank=True)
+	tipo = models.CharField("tipo", max_length=10, choices=TIPOS, default="interna")
+	descripcion = models.CharField("descripción", max_length=250, blank=True)
+	activa = models.BooleanField("activa", default=True)
+
+	class Meta:
+		ordering = ["tipo", "nombre"]
+		verbose_name = "unidad municipal"
+		verbose_name_plural = "unidades municipales"
+
+	def __str__(self):
+		return f"{self.nombre} ({self.sigla})" if self.sigla else self.nombre
+
+
 class Cargo(models.Model):
+	PERFILES = [("Administrador", "Administrador"), ("Supervisor", "Supervisor"), ("Administrativo", "Administrativo")]
 	nombre = models.CharField(max_length=120, unique=True)
+	sigla = models.CharField("sigla de área", max_length=10, blank=True, help_text="Prefijo del código verificador de la matriz (APA, COM, SOC, COS, PYG, SEG…).")
+	perfil = models.CharField("perfil del sistema", max_length=20, choices=PERFILES, blank=True, help_text="Grupo que corresponde al cargo. Vacío: cualquier perfil.")
 	descripcion = models.TextField(blank=True)
 	activo = models.BooleanField(default=True)
 	funciones = models.ManyToManyField("servicios.ItemMedicion", blank=True, related_name="cargos")
@@ -52,6 +74,7 @@ class Funcionario(models.Model):
 	correo = models.EmailField(blank=True)
 	delegacion = models.ForeignKey(Delegacion, on_delete=models.PROTECT, related_name="funcionarios")
 	cargo = models.ForeignKey(Cargo, on_delete=models.PROTECT, related_name="funcionarios")
+	codigo_area = models.CharField("código de área", max_length=10, blank=True, help_text="Código del colaborador en la matriz (COM1, SOC2…). Vacío: se usa la sigla del cargo.")
 	activo = models.BooleanField(default=True)
 
 	class Meta:
@@ -59,6 +82,10 @@ class Funcionario(models.Model):
 
 	def __str__(self):
 		return f"{self.nombre_completo} ({self.identificador})"
+
+	@property
+	def prefijo_codigo(self):
+		return (self.codigo_area or self.cargo.sigla or "").upper().replace(" ", "")
 
 	@property
 	def grupo(self):

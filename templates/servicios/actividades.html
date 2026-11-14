@@ -35,7 +35,7 @@
                 <tbody>
                 {% for actividad in actividades %}
                 <tr>
-                    <td><a href="{% url 'servicios:actividad_detalle' actividad.pk %}"><code class="small">{{ actividad.codigo_evidencia|truncatechars:13 }}</code></a></td>
+                    <td><a href="{% url 'servicios:actividad_detalle' actividad.pk %}"><code class="small">{{ actividad.codigo_verificador|default:actividad.codigo_evidencia|truncatechars:15 }}</code></a></td>
                     <td class="text-nowrap">{{ actividad.fecha|date:"d/m/Y" }}</td>
                     <td>{{ actividad.funcionario.nombre_completo }}</td>
                     <td>{{ actividad.item.nombre }}</td>

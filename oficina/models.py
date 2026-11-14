@@ -17,18 +17,28 @@ class Carta(models.Model):
 		("archivada", "Archivada"),
 	]
 	TIPOS = [("solicitud", "Solicitud"), ("reclamo", "Reclamo"), ("invitacion", "Invitación"), ("informativa", "Informativa")]
+	DESTINATARIOS = [("alcaldesa", "Alcaldesa"), ("delegado", "Delegado"), ("otro", "Otro")]
+	PRONUNCIAMIENTOS = [("no_aplica", "No aplica"), ("delegado", "Delegado"), ("alcaldesa", "Alcaldesa"), ("gabinete", "Gabinete")]
+	RESOLUCIONES = [("en_proceso", "En proceso"), ("aprobada", "Aprobada"), ("finalizada", "Finalizada"), ("no_aplica", "No aplica (solo conocimiento)")]
 
 	folio = models.CharField("folio", max_length=20, unique=True, editable=False)
+	numero_oficina_partes = models.CharField("N° de Oficina de Partes", max_length=20, blank=True)
 	fecha_ingreso = models.DateField("fecha de ingreso", default=timezone.localdate)
+	destinatario = models.CharField("para", max_length=20, choices=DESTINATARIOS, default="alcaldesa")
 	tipo = models.CharField("tipo", max_length=20, choices=TIPOS, default="solicitud")
 	remitente = models.CharField("remitente", max_length=160)
 	contacto_remitente = models.CharField("teléfono o correo del remitente", max_length=120, blank=True)
-	asunto = models.CharField("asunto", max_length=200)
+	asunto = models.CharField("actividad o tema", max_length=200)
 	detalle = models.TextField("detalle", blank=True)
+	fecha_actividad = models.DateField("fecha de la actividad", null=True, blank=True)
 	delegacion = models.ForeignKey("institucional.Delegacion", on_delete=models.PROTECT, related_name="cartas", verbose_name="delegación")
 	organizacion = models.ForeignKey("organizaciones.OrganizacionComunitaria", on_delete=models.SET_NULL, null=True, blank=True, related_name="cartas", verbose_name="organización comunitaria")
-	derivada_a = models.ForeignKey("institucional.Funcionario", on_delete=models.SET_NULL, null=True, blank=True, related_name="cartas_derivadas", verbose_name="derivada a")
+	encargado_seguimiento = models.ForeignKey("institucional.UnidadMunicipal", on_delete=models.SET_NULL, null=True, blank=True, related_name="cartas_en_seguimiento", verbose_name="encargado de seguimiento")
+	pronunciamiento = models.CharField("pronunciamiento", max_length=20, choices=PRONUNCIAMIENTOS, default="no_aplica")
+	derivada_a = models.ForeignKey("institucional.Funcionario", on_delete=models.SET_NULL, null=True, blank=True, related_name="cartas_derivadas", verbose_name="derivada a (funcionario)")
+	derivada_a_unidad = models.ForeignKey("institucional.UnidadMunicipal", on_delete=models.SET_NULL, null=True, blank=True, related_name="cartas_derivadas", verbose_name="derivada a (unidad)")
 	estado = models.CharField("estado", max_length=20, choices=ESTADOS, default="ingresada")
+	resolucion = models.CharField("estado en la matriz", max_length=20, choices=RESOLUCIONES, default="en_proceso")
 	plazo_respuesta = models.DateField("plazo de respuesta", null=True, blank=True)
 	respuesta = models.TextField("respuesta", blank=True)
 	fecha_respuesta = models.DateField("fecha de respuesta", null=True, blank=True)
@@ -50,7 +60,7 @@ class Carta(models.Model):
 
 	def clean(self):
 		errores = {}
-		if self.estado in ("derivada", "en_respuesta") and not self.derivada_a_id:
+		if self.estado in ("derivada", "en_respuesta") and not self.derivada_a_id and not self.derivada_a_unidad_id:
 			errores["derivada_a"] = "Indica a quién se deriva la carta."
 		if self.derivada_a_id and self.delegacion_id and self.derivada_a.delegacion_id != self.delegacion_id:
 			errores["derivada_a"] = "La carta solo se deriva a personal de la misma delegación."
@@ -72,11 +82,13 @@ class Carta(models.Model):
 			ultimo = Carta.objects.filter(folio__startswith=f"OP-{anio}-").order_by("-folio").values_list("folio", flat=True).first()
 			correlativo = int(ultimo.rsplit("-", 1)[1]) + 1 if ultimo else 1
 			self.folio = f"OP-{anio}-{correlativo:04d}"
+		if self.estado in ("respondida", "archivada") and self.resolucion == "en_proceso":
+			self.resolucion = "finalizada"
 		super().save(*args, **kwargs)
 
 
 class BeneficioNino(models.Model):
-	TIPOS = [("regalo_navidad", "Regalo de Navidad"), ("dia_nino", "Día del Niño"), ("utiles", "Útiles escolares"), ("otro", "Otro")]
+	TIPOS = [("regalo_navidad", "Regalo de Navidad"), ("dia_nino", "Día del Niño"), ("aniversario", "Aniversario"), ("utiles", "Útiles escolares"), ("otro", "Otro")]
 	ESTADOS = [("registrado", "Registrado"), ("entregado", "Entregado"), ("anulado", "Anulado")]
 	SEXOS = [("F", "Femenino"), ("M", "Masculino"), ("O", "Otro / no informa")]
 
@@ -133,7 +145,15 @@ class BeneficioNino(models.Model):
 
 
 class Ausencia(models.Model):
-	MOTIVOS = [("licencia", "Licencia médica"), ("feriado", "Feriado legal"), ("permiso", "Permiso administrativo"), ("capacitacion", "Capacitación"), ("otro", "Otro")]
+	MOTIVOS = [
+		("licencia", "Licencia médica"),
+		("feriado", "Feriado legal (vacaciones)"),
+		("permiso", "Permiso administrativo"),
+		("compensatorio", "Día compensatorio"),
+		("emergencia", "Emergencia"),
+		("capacitacion", "Capacitación"),
+		("otro", "Otro"),
+	]
 	ESTADOS = [("vigente", "Vigente"), ("anulada", "Anulada")]
 
 	funcionario = models.ForeignKey("institucional.Funcionario", on_delete=models.PROTECT, related_name="ausencias")
@@ -173,3 +193,46 @@ class AjusteMeta(models.Model):
 
 	class Meta:
 		ordering = ["meta__item__nombre"]
+
+
+class Reconocimiento(models.Model):
+	"""Felicitación o reclamo escrito sobre la atención de un colaborador (hoja RECLAMOS de la matriz)."""
+
+	TIPOS = [("felicitacion", "Felicitación"), ("reclamo", "Reclamo")]
+	MEDIOS = [("correo", "Correo al delegado"), ("whatsapp", "WhatsApp al delegado"), ("libro", "Libro de observaciones de la oficina")]
+	ESTADOS = [("vigente", "Vigente"), ("anulado", "Anulado")]
+
+	tipo = models.CharField("tipo", max_length=20, choices=TIPOS)
+	funcionario = models.ForeignKey("institucional.Funcionario", on_delete=models.PROTECT, related_name="reconocimientos", verbose_name="profesional involucrado")
+	periodo = models.ForeignKey("servicios.Periodo", on_delete=models.PROTECT, related_name="reconocimientos", verbose_name="período")
+	fecha = models.DateField("fecha", default=timezone.localdate)
+	usuario_nombre = models.CharField("persona usuaria", max_length=160)
+	contacto = models.CharField("contacto", max_length=120, blank=True)
+	ubicacion = models.CharField("ubicación", max_length=160, blank=True)
+	situacion = models.TextField("situación que felicita o reclama")
+	medio = models.CharField("medio escrito", max_length=20, choices=MEDIOS)
+	estado = models.CharField("estado", max_length=20, choices=ESTADOS, default="vigente")
+	registrado_por = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="reconocimientos_registrados")
+	creado_en = models.DateTimeField(auto_now_add=True)
+
+	class Meta:
+		ordering = ["-fecha", "-id"]
+		verbose_name = "felicitación o reclamo"
+		verbose_name_plural = "felicitaciones y reclamos"
+
+	def __str__(self):
+		return f"{self.get_tipo_display()} · {self.funcionario.nombre_completo} · {self.fecha:%d-%m-%Y}"
+
+	def clean(self):
+		errores = {}
+		if self.periodo_id and self.fecha:
+			if self.periodo.estado != "abierto" and not self.pk:
+				errores["periodo"] = "Solo se registran felicitaciones o reclamos en un período abierto."
+			elif self.fecha < self.periodo.fecha_inicio or self.fecha > self.periodo.fecha_termino:
+				errores["fecha"] = "La fecha debe estar dentro del período."
+		if self.fecha and self.fecha > timezone.localdate():
+			errores["fecha"] = "La fecha no puede ser futura."
+		if not (self.situacion or "").strip():
+			errores["situacion"] = "Describe la situación."
+		if errores:
+			raise ValidationError(errores)

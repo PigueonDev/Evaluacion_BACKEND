@@ -27,12 +27,24 @@ py -3 -m venv .venv
 .\.venv\Scripts\Activate.ps1
 python -m pip install -r requirements.txt
 python manage.py migrate
+python manage.py cargar_matriz
 python manage.py cargar_datos_demo
 python manage.py importar_jjvv datos\base-datos-jjvv-sin-verificar.xlsx
 python manage.py runserver
 ```
 
-Cuentas demo (clave `Serena-demo-2026`): `admin.demo` (Administrador), `delegado.demo` y `consulta.demo` (Supervisor), `funcionario.demo` (Administrativo).
+Cuentas demo (clave `Serena-demo-2026`), una por cargo de la matriz municipal:
+
+| Cuenta | Cargo | Perfil |
+|---|---|---|
+| `admin.demo` | Coordinación de Delegaciones | Administrador |
+| `delegado.demo` | Delegado | Supervisor |
+| `consulta.demo` | Profesional de Planificación y Gestión | Supervisor |
+| `funcionario.demo` | Territorial de Organizaciones Comunitarias (código COM1) | Administrativo |
+| `apoyo.demo` | Apoyo Administrativo | Administrativo |
+| `social.demo` | Gestor Social | Administrativo |
+| `coserco.demo` | Coordinador de Servicios Comunitarios | Administrativo |
+| `seguridad.demo` | Gestor de Seguridad | Administrativo |
 
 Pruebas: `python manage.py test` (incluye las reglas de la transacción, permisos por grupo, mantenedores de la Oficina de Partes y beneficios, la transacción de ausencias e importación).
 
@@ -55,15 +67,19 @@ Abrir http://127.0.0.1:8000/
 | `/servicios/agenda/resumen/` | servicios | Resumen de pendientes, próximos, vencidos y realizados (SCRUM-18) |
 | `/servicios/consulta/` | servicios | Consulta operativa de solo lectura (SCRUM-21) |
 | `/servicios/aprobaciones/` | servicios | Supervisor aprueba o rechaza actividades de su delegación |
+| `/servicios/matriz/resumen/` | servicios | Resumen de la matriz: cumplimiento ponderado, semáforo y ranking por colaborador (SCRUM-18) |
 | `/acceso/` | institucional | Login (solo cuentas con grupo SGR) |
 | `/acceso/recuperar/` | institucional | Recuperación de contraseña por correo con token |
 | `/panel/` | institucional | Dashboard según el grupo |
 | `/oficina/cartas/` | oficina | CRUD de cartas de Oficina de Partes |
 | `/oficina/beneficios/` | oficina | CRUD de beneficios para niños |
 | `/oficina/ausencias/` | oficina | Transacción Registrar ausencia |
+| `/oficina/felicitaciones-y-reclamos/` | oficina | Felicitaciones y reclamos escritos que suman o descuentan cumplimiento |
 | `/administracion/` | institucional | Dashboard del Administrador |
 | `/administracion/usuarios/` | institucional | CRUD de usuarios |
 | `/administracion/grupos/` | institucional | CRUD de grupos y permisos |
+| `/administracion/cargos/` | institucional | Cargos de la matriz, perfil, sigla y metas del trimestre |
+| `/administracion/unidades/` | institucional | Unidades municipales para derivar tubo, cartas y actividades |
 | `/organizaciones/` | organizaciones | CRUD de organizaciones comunitarias y verificación |
 | `/acceso/verificar/` | institucional | Verificación de sesión usada por Nginx para proteger phpMyAdmin (solo Administrador) |
 
@@ -137,7 +153,9 @@ Además de Django se usa **WhiteNoise** para servir archivos estáticos y **Pill
 
 ## Datos y dominio SGR
 
-`python manage.py cargar_datos_demo` carga información ficticia desde los JSON, crea las seis delegaciones territoriales y prepara un período abierto. También deja cuatro cuentas de demostración con la clave `Serena-demo-2026`: `funcionario.demo` (Administrativo), `delegado.demo` y `consulta.demo` (Supervisor) y `admin.demo` (Administrador). El Administrador crea otras cuentas en `/administracion/usuarios/`. Los datos reales de ciudadanos o funcionarios no deben utilizarse.
+`python manage.py cargar_matriz` carga lo que pide la matriz SGR trimestral de la municipalidad: los cargos de las delegaciones con su perfil y sigla, los ítems de medición, las metas y ponderadores de cada cargo para el trimestre en curso (período abierto «IV Trimestre 2026», por ejemplo) y el catálogo de unidades municipales. Es idempotente; `--fecha AAAA-MM-DD` prepara otro trimestre y `--actualizar-metas` vuelve a dejar los objetivos de la matriz.
+
+`python manage.py cargar_datos_demo` llama a `cargar_matriz`, crea las seis delegaciones territoriales y deja las cuentas de demostración de la tabla anterior con actividades aprobadas, ingresos al tubo, una ausencia y felicitaciones/reclamos de ejemplo, de modo que el semáforo muestre colores distintos. El Administrador crea otras cuentas en `/administracion/usuarios/`. Los datos reales de ciudadanos o funcionarios no deben utilizarse.
 
 El dominio incluye delegaciones, cargos, funcionarios, servicios, ítems de medición, períodos, metas, actividades, evidencias, validaciones, compromisos, historial y auditoría. Las fórmulas de cumplimiento y semáforo están implementadas en el modelo `Meta`.
 
@@ -164,6 +182,7 @@ python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
 python manage.py migrate
+python manage.py cargar_matriz
 python manage.py cargar_datos_demo
 python manage.py importar_jjvv datos/base-datos-jjvv-sin-verificar.xlsx
 python manage.py collectstatic --noinput

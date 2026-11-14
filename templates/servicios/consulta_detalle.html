@@ -9,6 +9,7 @@
 <section class="container py-5">
     <article class="tarjeta-info">
         <dl class="ficha-datos">
+            {% if actividad.codigo_verificador %}<div><dt>Código verificador</dt><dd><span class="codigo-evidencia">{{ actividad.codigo_verificador }}</span></dd></div>{% endif %}
             <div><dt>Identificador</dt><dd><span class="codigo-evidencia">{{ actividad.codigo_evidencia }}</span></dd></div>
             <div><dt>Fecha</dt><dd>{{ actividad.fecha|date:"d/m/Y" }}</dd></div>
             <div><dt>Funcionario</dt><dd>{{ actividad.funcionario.nombre_completo }}</dd></div>

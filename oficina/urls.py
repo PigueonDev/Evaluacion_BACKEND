@@ -19,4 +19,7 @@ urlpatterns = [
 	path("ausencias/registrar/", views.ausencia_registrar, name="ausencia_registrar"),
 	path("ausencias/<int:pk>/", views.ausencia_detalle, name="ausencia_detalle"),
 	path("ausencias/<int:pk>/anular/", views.ausencia_anular, name="ausencia_anular"),
+	path("felicitaciones-y-reclamos/", views.reconocimientos, name="reconocimientos"),
+	path("felicitaciones-y-reclamos/registrar/", views.reconocimiento_crear, name="reconocimiento_crear"),
+	path("felicitaciones-y-reclamos/<int:pk>/anular/", views.reconocimiento_anular, name="reconocimiento_anular"),
 ]

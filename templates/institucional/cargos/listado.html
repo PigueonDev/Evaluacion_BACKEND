@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+
+{% block titulo %}Cargos y metas · SGR{% endblock %}
+
+{% block contenido %}
+{% url 'institucional:panel' as url_panel %}
+{% include "includes/cabecera.html" with antetitulo="Matriz SGR" titulo="Cargos y metas" bajada="Cargos de las delegaciones municipales según la matriz trimestral: perfil del sistema que les corresponde, sigla del código verificador y metas del trimestre vigente." seccion="Panel" seccion_url=url_panel %}
+
+<section class="container py-5">
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+        <p class="mb-0 text-secondary">{% if periodo %}Metas del período <strong class="text-dark">{{ periodo.nombre }}</strong> ({{ periodo.fecha_inicio|date:"d/m/Y" }} al {{ periodo.fecha_termino|date:"d/m/Y" }}).{% else %}No hay un período abierto: ejecuta <code>python manage.py cargar_matriz</code>.{% endif %}</p>
+        <a class="btn btn-outline-primary" href="{% url 'institucional:unidades' %}">Unidades municipales</a>
+    </div>
+    <div class="row g-4">
+        {% for fila in filas %}
+        <div class="col-lg-6">
+            <article class="tarjeta-info h-100">
+                <div class="d-flex justify-content-between align-items-start gap-2 mb-2">
+                    <div>
+                        <h2 class="h5 mb-1">{{ fila.cargo.nombre }}{% if not fila.cargo.activo %} <span class="badge text-bg-secondary">inactivo</span>{% endif %}</h2>
+                        <div class="small text-secondary">Perfil: <strong>{{ fila.cargo.perfil|default:"cualquiera" }}</strong>{% if fila.cargo.sigla %} · sigla {{ fila.cargo.sigla }}{% endif %} · {{ fila.cargo.total_funcionarios }} funcionario{{ fila.cargo.total_funcionarios|pluralize }}</div>
+                    </div>
+                    <a class="btn btn-outline-secondary btn-sm" href="{% url 'institucional:cargo_editar' fila.cargo.pk %}">Editar</a>
+                </div>
+                {% if fila.cargo.descripcion %}<p class="small mb-3">{{ fila.cargo.descripcion|truncatewords:40 }}</p>{% endif %}
+                {% if fila.metas %}
+                <table class="table table-sm small mb-1">
+                    <thead><tr><th>Ítem</th><th class="text-end">Meta</th><th class="text-end">Ponderador</th></tr></thead>
+                    <tbody>
+                    {% for meta in fila.metas %}<tr><td>{{ meta.item.nombre }}<div class="text-secondary">{{ meta.item.get_tipo_medicion_display }}</div></td><td class="text-end">{{ meta.objetivo|floatformat:0 }}{% if meta.item.tipo_medicion == "tasa_tubo" %}%{% endif %}</td><td class="text-end">{{ meta.ponderador|floatformat:0 }}%</td></tr>{% endfor %}
+                    </tbody>
+                    <tfoot><tr><th colspan="2">Suma de ponderadores</th><th class="text-end {% if fila.suma != 100 %}text-danger{% endif %}">{{ fila.suma|floatformat:0 }}%</th></tr></tfoot>
+                </table>
+                {% if fila.suma != 100 %}<p class="small text-danger mb-0">Los ponderadores no suman 100%: el cumplimiento máximo sin felicitaciones queda en {{ fila.suma|floatformat:0 }}%. Revisa la matriz con la Coordinación.</p>{% endif %}
+                {% else %}
+                <p class="small text-secondary mb-0">Sin metas por cargo en el período vigente.</p>
+                {% endif %}
+            </article>
+        </div>
+        {% empty %}
+        <div class="col-12"><p class="text-secondary">No hay cargos registrados.</p></div>
+        {% endfor %}
+    </div>
+</section>
+{% endblock %}
