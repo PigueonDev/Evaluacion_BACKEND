@@ -260,6 +260,18 @@ class Actividad(models.Model):
 			self.codigo_verificador = self._siguiente_codigo_verificador()
 		super().save(*args, **kwargs)
 
+	@classmethod
+	def asignar_codigos_pendientes(cls):
+		"""Da código verificador a las actividades anteriores a la matriz cuyo funcionario ya tiene sigla."""
+		asignados = 0
+		for actividad in cls.objects.filter(codigo_verificador__isnull=True).select_related("funcionario__cargo").order_by("fecha", "pk"):
+			codigo = actividad._siguiente_codigo_verificador()
+			if codigo:
+				actividad.codigo_verificador = codigo
+				actividad.save(update_fields=["codigo_verificador"])
+				asignados += 1
+		return asignados
+
 	def _siguiente_codigo_verificador(self):
 		"""Código de la matriz: área + mes + día + correlativo del área en el período (COM1-1006-004)."""
 		prefijo = self.funcionario.prefijo_codigo

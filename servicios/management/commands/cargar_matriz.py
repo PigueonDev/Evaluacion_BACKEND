@@ -6,7 +6,7 @@ from django.utils import timezone
 
 from institucional.models import Cargo, UnidadMunicipal
 from servicios.matriz import CARGOS, ITEMS, METAS_POR_CARGO, UNIDADES, trimestre_de
-from servicios.models import ItemMedicion, Meta, Periodo
+from servicios.models import Actividad, ItemMedicion, Meta, Periodo
 
 
 class Command(BaseCommand):
@@ -25,7 +25,8 @@ class Command(BaseCommand):
 		resultado = cargar_matriz(fecha, actualizar_metas=options["actualizar_metas"])
 		self.stdout.write(self.style.SUCCESS(
 			f"Matriz SGR cargada en «{resultado['periodo']}»: {resultado['cargos']} cargos, {resultado['items']} ítems, "
-			f"{resultado['unidades']} unidades, {resultado['metas_nuevas']} metas nuevas y {resultado['metas_actualizadas']} actualizadas."
+			f"{resultado['unidades']} unidades, {resultado['metas_nuevas']} metas nuevas y {resultado['metas_actualizadas']} actualizadas; "
+			f"{resultado['codigos_asignados']} actividades anteriores recibieron código verificador."
 		))
 
 
@@ -60,6 +61,7 @@ def cargar_matriz(fecha=None, actualizar_metas=False):
 				meta.save(update_fields=["objetivo", "ponderador", "version"])
 				actualizadas += 1
 	return {
+		"codigos_asignados": Actividad.asignar_codigos_pendientes(),
 		"periodo": periodo, "cargos": len(cargos), "items": len(items), "unidades": len(UNIDADES),
 		"metas_nuevas": nuevas, "metas_actualizadas": actualizadas,
 	}
