@@ -8,7 +8,7 @@
 <section class="container py-5">
     <div class="row g-3 mb-4">
         {% for etiqueta, total, codigo in resumen %}
-        <div class="col-6 col-md-3"><a class="text-decoration-none" href="?tipo={{ codigo }}"><div class="kpi {% if codigo == 'felicitacion' %}kpi-verde{% else %}kpi-ambar{% endif %}"><div><span class="kpi-etiqueta">{{ etiqueta }}s vigentes</span><strong>{{ total }}</strong></div></div></a></div>
+        <div class="col-6 col-md-3"><a class="text-decoration-none" href="?tipo={{ codigo }}"><div class="kpi {% if codigo == 'felicitacion' %}kpi-verde{% else %}kpi-ambar{% endif %}"><div><span class="kpi-etiqueta">{% if codigo == "felicitacion" %}Felicitaciones{% else %}Reclamos{% endif %} vigentes</span><strong>{{ total }}</strong></div></div></a></div>
         {% endfor %}
     </div>
     <form class="row g-2 align-items-end mb-3" method="get" role="search">

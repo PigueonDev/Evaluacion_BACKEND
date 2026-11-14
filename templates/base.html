@@ -42,6 +42,7 @@
                         {% if es_administracion %}
                         <li><a class="dropdown-item" href="{% url 'institucional:usuarios' %}"><svg class="icono"><use href="#i-user"/></svg>Usuarios</a></li>
                         <li><a class="dropdown-item" href="{% url 'institucional:grupos' %}"><svg class="icono"><use href="#i-users"/></svg>Grupos y permisos</a></li>
+                        <li><a class="dropdown-item" href="{% url 'servicios:resumen_matriz' %}"><svg class="icono"><use href="#i-chart"/></svg>Resumen de la matriz</a></li>
                         <li><a class="dropdown-item" href="{% url 'institucional:cargos' %}"><svg class="icono"><use href="#i-list"/></svg>Cargos y metas</a></li>
                         <li><a class="dropdown-item" href="{% url 'institucional:unidades' %}"><svg class="icono"><use href="#i-building"/></svg>Unidades municipales</a></li>
                         <li><a class="dropdown-item" href="{{ phpmyadmin_url }}" target="_blank" rel="noopener"><svg class="icono"><use href="#i-database"/></svg>Abrir phpMyAdmin</a></li>
@@ -101,7 +102,7 @@
                         {% if es_supervisor or es_administracion %}
                         <li class="nav-item"><a class="nav-link {% if pagina_activa == 'aprobaciones' %}active{% endif %}" href="{% url 'servicios:aprobaciones' %}">Aprobaciones</a></li>
                         <li class="nav-item"><a class="nav-link {% if pagina_activa == 'consulta' %}active{% endif %}" href="{% url 'servicios:consulta' %}">Consulta</a></li>
-                        <li class="nav-item"><a class="nav-link {% if pagina_activa == 'resumen_matriz' %}active{% endif %}" href="{% url 'servicios:resumen_matriz' %}">Matriz</a></li>
+                        {% if not es_administracion %}<li class="nav-item"><a class="nav-link {% if pagina_activa == 'resumen_matriz' %}active{% endif %}" href="{% url 'servicios:resumen_matriz' %}">Matriz</a></li>{% endif %}
                         {% endif %}
                         {% if perms.oficina.view_carta or perms.oficina.view_beneficionino or perms.oficina.view_ausencia or perms.oficina.view_reconocimiento %}
                         <li class="nav-item dropdown">
