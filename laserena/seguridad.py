@@ -30,7 +30,8 @@ class CabecerasSeguridadMiddleware:
         respuesta.setdefault("Content-Security-Policy", POLITICA_CONTENIDO)
         respuesta.setdefault("Permissions-Policy", "camera=(), microphone=(), geolocation=(), payment=()")
         respuesta.setdefault("Cross-Origin-Opener-Policy", "same-origin")
-        if request.user.is_authenticated:
+        # En la API el usuario se autentica con JWT dentro de la vista, después de este middleware.
+        if request.user.is_authenticated or request.path.startswith("/api/"):
             respuesta.setdefault("Cache-Control", "no-store, private")
         return respuesta
 

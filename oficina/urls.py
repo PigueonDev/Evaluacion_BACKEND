@@ -1,4 +1,6 @@
-from django.urls import path
+from django.urls import path, re_path
+
+from api.web import exportar_cartas
 
 from . import views
 
@@ -6,6 +8,7 @@ app_name = "oficina"
 
 urlpatterns = [
 	path("cartas/", views.cartas, name="cartas"),
+	re_path(r"^cartas/exportar/(?P<formato>excel|pdf)/$", exportar_cartas, name="cartas_exportar"),
 	path("cartas/nueva/", views.carta_crear, name="carta_crear"),
 	path("cartas/<int:pk>/", views.carta_detalle, name="carta_detalle"),
 	path("cartas/<int:pk>/editar/", views.carta_editar, name="carta_editar"),
