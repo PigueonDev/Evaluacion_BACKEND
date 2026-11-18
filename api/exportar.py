@@ -39,25 +39,25 @@ def _texto_fecha(valor, formato="%d/%m/%Y"):
 
 COLUMNAS_CARTAS = [
     ("Folio", lambda c: c.folio, 14, False),
-    ("N° OP", lambda c: c.numero_oficina_partes, 10, False),
-    ("Ingreso", lambda c: _texto_fecha(c.fecha_ingreso), 11, False),
-    ("Para", lambda c: c.get_destinatario_display(), 11, False),
-    ("Tipo", lambda c: c.get_tipo_display(), 12, False),
+    ("N° OP", lambda c: c.numero_oficina_partes, 13, False),
+    ("Ingreso", lambda c: _texto_fecha(c.fecha_ingreso), 14, False),
+    ("Para", lambda c: c.get_destinatario_display(), 13, False),
+    ("Tipo", lambda c: c.get_tipo_display(), 13, False),
     ("Remitente", lambda c: c.remitente, 26, False),
     ("Contacto remitente", lambda c: c.contacto_remitente, 22, True),
     ("Asunto", lambda c: c.asunto, 34, False),
     ("Delegación", lambda c: c.delegacion.nombre, 16, False),
     ("Derivada a", lambda c: c.derivada_a.nombre_completo if c.derivada_a_id else (str(c.derivada_a_unidad) if c.derivada_a_unidad_id else ""), 22, False),
-    ("Estado", lambda c: c.get_estado_display(), 13, False),
+    ("Estado", lambda c: c.get_estado_display(), 14, False),
     ("Estado matriz", lambda c: c.get_resolucion_display(), 14, False),
-    ("Plazo", lambda c: _texto_fecha(c.plazo_respuesta), 11, False),
-    ("Respondida", lambda c: _texto_fecha(c.fecha_respuesta), 11, False),
+    ("Plazo", lambda c: _texto_fecha(c.plazo_respuesta), 14, False),
+    ("Respondida", lambda c: _texto_fecha(c.fecha_respuesta), 14, False),
     ("Registrada por", lambda c: c.registrada_por.username, 16, True),
 ]
 
 COLUMNAS_ACTIVIDADES = [
-    ("Código", lambda a: a.codigo_verificador or "", 15, False),
-    ("Fecha", lambda a: _texto_fecha(a.fecha), 11, False),
+    ("Código", lambda a: a.codigo_verificador or "", 19, False),
+    ("Fecha", lambda a: _texto_fecha(a.fecha), 14, False),
     ("Funcionario", lambda a: a.funcionario.nombre_completo, 24, False),
     ("Delegación", lambda a: a.funcionario.delegacion.nombre, 16, False),
     ("Ítem", lambda a: a.item.nombre, 26, False),
@@ -66,8 +66,8 @@ COLUMNAS_ACTIVIDADES = [
     ("Contacto", lambda a: a.contacto, 20, True),
     ("Teléfono", lambda a: a.telefono, 14, True),
     ("Derivado a", lambda a: a.derivado_a.nombre if a.derivado_a_id else "", 18, False),
-    ("Estado", lambda a: a.get_estado_display(), 11, False),
-    ("Tareas", lambda a: f"{a.tareas_realizadas}/{a.total_tareas}", 8, False),
+    ("Estado", lambda a: a.get_estado_display(), 14, False),
+    ("Tareas", lambda a: f"{a.tareas_realizadas}/{a.total_tareas}", 10, False),
 ]
 
 RECURSOS = {
@@ -104,8 +104,8 @@ def generar_excel(recurso, queryset, completo, usuario):
     ws.append([])
     ws["A1"].font = Font(bold=True, size=14, color=AZUL_SGR)
 
-    fila_encabezado = ws.max_row + 1
     ws.append([nombre for nombre, _, _, _ in columnas])
+    fila_encabezado = ws.max_row
     borde = Border(bottom=Side(style="thin", color="999999"))
     for indice, (_, _, ancho, _) in enumerate(columnas, start=1):
         celda = ws.cell(row=fila_encabezado, column=indice)
@@ -121,6 +121,13 @@ def generar_excel(recurso, queryset, completo, usuario):
             celda.border = borde
 
     ws.freeze_panes = ws.cell(row=fila_encabezado + 1, column=1)
+    ws.page_setup.orientation = "landscape"
+    ws.page_setup.paperSize = ws.PAPERSIZE_A4
+    ws.page_setup.fitToWidth = 1
+    ws.page_setup.fitToHeight = 0
+    ws.sheet_properties.pageSetUpPr.fitToPage = True
+    ws.print_options.gridLines = True
+    ws.print_title_rows = f"{fila_encabezado}:{fila_encabezado}"
     ws.auto_filter.ref = f"A{fila_encabezado}:{get_column_letter(len(columnas))}{max(ws.max_row, fila_encabezado)}"
 
     respuesta = HttpResponse(content_type=TIPO_EXCEL)

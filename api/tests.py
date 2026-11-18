@@ -426,8 +426,11 @@ class ExportacionesTest(BaseAPI):
         self.assertEqual(respuesta.status_code, 200, respuesta.content[:300])
         self.assertEqual(respuesta["Content-Type"], "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
         self.assertIn("attachment;", respuesta["Content-Disposition"])
-        filas = [list(fila) for fila in load_workbook(BytesIO(respuesta.content)).active.iter_rows(values_only=True)]
-        indice = next(i for i, fila in enumerate(filas) if fila and fila[0] == "Folio" or fila and fila[0] == "Código")
+        hoja = load_workbook(BytesIO(respuesta.content)).active
+        filas = [list(fila) for fila in hoja.iter_rows(values_only=True)]
+        indice = next(i for i, fila in enumerate(filas) if fila and fila[0] in ("Folio", "Código"))
+        self.assertTrue(hoja.cell(row=indice + 1, column=1).font.bold)
+        self.assertEqual(hoja.freeze_panes, f"A{indice + 2}")
         return filas[indice], [fila for fila in filas[indice + 1:] if any(fila)]
 
     def test_excel_del_administrador_incluye_columnas_sensibles(self):
