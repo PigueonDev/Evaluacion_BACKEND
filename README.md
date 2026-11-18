@@ -1,5 +1,5 @@
 # Ilustre Municipalidad de La Serena — sitio informativo Django
-# Sistema de Gestión de Resultados (SGR) · Evaluación Sumativa 3
+# Sistema de Gestión de Resultados (SGR) · Evaluaciones Sumativas 3 y 4
 
 ## Qué incluye
 Proyecto Django con tres aplicaciones (`institucional`, `servicios` y `organizaciones`) para registrar delegaciones, funcionarios, actividades, evidencias, compromisos, períodos de medición y organizaciones comunitarias. Toda la operación se hace con Django Templates y Bootstrap: **Django Admin está desactivado**.
@@ -12,6 +12,28 @@ Proyecto Django con tres aplicaciones (`institucional`, `servicios` y `organizac
 - **Transacción "Registrar actividad"** (`servicios/transacciones.py`, `transaction.atomic`): actividad + tareas preparatorias + auditoría. Las tareas no suman; la actividad suma al cumplimiento solo con todas sus tareas realizadas y la aprobación del Supervisor. Tope 120 % por ítem, máximo 7 actividades por día, ingreso solo dentro de los 5 días hábiles de su semana; al cerrar la semana todo queda bloqueado y no se traspasa.
 - **Transacción "Registrar ausencia"** (`oficina/transacciones.py`, `transaction.atomic`): ausencia + ajuste proporcional de las metas del período (crea la meta personal si solo existe la del cargo) + registro del semáforo antes/después + auditoría. Si algo falla no queda nada a medias. Se puede anular y las metas se restituyen.
 - **Recuperación de contraseña por correo con token** (`/acceso/recuperar/`): enlace firmado de un solo uso que vence en una hora. Se envía por SMTP de Gmail (contraseña de aplicación en `.env`: `EMAIL_HOST_USER`, `EMAIL_HOST_PASSWORD`) en HTML y texto, solo a cuentas activas con ese correo. Sin credenciales, los correos se guardan en `correos_enviados/` y el sitio sigue funcionando; un error SMTP se registra en el log sin romper la página.
+
+### Evaluación Sumativa 4: API RESTful
+App `api` con Django REST Framework (vistas basadas en funciones con `@api_view`), autenticación JWT con SimpleJWT y documentación Swagger/OpenAPI con drf-spectacular.
+
+| Recurso | Endpoints | Operaciones |
+|---|---|---|
+| JWT | `/api/token/`, `/api/token/refresh/`, `/api/token/verify/`, `/api/token/blacklist/`, `/api/yo/` | obtener, renovar (con rotación), verificar, revocar, perfil actual |
+| Mantenedor 1: usuarios | `/api/usuarios/`, `/api/usuarios/<id>/` | GET, POST, PUT, DELETE (escritura solo Administrador) |
+| Mantenedor 2: cartas de Oficina de Partes | `/api/cartas/`, `/api/cartas/<id>/` | GET, POST, PUT, DELETE |
+| Transacción «Registrar actividad» | `/api/actividades/`, `/api/actividades/<id>/`, `.../tareas/<id>/`, `.../revision/` | consultar, registrar (atómica, con tareas), modificar, anular (DELETE), marcar tarea, aprobar o rechazar |
+| Exportaciones | `/api/cartas/exportar/excel/` y `/pdf/`, `/api/actividades/exportar/excel/` y `/pdf/` | Excel (openpyxl) y PDF (ReportLab); también con botones en `/oficina/cartas/` y `/servicios/actividades/` |
+| Documentación | `/api/swagger/`, `/api/redoc/`, `/api/schema/` | Swagger UI con **Authorize** (BearerAuth) |
+
+El perfil **Administrador** recibe todos los campos. **Supervisor** y **Administrativo** (perfil Usuario) solo reciben campos públicos de su delegación: nunca contraseñas, correos, teléfonos ni contactos personales, tampoco en Excel o PDF. Todas las respuestas son JSON; los errores usan el formato `{"error": {"codigo", "tipo", "mensaje", "detalle"}}`. Las recomendaciones de seguridad obtenidas con IA y su prueba están en `EVIDENCIAS_IA.md` (sección 8).
+
+Prueba rápida:
+
+```bash
+curl -s -X POST http://127.0.0.1:8000/api/token/ -H "Content-Type: application/json" \
+     -d '{"username": "admin.demo", "password": "Serena-demo-2026"}'
+curl -s http://127.0.0.1:8000/api/cartas/ -H "Authorization: Bearer <access>"
+```
 
 Integrantes: Cristhopher Rubio y Rodrigo Maximiliano Álvarez Montero.
 
@@ -149,7 +171,7 @@ echo "\$cfg['LoginCookieValidity'] = 1800;" | sudo tee -a /usr/share/phpmyadmin/
 6. **Actualizaciones:** `sudo dnf upgrade -y` y `pip install -U -r requirements.txt` cada cierto tiempo.
 
 ## Librería externa
-Además de Django se usa **WhiteNoise** para servir archivos estáticos y **Pillow** para generar las imágenes institucionales locales.
+Además de Django se usa **WhiteNoise** para servir archivos estáticos y **Pillow** para generar las imágenes institucionales locales. La API usa **djangorestframework 3.15.2**, **djangorestframework-simplejwt 5.3.1**, **drf-spectacular 0.27.2** (con **drf-spectacular-sidecar**, para servir Swagger sin CDN), **openpyxl** y **reportlab 4.2.5**, versiones compatibles con Python 3.9 y Django 4.2.
 
 ## Datos y dominio SGR
 

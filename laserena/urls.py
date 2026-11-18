@@ -10,6 +10,7 @@ urlpatterns = [
     path("servicios/", include("servicios.urls")),
     path("organizaciones/", include("organizaciones.urls")),
     path("oficina/", include("oficina.urls")),
+    path("api/", include("api.urls")),
 ]
 
 handler403 = "institucional.views.acceso_denegado"

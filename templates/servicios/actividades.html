@@ -24,6 +24,8 @@
             <div class="d-flex flex-wrap gap-2">
                 <a class="btn btn-success btn-sm" href="{% url 'servicios:actividad_nueva' %}"><svg class="icono"><use href="#i-plus"/></svg>Registrar actividad</a>
                 <a class="btn btn-outline-dark btn-sm" href="{% url 'servicios:actividad_codigo' %}">Buscar por código</a>
+                <a class="btn btn-outline-success btn-sm" href="{% url 'servicios:actividades_exportar' 'excel' %}?estado={{ estado_activo }}&q={{ busqueda|urlencode }}">Exportar a Excel</a>
+                <a class="btn btn-outline-danger btn-sm" href="{% url 'servicios:actividades_exportar' 'pdf' %}?estado={{ estado_activo }}&q={{ busqueda|urlencode }}">Exportar a PDF</a>
             </div>
         </div>
     </div>

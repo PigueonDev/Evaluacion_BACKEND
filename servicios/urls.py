@@ -1,4 +1,6 @@
-from django.urls import path
+from django.urls import path, re_path
+
+from api.web import exportar_actividades
 
 from . import views
 
@@ -7,6 +9,7 @@ app_name = "servicios"
 urlpatterns = [
     path("dashboard/", views.dashboard, name="dashboard"),
     path("actividades/", views.actividades, name="actividades"),
+    re_path(r"^actividades/exportar/(?P<formato>excel|pdf)/$", exportar_actividades, name="actividades_exportar"),
     path("actividades/nueva/", views.actividad_nueva, name="actividad_nueva"),
     path("actividades/codigo/", views.actividad_por_codigo, name="actividad_codigo"),
     path("actividades/<int:pk>/", views.actividad_detalle, name="actividad_detalle"),
