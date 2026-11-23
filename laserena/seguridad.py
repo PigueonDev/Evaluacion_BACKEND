@@ -47,12 +47,12 @@ def ip_cliente(request):
 
 @receiver(user_logged_in)
 def _login_exitoso(sender, request, user, **kwargs):
-    registro.info("Login exitoso usuario=%s ip=%s", user.get_username(), ip_cliente(request))
+    registro.info("Inicio de sesión exitoso usuario=%s ip=%s", user.get_username(), ip_cliente(request))
 
 
 @receiver(user_login_failed)
 def _login_fallido(sender, credentials, request=None, **kwargs):
-    registro.warning("Login fallido usuario=%s ip=%s", credentials.get("username", "-")[:150], ip_cliente(request))
+    registro.warning("Inicio de sesión fallido usuario=%s ip=%s", credentials.get("username", "-")[:150], ip_cliente(request))
 
 
 @receiver(user_logged_out)

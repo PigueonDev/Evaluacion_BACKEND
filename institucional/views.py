@@ -130,7 +130,7 @@ class RecuperarClaveListoView(auth_views.PasswordResetCompleteView):
 
 @solo_personal
 def mi_panel(request):
-    """Dashboard según el grupo del usuario autenticado."""
+    """Panel según el perfil del usuario autenticado."""
     grupo = grupo_usuario(request.user)
     if grupo == GRUPO_ADMINISTRADOR:
         return redirect("institucional:panel")
@@ -161,7 +161,7 @@ def mi_panel(request):
             "equipo": resumen_equipo(equipo, periodo, hoy) if periodo else None,
             "reclamos_periodo": Reconocimiento.objects.filter(periodo=periodo, tipo="reclamo", estado="vigente", funcionario__in=equipo).count() if periodo else 0,
         })
-        return render(request, "institucional/dashboard_supervisor.html", contexto)
+        return render(request, "institucional/panel_supervisor.html", contexto)
     actividades = Actividad.objects.none()
     desempeno = None
     if perfil is not None:
@@ -179,7 +179,7 @@ def mi_panel(request):
         "cartas_derivadas": Carta.objects.filter(derivada_a=perfil).exclude(estado__in=("respondida", "archivada")).order_by("plazo_respuesta")[:5] if perfil else [],
         "mis_ausencias": Ausencia.objects.filter(funcionario=perfil, estado="vigente").order_by("-fecha_inicio")[:3] if perfil else [],
     })
-    return render(request, "institucional/dashboard_administrativo.html", contexto)
+    return render(request, "institucional/panel_administrativo.html", contexto)
 
 
 @solo_administrador

@@ -437,7 +437,7 @@ PARAMETROS_ACTIVIDADES = [
 )
 @extend_schema(
     methods=["POST"], tags=["Actividades"], summary="Registrar actividad (transacción)",
-    description="Guarda la actividad, sus tareas preparatorias y la auditoría en una sola transacción (`transaction.atomic` + `select_for_update`). "
+    description="Guarda la actividad, sus tareas preparatorias y la auditoría en una sola transacción atómica, que bloquea la ficha del funcionario para que dos registros simultáneos no superen el cupo diario. "
                 "Reglas: día hábil de la semana en curso, sin fechas futuras, máximo 7 actividades por día, período abierto, ítem del cargo. "
                 "Si una regla falla no se guarda nada. Lo registra el Administrativo (para sí mismo) o el Administrador (indicando `funcionario`).",
     request=ActividadEntradaSerializer,

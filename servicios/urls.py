@@ -1,4 +1,5 @@
 from django.urls import path, re_path
+from django.views.generic import RedirectView
 
 from api.web import exportar_actividades
 
@@ -7,7 +8,8 @@ from . import views
 app_name = "servicios"
 
 urlpatterns = [
-    path("dashboard/", views.dashboard, name="dashboard"),
+    path("panel-municipal/", views.panel_municipal, name="panel_municipal"),
+    path("dashboard/", RedirectView.as_view(pattern_name="servicios:panel_municipal")),
     path("actividades/", views.actividades, name="actividades"),
     re_path(r"^actividades/exportar/(?P<formato>excel|pdf)/$", exportar_actividades, name="actividades_exportar"),
     path("actividades/nueva/", views.actividad_nueva, name="actividad_nueva"),

@@ -108,7 +108,7 @@ def _contexto_semana(funcionario):
 
 
 @solo_administrador
-def dashboard(request):
+def panel_municipal(request):
     actividades = _actividades_ambito(request.user)
     compromisos = _compromisos_ambito(request.user)
     periodo = Periodo.objects.filter(estado="abierto").first()
@@ -133,9 +133,9 @@ def dashboard(request):
         "actividades_recientes": actividades[:8],
         "compromisos_recientes": compromisos[:8],
         "metas": [{"meta": meta, "cumplimiento": meta.cumplimiento, "semaforo": meta.semaforo()} for meta in metas],
-        "pagina_activa": "dashboard",
+        "pagina_activa": "panel_municipal",
     }
-    return render(request, "servicios/dashboard.html", contexto)
+    return render(request, "servicios/panel_municipal.html", contexto)
 
 
 @solo_administrativo

@@ -88,7 +88,7 @@ class ReglasSgrTest(TestCase):
 
 class PanelesPrivadosTest(TestCase):
 	PANELES = (
-		"servicios:dashboard",
+		"servicios:panel_municipal",
 		"servicios:actividades",
 		"servicios:casos",
 		"servicios:agenda",
@@ -492,7 +492,7 @@ class MantenedoresCristhopherTest(TestCase):
 			"servicios:caso_nuevo",
 			"servicios:agenda",
 			"servicios:compromiso_nuevo",
-			"servicios:dashboard",
+			"servicios:panel_municipal",
 			"institucional:panel",
 		):
 			self.assertEqual(self.client.get(reverse(nombre)).status_code, 403, nombre)
