@@ -1,0 +1,25 @@
+{% if evidencias %}
+<div class="mb-4">
+    {% for evidencia in evidencias %}
+    <article class="border rounded p-3 mb-3">
+        <div class="row g-3 align-items-start">
+            <div class="col-sm-auto">
+                <a href="{{ evidencia.archivo.url }}">
+                    <img class="captura-evidencia" src="{{ evidencia.archivo.url }}" alt="Captura de la tarea {{ evidencia.texto_tarea }}">
+                </a>
+            </div>
+            <div class="col">
+                <p class="mb-1"><span class="estado estado-{{ evidencia.estado }}">{{ evidencia.get_estado_display }}</span></p>
+                <p class="mb-1"><strong>Tarea que acredita:</strong> {{ evidencia.texto_tarea }}</p>
+                <p class="mb-1 small text-secondary">Enviada el {{ evidencia.cargada_en|date:"d/m/Y H:i" }} por {{ evidencia.autor.get_full_name|default:evidencia.autor.username }}</p>
+                {% if evidencia.estado == "rechazada" and evidencia.observacion %}
+                <p class="mb-0"><strong>Motivo del rechazo:</strong> {{ evidencia.observacion }}</p>
+                {% endif %}
+            </div>
+        </div>
+    </article>
+    {% endfor %}
+</div>
+{% else %}
+<p class="text-secondary">Sin capturas de evidencia.</p>
+{% endif %}

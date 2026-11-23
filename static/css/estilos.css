@@ -857,7 +857,17 @@ a {
 }
 
 .estado { background: #eef0f2; color: #495057; }
-.estado-validada, .estado-realizado { background: #e6f4ec; color: #19804a; }
+.estado-validada, .estado-aprobada, .estado-realizado { background: #e6f4ec; color: #19804a; }
+.captura-evidencia {
+    display: block;
+    width: 160px;
+    max-width: 100%;
+    max-height: 120px;
+    object-fit: contain;
+    background: #fff;
+    border: 1px solid #dee2e6;
+    border-radius: 0.375rem;
+}
 .estado-pendiente, .estado-ingresado { background: #fff4e0; color: #b35f00; }
 .estado-proceso { background: #e7f0fb; color: #1d5fa8; }
 .estado-rechazada, .estado-anulada { background: #fdecec; color: #b40000; }

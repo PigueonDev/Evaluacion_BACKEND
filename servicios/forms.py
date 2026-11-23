@@ -4,7 +4,7 @@ from django.core.exceptions import ValidationError
 from institucional.models import Delegacion, Funcionario, UnidadMunicipal
 
 from .matriz import SECTORES_POR_DELEGACION
-from .models import MAXIMO_GESTIONES_POR_CASO, SUBATENCIONES_POR_TIPO, SUBATENCIONES_SOCIALES, TELEFONO_ACTIVIDAD, TIPOS_ATENCION_SOCIAL, Actividad, TareaPreparatoria, Caso, Compromiso, Gestion, ItemMedicion, Periodo, Servicio
+from .models import MAXIMO_GESTIONES_POR_CASO, MOTIVO_RECHAZO_MAX, SUBATENCIONES_POR_TIPO, SUBATENCIONES_SOCIALES, TELEFONO_ACTIVIDAD, TIPOS_ATENCION_SOCIAL, Actividad, Caso, Compromiso, Evidencia, Gestion, ItemMedicion, Periodo, Servicio, TareaPreparatoria
 
 FECHA = {"type": "date", "class": "form-control"}
 
@@ -137,6 +137,66 @@ class RevisionForm(forms.Form):
 		max_length=500,
 		widget=forms.Textarea(attrs={"class": "form-control", "rows": 2}),
 	)
+
+
+class EvidenciaForm(forms.ModelForm):
+	class Meta:
+		model = Evidencia
+		fields = ["tarea", "archivo"]
+		labels = {
+			"tarea": "Tarea que acredita",
+			"archivo": "Captura de pantalla",
+		}
+		help_texts = {
+			"tarea": "Elige la tarea ya realizada que esta captura demuestra.",
+			"archivo": "Imagen PNG, JPG o WebP de hasta 5 MB.",
+		}
+		widgets = {
+			"tarea": forms.Select(attrs={"class": "form-select"}),
+			"archivo": forms.ClearableFileInput(attrs={"class": "form-control", "accept": "image/png,image/jpeg,image/webp"}),
+		}
+
+	def __init__(self, *args, actividad=None, **kwargs):
+		self.actividad = actividad
+		super().__init__(*args, **kwargs)
+		tareas = TareaPreparatoria.objects.none()
+		if actividad is not None:
+			tareas = actividad.tareas.filter(realizada=True).order_by("pk")
+		self.fields["tarea"].queryset = tareas
+		self.fields["tarea"].empty_label = "Elige la tarea"
+		self.fields["tarea"].error_messages["required"] = "Elige la tarea que esta captura acredita."
+		self.fields["archivo"].error_messages["required"] = "Adjunta la captura de pantalla."
+		self.fields["archivo"].error_messages["invalid"] = "Adjunta una imagen PNG, JPG o WebP de hasta 5 MB."
+
+	def clean(self):
+		cleaned = super().clean()
+		if self.actividad is not None:
+			self.instance.actividad = self.actividad
+		tarea = cleaned.get("tarea")
+		if tarea is not None:
+			self.instance.texto_tarea = tarea.descripcion
+		return cleaned
+
+
+class RevisionEvidenciaForm(forms.Form):
+	decision = forms.ChoiceField(
+		choices=[("aprobar", "Aprobar"), ("rechazar", "Rechazar")],
+		error_messages={"required": "Elige si apruebas o rechazas la evidencia.", "invalid_choice": "Decisión no válida."},
+	)
+	motivo = forms.CharField(
+		label="Motivo del rechazo",
+		required=False,
+		max_length=MOTIVO_RECHAZO_MAX,
+		error_messages={"max_length": "El motivo del rechazo no puede superar los 280 caracteres."},
+	)
+
+	def clean(self):
+		cleaned = super().clean()
+		motivo = (cleaned.get("motivo") or "").strip()
+		cleaned["motivo"] = motivo
+		if cleaned.get("decision") == "rechazar" and not motivo:
+			self.add_error("motivo", "Indica un motivo breve del rechazo.")
+		return cleaned
 
 
 class CasoForm(forms.ModelForm):

@@ -31,7 +31,7 @@ from laserena.permisos import (
 from laserena.seguridad import ip_cliente
 from oficina.models import Ausencia, BeneficioNino, Carta, Reconocimiento
 from organizaciones.models import OrganizacionComunitaria
-from servicios.models import Actividad, Auditoria, Caso, Compromiso, ItemMedicion, Meta, Periodo, Servicio
+from servicios.models import Actividad, Auditoria, Caso, Compromiso, Evidencia, ItemMedicion, Meta, Periodo, Servicio
 from servicios.desempeno import resumen_equipo, resumen_funcionario
 from servicios.reglas import MAXIMO_ACTIVIDADES_POR_DIA, fin_semana_laboral, inicio_semana
 
@@ -158,6 +158,7 @@ def mi_panel(request):
             "cartas_abiertas": acotar_ambito(Carta.objects.exclude(estado__in=("respondida", "archivada")), request.user, "delegacion").count(),
             "beneficios_por_entregar": acotar_ambito(BeneficioNino.objects.filter(estado="registrado"), request.user, "delegacion").count(),
             "ausencias_vigentes": acotar_ambito(Ausencia.objects.filter(estado="vigente", fecha_termino__gte=hoy), request.user, "funcionario__delegacion").select_related("funcionario")[:5],
+            "evidencias_pendientes": acotar_ambito(Evidencia.objects.filter(estado="pendiente"), request.user, "actividad__funcionario__delegacion").count(),
             "equipo": resumen_equipo(equipo, periodo, hoy) if periodo else None,
             "reclamos_periodo": Reconocimiento.objects.filter(periodo=periodo, tipo="reclamo", estado="vigente", funcionario__in=equipo).count() if periodo else 0,
         })

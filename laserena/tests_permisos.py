@@ -23,10 +23,11 @@ from laserena.permisos import (
 
 ADMINISTRADOR, SUPERVISOR, ADMINISTRATIVO, ANONIMO = GRUPO_ADMINISTRADOR, GRUPO_SUPERVISOR, GRUPO_ADMINISTRATIVO, "Anónimo"
 
-# Permisos que tenía cada grupo antes de unificar el módulo: la matriz nueva debe conceder exactamente lo mismo.
+# Matriz vigente de cada perfil operativo. Un permiso nuevo se suma aquí a propósito.
 SUPERVISOR_ANTERIOR = {
     "organizaciones.view_organizacioncomunitaria", "organizaciones.add_organizacioncomunitaria", "organizaciones.change_organizacioncomunitaria",
-    "organizaciones.verificar_organizacion", "servicios.view_actividad", "servicios.aprobar_actividad", "servicios.view_tareapreparatoria",
+    "organizaciones.verificar_organizacion", "servicios.view_actividad", "servicios.aprobar_actividad", "servicios.view_evidencia",
+    "servicios.aprobar_evidencia", "servicios.view_tareapreparatoria",
     "servicios.view_compromiso", "servicios.view_meta", "institucional.view_funcionario", "oficina.view_carta", "oficina.add_carta",
     "oficina.change_carta", "oficina.delete_carta", "oficina.view_beneficionino", "oficina.add_beneficionino", "oficina.change_beneficionino",
     "oficina.delete_beneficionino", "oficina.view_ausencia", "oficina.add_ausencia", "oficina.anular_ausencia", "oficina.view_ajustemeta",
@@ -35,6 +36,7 @@ SUPERVISOR_ANTERIOR = {
 }
 ADMINISTRATIVO_ANTERIOR = {
     "organizaciones.view_organizacioncomunitaria", "servicios.view_actividad", "servicios.add_actividad", "servicios.change_actividad",
+    "servicios.view_evidencia", "servicios.add_evidencia",
     "servicios.view_tareapreparatoria", "servicios.add_tareapreparatoria", "servicios.change_tareapreparatoria", "servicios.view_caso",
     "servicios.add_caso", "servicios.change_caso", "servicios.add_gestion", "servicios.change_gestion", "servicios.view_compromiso",
     "servicios.add_compromiso", "servicios.change_compromiso", "oficina.view_carta", "oficina.change_carta", "oficina.view_beneficionino",
@@ -62,6 +64,7 @@ ACCESO_WEB = {
     "/servicios/agenda/": (200, 403, 200, 302),
     "/servicios/agenda/nueva/": (200, 403, 200, 302),
     "/servicios/aprobaciones/": (200, 200, 403, 302),
+    "/servicios/evidencias/": (200, 200, 403, 302),
     "/servicios/agenda/resumen/": (200, 200, 403, 302),
     "/servicios/matriz/resumen/": (200, 200, 403, 302),
     "/servicios/consulta/": (200, 200, 403, 302),
@@ -124,6 +127,12 @@ class MatrizDePermisosTest(BasePermisos):
         self.assertFalse(administrativo.has_perm("servicios.aprobar_actividad"))
         self.assertTrue(administrativo.has_perm("servicios.add_actividad"))
         self.assertFalse(supervisor.has_perm("servicios.add_actividad"))
+        self.assertTrue(administrativo.has_perm("servicios.add_evidencia"))
+        self.assertFalse(administrativo.has_perm("servicios.aprobar_evidencia"))
+        self.assertTrue(supervisor.has_perm("servicios.aprobar_evidencia"))
+        self.assertFalse(supervisor.has_perm("servicios.add_evidencia"))
+        self.assertTrue(administrador.has_perm("servicios.add_evidencia"))
+        self.assertTrue(administrador.has_perm("servicios.aprobar_evidencia"))
         self.assertFalse(supervisor.has_perm("auth.change_user"))
         self.assertTrue(administrador.has_perm("auth.change_user"))
         self.assertTrue(administrador.has_perm("organizaciones.delete_organizacioncomunitaria"))
@@ -143,6 +152,11 @@ class MatrizDePermisosTest(BasePermisos):
             GRUPO_ADMINISTRADOR: ["Ver", "Agregar", "Modificar", "Eliminar", "Aprobar"],
             GRUPO_SUPERVISOR: ["Ver", "Aprobar"],
             GRUPO_ADMINISTRATIVO: ["Ver", "Agregar", "Modificar"],
+        })
+        self.assertEqual(por_recurso["Evidencias"], {
+            GRUPO_ADMINISTRADOR: ["Ver", "Agregar", "Modificar", "Eliminar", "Aprobar"],
+            GRUPO_SUPERVISOR: ["Ver", "Aprobar"],
+            GRUPO_ADMINISTRATIVO: ["Ver", "Agregar"],
         })
         self.assertEqual(por_recurso["Organizaciones comunitarias"][GRUPO_SUPERVISOR], ["Ver", "Agregar", "Modificar", "Verificar"])
         self.assertEqual(por_recurso["Ausencias"][GRUPO_SUPERVISOR], ["Ver", "Agregar", "Anular"])
