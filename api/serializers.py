@@ -269,18 +269,44 @@ class CartaSeguimientoSerializer(ValidacionModeloMixin, serializers.ModelSeriali
 
 
 class TareaSerializer(serializers.ModelSerializer):
-    tipo_texto = serializers.CharField(source="get_tipo_display", read_only=True)
+    tipo_texto = serializers.CharField(source="get_tipo_display", read_only=True, label="Tipo de gestión")
 
     class Meta:
         model = TareaPreparatoria
         fields = ["id", "tipo", "tipo_texto", "descripcion", "realizada", "realizada_en"]
         read_only_fields = ["realizada", "realizada_en"]
+        extra_kwargs = {
+            "tipo": {"label": "Tipo de gestión", "help_text": "Siempre «otra» (Otra gestión)."},
+            "descripcion": {"label": "Gestión", "help_text": "Texto libre de la tarea. Ejemplo: Gestión de sillas."},
+        }
 
 
 class TareaEntradaSerializer(serializers.ModelSerializer):
+    tipo = serializers.ChoiceField(
+        choices=TareaPreparatoria.TIPOS,
+        label="Tipo de gestión",
+        help_text="Única opción: otra (Otra gestión). El nombre de la tarea va en descripcion.",
+        error_messages={"invalid_choice": "La única opción es «Otra gestión». Escribe el nombre de la tarea en el texto."},
+    )
+    descripcion = serializers.CharField(
+        max_length=280,
+        label="Gestión",
+        help_text="Texto libre de la gestión. Ejemplo: Gestión de sillas.",
+        error_messages={
+            "blank": "Escribe la gestión, por ejemplo «Gestión de sillas».",
+            "required": "Escribe la gestión, por ejemplo «Gestión de sillas».",
+        },
+    )
+
     class Meta:
         model = TareaPreparatoria
         fields = ["tipo", "descripcion"]
+
+    def validate_descripcion(self, valor):
+        valor = (valor or "").strip()
+        if not valor:
+            raise serializers.ValidationError("Escribe la gestión, por ejemplo «Gestión de sillas».")
+        return valor
 
 
 class TareaMarcaSerializer(serializers.Serializer):
@@ -380,7 +406,7 @@ class ActividadEntradaSerializer(ActividadEdicionSerializer):
         queryset=Funcionario.objects.filter(activo=True), required=False, write_only=True,
         help_text="Solo el Administrador lo indica. Para el Administrativo se usa su propia ficha.",
     )
-    tareas = TareaEntradaSerializer(many=True, help_text=f"Entre 1 y {MAXIMO_TAREAS} tareas preparatorias.")
+    tareas = TareaEntradaSerializer(many=True, help_text=f"Entre 1 y {MAXIMO_TAREAS} tareas. Cada una es «Otra gestión» más un texto libre, por ejemplo «Gestión de sillas».")
 
     class Meta(ActividadEdicionSerializer.Meta):
         fields = ActividadEdicionSerializer.Meta.fields + ["funcionario", "tareas"]

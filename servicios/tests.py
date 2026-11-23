@@ -213,8 +213,8 @@ class MantenedoresCristhopherTest(TestCase):
 			"tareas-INITIAL_FORMS": "0",
 			"tareas-MIN_NUM_FORMS": "0",
 			"tareas-MAX_NUM_FORMS": "1000",
-			"tareas-0-tipo": "sillas",
-			"tareas-0-descripcion": "20 sillas",
+			"tareas-0-tipo": "otra",
+			"tareas-0-descripcion": "Gestión de sillas",
 		}
 		datos.update(extra)
 		return datos
@@ -523,20 +523,20 @@ class TransaccionRegistrarActividadTest(TestCase):
 		self.item = ItemMedicion.objects.create(codigo="TX-001", nombre="Ítem tx")
 		self.periodo = Periodo.objects.create(nombre="Período tx", fecha_inicio=date(2026, 1, 1), fecha_termino=date(2026, 12, 31))
 
-	def _actividad(self, fecha=HOY_PRUEBAS, tareas=("sillas", "colacion")):
+	def _actividad(self, fecha=HOY_PRUEBAS, tareas=("Gestión de sillas", "Gestión de colación")):
 		from .models import TareaPreparatoria
 		from .transacciones import registrar_actividad
 
 		actividad = Actividad(periodo=self.periodo, item=self.item, fecha=fecha, descripcion="Celebración vecinal", accion="Coordinar")
-		return registrar_actividad(actividad, [TareaPreparatoria(tipo=tipo) for tipo in tareas], self.funcionario, self.user)
+		return registrar_actividad(actividad, [TareaPreparatoria(tipo="otra", descripcion=texto) for texto in tareas], self.funcionario, self.user)
 
 	def _datos(self, fecha="2026-06-17", **extra):
 		datos = {
 			"fecha": fecha, "periodo": str(self.periodo.pk), "item": str(self.item.pk),
 			"descripcion": "Día del niño", "accion": "Coordinación", "contacto": "JJVV", "telefono": "+56 9 1234 5678",
 			"tareas-TOTAL_FORMS": "4", "tareas-INITIAL_FORMS": "0", "tareas-MIN_NUM_FORMS": "0", "tareas-MAX_NUM_FORMS": "1000",
-			"tareas-0-tipo": "regalos", "tareas-0-descripcion": "50 regalos",
-			"tareas-1-tipo": "local", "tareas-1-descripcion": "Sede vecinal",
+			"tareas-0-tipo": "otra", "tareas-0-descripcion": "Gestión de regalos",
+			"tareas-1-tipo": "otra", "tareas-1-descripcion": "Reserva de la sede vecinal",
 		}
 		datos.update(extra)
 		return datos
@@ -547,6 +547,10 @@ class TransaccionRegistrarActividadTest(TestCase):
 		actividad = Actividad.objects.get()
 		self.assertContains(respuesta, "2 tareas preparatorias")
 		self.assertEqual(actividad.tareas.count(), 2)
+		self.assertEqual(
+			set(actividad.tareas.values_list("tipo", "descripcion")),
+			{("otra", "Gestión de regalos"), ("otra", "Reserva de la sede vecinal")},
+		)
 		self.assertEqual(actividad.estado, "pendiente")
 		from .models import Auditoria
 		self.assertTrue(Auditoria.objects.filter(accion="registrar_actividad", identificador=str(actividad.codigo_evidencia)).exists())
@@ -558,13 +562,75 @@ class TransaccionRegistrarActividadTest(TestCase):
 		self.assertContains(respuesta, "al menos una tarea")
 		self.assertEqual(Actividad.objects.count(), 0)
 
+	def test_el_formulario_ofrece_solo_otra_gestion_y_texto_libre(self):
+		self.client.force_login(self.user)
+		pagina = self.client.get(reverse("servicios:actividad_nueva"))
+		self.assertContains(pagina, "Otra gestión")
+		self.assertContains(pagina, "Gestión de sillas")
+		self.assertNotContains(pagina, "Solicitar sillas y mesas")
+		self.assertNotContains(pagina, "Solicitar colación")
+		self.assertNotContains(pagina, "Contratar animadores")
+
+		sin_texto = self.client.post(reverse("servicios:actividad_nueva"), self._datos(**{
+			"tareas-0-tipo": "otra", "tareas-0-descripcion": "   ",
+			"tareas-1-tipo": "", "tareas-1-descripcion": "",
+		}))
+		self.assertContains(sin_texto, "Escribe la gestión")
+		self.assertEqual(Actividad.objects.count(), 0)
+
+		catalogo = self.client.post(reverse("servicios:actividad_nueva"), self._datos(**{
+			"tareas-0-tipo": "sillas", "tareas-0-descripcion": "20 sillas",
+			"tareas-1-tipo": "", "tareas-1-descripcion": "",
+		}))
+		self.assertContains(catalogo, "La única opción es «Otra gestión»")
+		self.assertEqual(Actividad.objects.count(), 0)
+
+	def test_el_catalogo_antiguo_queda_en_el_texto(self):
+		import importlib
+
+		from django.apps import apps
+
+		from .models import TareaPreparatoria
+
+		migracion = importlib.import_module("servicios.migrations.0007_tarea_texto_libre")
+		pasar_catalogo_a_texto = migracion.pasar_catalogo_a_texto
+		texto_libre_desde_catalogo = migracion.texto_libre_desde_catalogo
+
+		self.assertEqual(texto_libre_desde_catalogo("sillas", "20 sillas"), "Solicitar sillas y mesas: 20 sillas")
+		self.assertEqual(texto_libre_desde_catalogo("sillas", ""), "Solicitar sillas y mesas")
+		self.assertEqual(texto_libre_desde_catalogo("sillas", "Solicitar sillas y mesas"), "Solicitar sillas y mesas")
+		self.assertEqual(texto_libre_desde_catalogo("difusion", "Afiches"), "Difusión e invitaciones: Afiches")
+		self.assertEqual(texto_libre_desde_catalogo("otra", "Gestión de sillas"), "Gestión de sillas")
+		self.assertEqual(texto_libre_desde_catalogo("otra", ""), "Otra gestión")
+
+		actividad = self._actividad(tareas=("Gestión de sillas",))
+		TareaPreparatoria.objects.create(actividad=actividad, tipo="colacion", descripcion="Colación para 40 personas")
+		TareaPreparatoria.objects.create(actividad=actividad, tipo="local", descripcion="")
+		TareaPreparatoria.objects.create(actividad=actividad, tipo="animacion", descripcion="Grupo folclórico")
+		pasar_catalogo_a_texto(apps, None)
+		self.assertEqual(Actividad.objects.count(), 1)
+		self.assertEqual(
+			set(actividad.tareas.values_list("tipo", "descripcion")),
+			{
+				("otra", "Gestión de sillas"),
+				("otra", "Solicitar colación: Colación para 40 personas"),
+				("otra", "Reservar local o espacio"),
+				("otra", "Contratar animadores o artistas: Grupo folclórico"),
+			},
+		)
+
 	def test_error_en_una_tarea_revierte_toda_la_transaccion(self):
 		from .models import TareaPreparatoria
 		from .transacciones import registrar_actividad
 
 		actividad = Actividad(periodo=self.periodo, item=self.item, fecha=HOY_PRUEBAS, descripcion="X", accion="Y")
 		with self.assertRaises(ValidationError):
-			registrar_actividad(actividad, [TareaPreparatoria(tipo="sillas"), TareaPreparatoria(tipo="no-existe")], self.funcionario, self.user)
+			registrar_actividad(
+				actividad,
+				[TareaPreparatoria(tipo="otra", descripcion="Gestión de sillas"), TareaPreparatoria(tipo="no-existe", descripcion="Texto")],
+				self.funcionario,
+				self.user,
+			)
 		self.assertEqual(Actividad.objects.count(), 0)
 		self.assertEqual(TareaPreparatoria.objects.count(), 0)
 
@@ -591,7 +657,7 @@ class TransaccionRegistrarActividadTest(TestCase):
 		from .transacciones import revisar_actividad
 
 		meta = Meta.objects.create(periodo=self.periodo, item=self.item, funcionario=self.funcionario, objetivo=1, ponderador=100)
-		actividad = self._actividad(tareas=("sillas",))
+		actividad = self._actividad(tareas=("Gestión de sillas",))
 		with self.assertRaises(ValidationError):
 			revisar_actividad(actividad, "rechazar", self.supervisor, "")
 		revisar_actividad(actividad, "rechazar", self.supervisor, "Sin respaldo")
@@ -600,7 +666,7 @@ class TransaccionRegistrarActividadTest(TestCase):
 	def test_tope_de_120_por_item(self):
 		meta = Meta.objects.create(periodo=self.periodo, item=self.item, funcionario=self.funcionario, objetivo=2, ponderador=100)
 		for dia in (15, 16, 17):
-			actividad = self._actividad(fecha=date(2026, 6, dia), tareas=("sillas",))
+			actividad = self._actividad(fecha=date(2026, 6, dia), tareas=("Gestión de sillas",))
 			actividad.tareas.update(realizada=True)
 			Actividad.objects.filter(pk=actividad.pk).update(estado="validada")
 		self.assertEqual(meta.avance_aprobado, 3)
@@ -608,11 +674,11 @@ class TransaccionRegistrarActividadTest(TestCase):
 
 	def test_maximo_siete_actividades_por_dia(self):
 		for _ in range(7):
-			self._actividad(tareas=("sillas",))
+			self._actividad(tareas=("Gestión de sillas",))
 		with self.assertRaisesMessage(ValidationError, "máximo diario"):
-			self._actividad(tareas=("sillas",))
+			self._actividad(tareas=("Gestión de sillas",))
 		Actividad.objects.filter(pk=Actividad.objects.first().pk).update(estado="anulada")
-		self._actividad(tareas=("sillas",))
+		self._actividad(tareas=("Gestión de sillas",))
 		self.assertEqual(Actividad.objects.exclude(estado="anulada").filter(fecha=HOY_PRUEBAS).count(), 7)
 
 	def test_solo_dias_habiles_de_la_semana_en_curso(self):
@@ -634,7 +700,7 @@ class TransaccionRegistrarActividadTest(TestCase):
 	def test_semana_cerrada_bloquea_tareas_edicion_y_aprobacion(self):
 		from .transacciones import marcar_tarea, revisar_actividad
 
-		actividad = self._actividad(tareas=("sillas",))
+		actividad = self._actividad(tareas=("Gestión de sillas",))
 		fijar_hoy(self, date(2026, 6, 22))
 		with self.assertRaisesMessage(ValidationError, "bloqueada"):
 			marcar_tarea(actividad.tareas.first(), True, self.user)
@@ -647,7 +713,7 @@ class TransaccionRegistrarActividadTest(TestCase):
 		self.assertRedirects(self.client.get(reverse("servicios:actividad_editar", args=[actividad.pk])), reverse("servicios:actividad_detalle", args=[actividad.pk]))
 
 	def test_supervisor_aprueba_solo_su_delegacion_y_administrativo_no_aprueba(self):
-		actividad = self._actividad(tareas=("sillas",))
+		actividad = self._actividad(tareas=("Gestión de sillas",))
 		actividad.tareas.update(realizada=True)
 		self.client.force_login(self.user)
 		self.assertEqual(self.client.post(reverse("servicios:actividad_revisar", args=[actividad.pk]), {"decision": "aprobar"}).status_code, 403)

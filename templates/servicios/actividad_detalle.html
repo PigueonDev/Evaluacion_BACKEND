@@ -31,7 +31,7 @@
         <ul class="list-group mb-4">
             {% for tarea in tareas %}
             <li class="list-group-item d-flex justify-content-between align-items-center gap-2">
-                <span>{% if tarea.realizada %}<span class="badge text-bg-success me-2">Realizada</span>{% else %}<span class="badge text-bg-warning me-2">Pendiente</span>{% endif %}<strong>{{ tarea.get_tipo_display }}</strong>{% if tarea.descripcion %} · {{ tarea.descripcion }}{% endif %}</span>
+                <span>{% if tarea.realizada %}<span class="badge text-bg-success me-2">Realizada</span>{% else %}<span class="badge text-bg-warning me-2">Pendiente</span>{% endif %}<strong>{{ tarea.descripcion|default:tarea.get_tipo_display }}</strong>{% if tarea.descripcion and tarea.descripcion != tarea.get_tipo_display %} <span class="text-secondary">({{ tarea.get_tipo_display }})</span>{% endif %}</span>
                 {% if editable %}
                 <form method="post" action="{% url 'servicios:tarea_marcar' actividad.pk tarea.pk %}">
                     {% csrf_token %}

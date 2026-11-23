@@ -100,16 +100,23 @@ class ActividadForm(forms.ModelForm):
 
 class TareaForm(forms.Form):
 	tipo = forms.ChoiceField(
-		label="Tarea",
-		choices=[("", "Selecciona una tarea")] + TareaPreparatoria.TIPOS,
+		label="Tipo de gestión",
+		choices=[("", "Selecciona una tarea"), *TareaPreparatoria.TIPOS],
 		widget=forms.Select(attrs={"class": "form-select"}),
+		error_messages={
+			"required": "Elige «Otra gestión».",
+			"invalid_choice": "La única opción es «Otra gestión». Escribe el nombre de la tarea en el texto.",
+		},
 	)
 	descripcion = forms.CharField(
-		label="Detalle",
-		max_length=200,
-		required=False,
-		widget=forms.TextInput(attrs={"class": "form-control", "placeholder": "Ej.: 40 sillas a Bodega municipal"}),
+		label="Gestión",
+		max_length=280,
+		widget=forms.TextInput(attrs={"class": "form-control", "placeholder": "Ej.: Gestión de sillas"}),
+		error_messages={"required": "Escribe la gestión, por ejemplo «Gestión de sillas»."},
 	)
+
+	def clean_descripcion(self):
+		return (self.cleaned_data.get("descripcion") or "").strip()
 
 
 class TareaFormSetBase(forms.BaseFormSet):

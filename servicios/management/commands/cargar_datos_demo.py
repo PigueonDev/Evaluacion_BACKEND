@@ -151,9 +151,9 @@ class Command(BaseCommand):
                 defaults={"accion": "Coordinación con club de adulto mayor", "fecha": hoy, "contacto": "Presidenta del club", "telefono": "+56 9 3333 4444"},
             )
             if creada:
-                TareaPreparatoria.objects.create(actividad=pendiente, tipo="sillas", descripcion="40 sillas y 6 mesas", realizada=True, realizada_en=timezone.now())
-                TareaPreparatoria.objects.create(actividad=pendiente, tipo="colacion", descripcion="Colación para 40 personas")
-                TareaPreparatoria.objects.create(actividad=pendiente, tipo="animacion", descripcion="Grupo folclórico")
+                TareaPreparatoria.objects.create(actividad=pendiente, tipo="otra", descripcion="Gestión de sillas", realizada=True, realizada_en=timezone.now())
+                TareaPreparatoria.objects.create(actividad=pendiente, tipo="otra", descripcion="Gestión de colación para 40 personas")
+                TareaPreparatoria.objects.create(actividad=pendiente, tipo="otra", descripcion="Gestión de animación: grupo folclórico")
 
         ingreso = max(periodo.fecha_inicio, hoy - timedelta(days=20))
         caso, _ = Caso.objects.get_or_create(

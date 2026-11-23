@@ -303,20 +303,26 @@ class Actividad(models.Model):
 
 
 class TareaPreparatoria(models.Model):
-	"""Gestión previa a la actividad (sillas, colación, regalos...). Nunca suma al cumplimiento por sí sola."""
+	"""Gestión previa escrita en texto libre. Nunca suma al cumplimiento por sí sola.
 
-	TIPOS = [
-		("sillas", "Solicitar sillas y mesas"),
-		("colacion", "Solicitar colación"),
-		("regalos", "Solicitar regalos"),
-		("local", "Reservar local o espacio"),
-		("animacion", "Contratar animadores o artistas"),
-		("difusion", "Difusión e invitaciones"),
-		("otra", "Otra gestión"),
-	]
+	El catálogo fijo (sillas, colación, regalos, local, animación, difusión) quedó
+	en el texto: la migración copia esa etiqueta dentro de «gestión».
+	"""
+
+	TIPOS = [("otra", "Otra gestión")]
 	actividad = models.ForeignKey(Actividad, on_delete=models.CASCADE, related_name="tareas")
-	tipo = models.CharField(max_length=20, choices=TIPOS)
-	descripcion = models.CharField("descripción", max_length=200, blank=True)
+	tipo = models.CharField(
+		"tipo de gestión",
+		max_length=20,
+		choices=TIPOS,
+		default="otra",
+		error_messages={"invalid_choice": "La única opción es «Otra gestión». Escribe el nombre de la tarea en el texto."},
+	)
+	descripcion = models.CharField(
+		"gestión",
+		max_length=280,
+		error_messages={"blank": "Escribe la gestión, por ejemplo «Gestión de sillas»."},
+	)
 	realizada = models.BooleanField(default=False)
 	realizada_en = models.DateTimeField(null=True, blank=True)
 
@@ -324,6 +330,11 @@ class TareaPreparatoria(models.Model):
 		ordering = ["pk"]
 		verbose_name = "tarea preparatoria"
 		verbose_name_plural = "tareas preparatorias"
+
+	def clean(self):
+		self.descripcion = (self.descripcion or "").strip()
+		if not self.descripcion:
+			raise ValidationError({"descripcion": "Escribe la gestión, por ejemplo «Gestión de sillas»."})
 
 	def __str__(self):
 		return self.descripcion or self.get_tipo_display()

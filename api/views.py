@@ -392,7 +392,7 @@ def cartas_exportar(request, formato):
 EJEMPLO_ACTIVIDAD = {
     "fecha": "2026-11-17", "periodo": 2, "item": 7, "descripcion": "Taller de huertos urbanos con la JJVV Villa Alegre",
     "accion": "Se coordinó el taller y se inscribieron 25 vecinos.", "contacto": "María González (presidenta)", "telefono": "+56 9 1234 5678",
-    "derivado_a": None, "compromiso": None, "tareas": [{"tipo": "sillas", "descripcion": "30 sillas a la sede"}, {"tipo": "difusion", "descripcion": "Afiches y WhatsApp"}],
+    "derivado_a": None, "compromiso": None, "tareas": [{"tipo": "otra", "descripcion": "Gestión de sillas"}, {"tipo": "otra", "descripcion": "Gestión de afiches y WhatsApp"}],
 }
 
 
