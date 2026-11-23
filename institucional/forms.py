@@ -9,7 +9,7 @@ from django.contrib.auth.validators import UnicodeUsernameValidator
 from django.core.exceptions import ValidationError
 from django.db import transaction
 
-from laserena.permisos import ACCIONES, GRUPO_ADMINISTRADOR, GRUPOS_SGR, accion_del_permiso, asignar_grupo, grupo_usuario, nombre_recurso, permisos_del_sistema
+from laserena.permisos import ACCIONES, GRUPO_ADMINISTRADOR, GRUPOS_SGR, accion_del_permiso, asignar_grupo, grupo_usuario, nombre_recurso, orden_alfabetico, permisos_del_sistema
 
 from .models import Cargo, Delegacion, Funcionario, UnidadMunicipal
 
@@ -233,7 +233,7 @@ class GrupoForm(forms.ModelForm):
             accion = accion_del_permiso(permiso.codename, permiso.content_type.model)
             orden = ACCIONES.index(accion) if accion in ACCIONES else len(ACCIONES)
             grupos.setdefault(nombre_recurso(permiso.content_type), []).append((orden, opcion))
-        return [(recurso, [opcion for _, opcion in sorted(opciones, key=lambda par: par[0])]) for recurso, opciones in sorted(grupos.items())]
+        return [(recurso, [opcion for _, opcion in sorted(opciones, key=lambda par: par[0])]) for recurso, opciones in sorted(grupos.items(), key=lambda par: orden_alfabetico(par[0]))]
 
     def clean_name(self):
         nombre = " ".join(self.cleaned_data["name"].split())

@@ -10,6 +10,7 @@ Orden del módulo:
 7. Sincronización de grupos y nombres de permisos en español (después de cada migrate).
 """
 
+import unicodedata
 from functools import wraps
 
 from django.conf import settings
@@ -114,6 +115,11 @@ def nombre_recurso(tipo):
     modelo = tipo.model_class()
     texto = str(modelo._meta.verbose_name_plural) if modelo else tipo.model
     return texto[:1].upper() + texto[1:]
+
+
+def orden_alfabetico(texto):
+    """Clave de orden que ignora tildes («Ítems» va junto a la «I»)."""
+    return unicodedata.normalize("NFKD", texto).encode("ascii", "ignore").decode().lower()
 
 
 def nombre_permiso(accion, verbose_name):
@@ -420,5 +426,5 @@ def matriz_permisos(grupos=None):
                 celdas.append([a.capitalize() for a in acciones])
             filas.append({"aplicacion": tipo.app_label, "recurso": etiqueta, "celdas": celdas})
     orden_apps = ("auth",) + APPS_ADMINISTRADOR
-    filas.sort(key=lambda f: (orden_apps.index(f["aplicacion"]), f["recurso"]))
+    filas.sort(key=lambda f: (orden_apps.index(f["aplicacion"]), orden_alfabetico(f["recurso"])))
     return [g.name for g in grupos], filas
