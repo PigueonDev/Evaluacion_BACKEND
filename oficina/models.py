@@ -157,7 +157,7 @@ class Ausencia(models.Model):
 	ESTADOS = [("vigente", "Vigente"), ("anulada", "Anulada")]
 
 	funcionario = models.ForeignKey("institucional.Funcionario", on_delete=models.PROTECT, related_name="ausencias")
-	periodo = models.ForeignKey("servicios.Periodo", on_delete=models.PROTECT, related_name="ausencias")
+	periodo = models.ForeignKey("servicios.Periodo", on_delete=models.PROTECT, related_name="ausencias", verbose_name="período")
 	fecha_inicio = models.DateField("desde")
 	fecha_termino = models.DateField("hasta")
 	motivo = models.CharField("motivo", max_length=20, choices=MOTIVOS)
@@ -169,6 +169,8 @@ class Ausencia(models.Model):
 	anulada_en = models.DateTimeField(null=True, blank=True)
 
 	class Meta:
+		verbose_name = "ausencia"
+		verbose_name_plural = "ausencias"
 		ordering = ["-fecha_inicio"]
 		permissions = [("anular_ausencia", "Puede anular una ausencia y restituir las metas")]
 
@@ -192,6 +194,8 @@ class AjusteMeta(models.Model):
 	semaforo_nuevo = models.CharField(max_length=10)
 
 	class Meta:
+		verbose_name = "ajuste de meta"
+		verbose_name_plural = "ajustes de meta"
 		ordering = ["meta__item__nombre"]
 
 

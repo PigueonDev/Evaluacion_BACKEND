@@ -121,14 +121,14 @@ class _ConLimiteDeIntentos:
 
 @extend_schema(
     tags=["Autenticación JWT"], auth=[],
-    summary="Obtener access y refresh token",
-    description="Entrega un **access token** (15 min) y un **refresh token** (8 h) a una cuenta activa del SGR. Copia `access` en **Authorize**.",
+    summary="Obtener el token de acceso y el de renovación",
+    description="Entrega un **token de acceso** (`access`, 15 min) y un **token de renovación** (`refresh`, 8 h) a una cuenta activa del SGR. Los nombres `username`, `password`, `access` y `refresh` son los del estándar JWT de SimpleJWT. Copia el valor de `access` en el botón **Authorize** (Autorizar) de Swagger.",
     examples=[
         OpenApiExample("Credenciales", value={"username": "admin.demo", "password": "Serena-demo-2026"}, request_only=True),
         OpenApiExample("Tokens emitidos", value=EJEMPLO_TOKEN, response_only=True, status_codes=["200"]),
     ],
     responses={200: TokenRespuestaSerializer, 400: ERROR_400, 401: OpenApiResponse(ErrorSerializer, description="Usuario o contraseña incorrectos, o cuenta sin perfil SGR.", examples=[
-        OpenApiExample("Credenciales inválidas", value={"error": {"codigo": 401, "tipo": "no_autenticado", "mensaje": "No se encontró una cuenta de usuario activa para las credenciales dadas"}}),
+        OpenApiExample("Credenciales inválidas", value={"error": {"codigo": 401, "tipo": "no_autenticado", "mensaje": "Usuario o contraseña incorrectos, o la cuenta no tiene un perfil activo del SGR."}}),
     ]), 429: OpenApiResponse(ErrorSerializer, description="Demasiados intentos desde la misma IP.")},
 )
 class ObtenerTokenView(_ConLimiteDeIntentos, TokenObtainPairView):
@@ -137,9 +137,9 @@ class ObtenerTokenView(_ConLimiteDeIntentos, TokenObtainPairView):
 
 @extend_schema(
     tags=["Autenticación JWT"], auth=[],
-    summary="Renovar el access token",
-    description="Recibe el refresh token y entrega un access nuevo **y un refresh nuevo**: el anterior queda en la lista negra (rotación).",
-    responses={200: OpenApiResponse(description="Nuevo access y refresh."), 400: ERROR_400, 401: ERROR_401},
+    summary="Renovar el token de acceso",
+    description="Recibe el token de renovación (`refresh`) y entrega un token de acceso nuevo **y un token de renovación nuevo**: el anterior queda en la lista negra (rotación).",
+    responses={200: OpenApiResponse(description="Nuevo token de acceso y nuevo token de renovación."), 400: ERROR_400, 401: ERROR_401},
 )
 class RenovarTokenView(_ConLimiteDeIntentos, TokenRefreshView):
     pass
@@ -151,9 +151,9 @@ class VerificarTokenView(_ConLimiteDeIntentos, TokenVerifyView):
     pass
 
 
-@extend_schema(tags=["Autenticación JWT"], auth=[], summary="Cerrar sesión (revocar refresh token)",
-               description="Agrega el refresh token a la lista negra: ya no sirve para pedir access tokens nuevos.",
-               responses={200: OpenApiResponse(description="Refresh token revocado."), 401: ERROR_401})
+@extend_schema(tags=["Autenticación JWT"], auth=[], summary="Cerrar sesión (revocar el token de renovación)",
+               description="Agrega el token de renovación a la lista negra: ya no sirve para pedir tokens de acceso nuevos.",
+               responses={200: OpenApiResponse(description="Token de renovación revocado."), 401: ERROR_401})
 class RevocarTokenView(_ConLimiteDeIntentos, TokenBlacklistView):
     pass
 
@@ -178,8 +178,8 @@ def perfil_actual(request):
 # --- Mantenedor 1: usuarios ---------------------------------------------------------------------------
 
 EJEMPLO_USUARIO = {
-    "username": "territorial.norte", "first_name": "Paula", "last_name": "Rojas", "email": "paula.rojas@laserena.cl",
-    "perfil": "Administrativo", "is_active": True, "identificador": "F-210", "delegacion": 1, "cargo": 5, "codigo_area": "COM2",
+    "usuario": "territorial.norte", "nombres": "Paula", "apellidos": "Rojas", "correo": "paula.rojas@laserena.cl",
+    "perfil": "Administrativo", "activo": True, "identificador": "F-210", "delegacion": 1, "cargo": 5, "codigo_area": "COM2",
     "clave": "Territorio-Norte-2026", "clave_confirmacion": "Territorio-Norte-2026",
 }
 
@@ -326,7 +326,7 @@ PARAMETROS_CARTAS = [
     request=CartaAdminSerializer,
     examples=[
         OpenApiExample("Nueva carta", value=EJEMPLO_CARTA, request_only=True),
-        OpenApiExample("Carta creada", value={"id": 12, "folio": "OP-2026-0012", **EJEMPLO_CARTA, "estado_display": "Ingresada", "vencida": False}, response_only=True, status_codes=["201"]),
+        OpenApiExample("Carta creada", value={"id": 12, "folio": "OP-2026-0012", **EJEMPLO_CARTA, "estado_texto": "Ingresada", "vencida": False}, response_only=True, status_codes=["201"]),
     ],
     responses={201: CartaAdminSerializer, **ERRORES_ESCRITURA},
 )
