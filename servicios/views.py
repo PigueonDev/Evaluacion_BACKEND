@@ -146,7 +146,7 @@ def actividades(request):
     if estado:
         queryset = queryset.filter(estado=estado)
     if busqueda:
-        queryset = queryset.filter(Q(descripcion__icontains=busqueda) | Q(funcionario__nombre_completo__icontains=busqueda) | Q(item__nombre__icontains=busqueda))
+        queryset = queryset.filter(Q(descripcion__icontains=busqueda) | Q(solicitante__icontains=busqueda) | Q(funcionario__nombre_completo__icontains=busqueda) | Q(item__nombre__icontains=busqueda))
     contexto = {"actividades": queryset, "estado_activo": estado, "busqueda": busqueda, "pagina_activa": "actividades"}
     return render(request, "servicios/actividades.html", contexto)
 
@@ -326,7 +326,7 @@ def casos(request):
     queryset = _casos_ambito(request.user)
     busqueda = texto_busqueda(request)
     if busqueda:
-        queryset = queryset.filter(Q(identificacion__icontains=busqueda) | Q(nombre__icontains=busqueda))
+        queryset = queryset.filter(Q(identificacion__icontains=busqueda) | Q(nombre__icontains=busqueda) | Q(solicitante__icontains=busqueda))
     return render(
         request,
         "servicios/casos.html",
@@ -673,7 +673,7 @@ def consulta(request):
         actividades = actividades.filter(fecha__lte=hasta)
     if busqueda:
         actividades = actividades.filter(
-            Q(descripcion__icontains=busqueda) | Q(accion__icontains=busqueda) | Q(funcionario__nombre_completo__icontains=busqueda)
+            Q(descripcion__icontains=busqueda) | Q(solicitante__icontains=busqueda) | Q(accion__icontains=busqueda) | Q(funcionario__nombre_completo__icontains=busqueda)
             | Q(codigo_verificador__iexact=busqueda.replace(" ", ""))
         )
     contexto = {

@@ -10,6 +10,7 @@
     <article class="tarjeta-info mb-4">
         <dl class="ficha-datos">
             <div><dt>Identificación principal</dt><dd><code>{{ caso.identificacion }}</code></dd></div>
+            <div><dt>Solicitante</dt><dd>{{ caso.solicitante|default:"Sin solicitante" }}</dd></div>
             <div><dt>Delegación</dt><dd>{{ caso.delegacion.nombre }}</dd></div>
             {% if caso.rut or caso.telefono %}<div><dt>RUT y teléfono</dt><dd>{{ caso.rut|default:"Sin RUT" }} · {{ caso.telefono|default:"Sin teléfono" }}</dd></div>{% endif %}
             {% if caso.tipo_atencion %}<div><dt>Atención</dt><dd>{{ caso.get_tipo_atencion_display }}{% if caso.sub_atencion %} · {{ caso.get_sub_atencion_display }}{% endif %}{% if caso.forma %} <span class="text-secondary">(forma: {{ caso.forma }})</span>{% endif %}</dd></div>{% endif %}

@@ -148,7 +148,7 @@ class Command(BaseCommand):
                 periodo=periodo,
                 item=item_atencion,
                 descripcion="Celebración Día del Adulto Mayor en sede vecinal",
-                defaults={"accion": "Coordinación con club de adulto mayor", "fecha": hoy, "contacto": "Presidenta del club", "telefono": "+56 9 3333 4444"},
+                defaults={"accion": "Coordinación con club de adulto mayor", "fecha": hoy, "solicitante": "Club de Adulto Mayor Renacer", "contacto": "Presidenta del club", "telefono": "+56 9 3333 4444"},
             )
             if creada:
                 TareaPreparatoria.objects.create(actividad=pendiente, tipo="otra", descripcion="Gestión de sillas", realizada=True, realizada_en=timezone.now())
@@ -160,6 +160,7 @@ class Command(BaseCommand):
             identificacion="CASO-DEMO-001",
             defaults={
                 "nombre": "Persona usuaria de demostración",
+                "solicitante": "Dirigente vecinal de demostración",
                 "delegacion": delegacion,
                 "tipo_atencion": "informes_sociales",
                 "sub_atencion": "informe_aporte_material",
@@ -226,7 +227,7 @@ def _actividades_matriz(funcionario, periodo, hoy, factor, revisor):
         for numero in range(existentes, esperadas):
             Actividad.objects.create(
                 funcionario=funcionario, periodo=periodo, item=item, fecha=dias[indice % len(dias)],
-                descripcion=f"{item.nombre} · registro {numero + 1}", accion=ACCION_DEMO, estado="validada",
+                descripcion=f"{item.nombre} · registro {numero + 1}", accion=ACCION_DEMO, solicitante="Vecino de demostración", estado="validada",
                 revisada_por=revisor, revisada_en=timezone.now(),
             )
             indice += 1

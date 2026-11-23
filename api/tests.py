@@ -319,8 +319,8 @@ class ActividadesAPITest(BaseAPI):
 
     def datos(self, **extra):
         datos = {"fecha": HOY_PRUEBAS.isoformat(), "periodo": self.periodo.pk, "item": self.item.pk, "descripcion": "Taller de huertos",
-                 "accion": "Se inscribieron 25 vecinos", "contacto": "María González", "telefono": "+56 9 1234 5678",
-                 "tareas": [{"tipo": "otra", "descripcion": "Gestión de sillas"}, {"tipo": "otra", "descripcion": "Gestión de afiches"}]}
+                 "accion": "Se inscribieron 25 vecinos", "solicitante": "Junta de vecinos Villa Alegre", "contacto": "María González", "telefono": "+56 9 1234 5678",
+                 "tareas": [{"descripcion": "Gestión de sillas"}, {"descripcion": "Gestión de afiches"}]}
         datos.update(extra)
         return datos
 
@@ -335,10 +335,9 @@ class ActividadesAPITest(BaseAPI):
         self.assertEqual(actividad["estado"], "pendiente")
         self.assertEqual(actividad["funcionario_nombre"], "Ana Funcionaria")
         self.assertEqual(len(actividad["tareas"]), 2)
-        self.assertEqual(
-            {(tarea["tipo"], tarea["descripcion"], tarea["tipo_texto"]) for tarea in actividad["tareas"]},
-            {("otra", "Gestión de sillas", "Otra gestión"), ("otra", "Gestión de afiches", "Otra gestión")},
-        )
+        self.assertEqual({tarea["descripcion"] for tarea in actividad["tareas"]}, {"Gestión de sillas", "Gestión de afiches"})
+        self.assertTrue(all("tipo" not in tarea for tarea in actividad["tareas"]))
+        self.assertEqual(actividad["solicitante"], "Junta de vecinos Villa Alegre")
         self.assertNotIn("telefono", actividad)
         self.assertNotIn("contacto", actividad)
         guardada = Actividad.objects.get()
@@ -372,20 +371,17 @@ class ActividadesAPITest(BaseAPI):
         self.assertFalse(Actividad.objects.exists())
         self.assertFalse(TareaPreparatoria.objects.exists())
 
-    def test_rechaza_el_catalogo_fijo_y_exige_el_texto(self):
+    def test_la_tarea_es_texto_libre_sin_tipo(self):
         self.autenticar(self.administrativo)
         cuerpo = self.assertError(
-            self.client.post("/api/actividades/", self.datos(tareas=[{"tipo": "sillas", "descripcion": "30 sillas"}]), format="json"),
-            400,
-        )
-        self.assertIn("Otra gestión", str(cuerpo))
-        cuerpo = self.assertError(
-            self.client.post("/api/actividades/", self.datos(tareas=[{"tipo": "otra", "descripcion": "  "}]), format="json"),
+            self.client.post("/api/actividades/", self.datos(tareas=[{"descripcion": "  "}]), format="json"),
             400,
         )
         self.assertIn("Gestión de sillas", str(cuerpo))
-        self.assertFalse(Actividad.objects.exists())
-        self.assertFalse(TareaPreparatoria.objects.exists())
+        actividad = self.registrar(tareas=[{"tipo": "sillas", "descripcion": "Gestión de sillas"}])
+        self.assertEqual(actividad["tareas"][0]["descripcion"], "Gestión de sillas")
+        self.assertNotIn("tipo", actividad["tareas"][0])
+        self.assertFalse(TareaPreparatoria.objects.exclude(descripcion="Gestión de sillas").exists())
 
     def test_cupo_diario_de_siete_actividades(self):
         for _ in range(7):

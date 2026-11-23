@@ -15,6 +15,8 @@
             <div><dt>Funcionario</dt><dd>{{ actividad.funcionario.nombre_completo }}</dd></div>
             <div><dt>Cargo</dt><dd>{{ actividad.funcionario.cargo.nombre }}</dd></div>
             <div><dt>Delegación</dt><dd>{{ actividad.funcionario.delegacion.nombre }}</dd></div>
+            <div><dt>Solicitante</dt><dd>{{ actividad.solicitante|default:"Sin solicitante" }}</dd></div>
+            <div><dt>Ingreso al tubo</dt><dd>{% if actividad.compromiso %}{{ actividad.compromiso.solicitante }} · {{ actividad.compromiso.fecha_comprometida|date:"d/m/Y" }}{% else %}Sin compromiso asociado{% endif %}</dd></div>
             <div><dt>Período</dt><dd>{{ actividad.periodo.nombre }}</dd></div>
             <div><dt>Ítem</dt><dd>{{ actividad.item.codigo }} — {{ actividad.item.nombre }}</dd></div>
             <div><dt>Actividad o problema</dt><dd>{{ actividad.descripcion }}</dd></div>

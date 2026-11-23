@@ -9,6 +9,7 @@
 <section class="container py-5">
     <article class="tarjeta-info mb-4">
         <dl class="ficha-datos">
+            <div><dt>Solicitante</dt><dd>{{ compromiso.solicitante }}</dd></div>
             <div><dt>Fecha de solicitud</dt><dd>{{ compromiso.fecha_solicitud|date:"d/m/Y" }} · {{ compromiso.get_ambito_display }}</dd></div>
             <div><dt>Fecha comprometida</dt><dd>{{ compromiso.fecha_comprometida|date:"d/m/Y" }}</dd></div>
             <div><dt>Delegación</dt><dd>{{ compromiso.delegacion.nombre }}</dd></div>

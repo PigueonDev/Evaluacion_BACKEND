@@ -61,6 +61,7 @@ COLUMNAS_ACTIVIDADES = [
     ("Funcionario", lambda a: a.funcionario.nombre_completo, 24, False),
     ("Delegación", lambda a: a.funcionario.delegacion.nombre, 16, False),
     ("Ítem", lambda a: a.item.nombre, 26, False),
+    ("Solicitante", lambda a: a.solicitante, 22, False),
     ("Actividad", lambda a: a.descripcion, 34, False),
     ("Acción", lambda a: a.accion, 30, False),
     ("Contacto", lambda a: a.contacto, 20, True),

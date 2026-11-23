@@ -207,13 +207,13 @@ class MantenedoresCristhopherTest(TestCase):
 			"item": str(self.item.pk),
 			"descripcion": "Visita territorial de demostración",
 			"accion": "Orientación a la junta de vecinos",
+			"solicitante": "Junta de vecinos Los Aromos",
 			"contacto": "Junta de vecinos",
 			"telefono": "+56 9 1111 2222",
 			"tareas-TOTAL_FORMS": "4",
 			"tareas-INITIAL_FORMS": "0",
 			"tareas-MIN_NUM_FORMS": "0",
 			"tareas-MAX_NUM_FORMS": "1000",
-			"tareas-0-tipo": "otra",
 			"tareas-0-descripcion": "Gestión de sillas",
 		}
 		datos.update(extra)
@@ -527,16 +527,16 @@ class TransaccionRegistrarActividadTest(TestCase):
 		from .models import TareaPreparatoria
 		from .transacciones import registrar_actividad
 
-		actividad = Actividad(periodo=self.periodo, item=self.item, fecha=fecha, descripcion="Celebración vecinal", accion="Coordinar")
+		actividad = Actividad(periodo=self.periodo, item=self.item, fecha=fecha, descripcion="Celebración vecinal", accion="Coordinar", solicitante="Vecino solicitante")
 		return registrar_actividad(actividad, [TareaPreparatoria(tipo="otra", descripcion=texto) for texto in tareas], self.funcionario, self.user)
 
 	def _datos(self, fecha="2026-06-17", **extra):
 		datos = {
 			"fecha": fecha, "periodo": str(self.periodo.pk), "item": str(self.item.pk),
-			"descripcion": "Día del niño", "accion": "Coordinación", "contacto": "JJVV", "telefono": "+56 9 1234 5678",
+			"descripcion": "Día del niño", "accion": "Coordinación", "solicitante": "Vecino solicitante", "contacto": "JJVV", "telefono": "+56 9 1234 5678",
 			"tareas-TOTAL_FORMS": "4", "tareas-INITIAL_FORMS": "0", "tareas-MIN_NUM_FORMS": "0", "tareas-MAX_NUM_FORMS": "1000",
-			"tareas-0-tipo": "otra", "tareas-0-descripcion": "Gestión de regalos",
-			"tareas-1-tipo": "otra", "tareas-1-descripcion": "Reserva de la sede vecinal",
+			"tareas-0-descripcion": "Gestión de regalos",
+			"tareas-1-descripcion": "Reserva de la sede vecinal",
 		}
 		datos.update(extra)
 		return datos
@@ -557,32 +557,25 @@ class TransaccionRegistrarActividadTest(TestCase):
 
 	def test_sin_tareas_no_se_guarda_nada(self):
 		self.client.force_login(self.user)
-		datos = self._datos(**{"tareas-0-tipo": "", "tareas-0-descripcion": "", "tareas-1-tipo": "", "tareas-1-descripcion": ""})
+		datos = self._datos(**{"tareas-0-descripcion": "", "tareas-1-descripcion": ""})
 		respuesta = self.client.post(reverse("servicios:actividad_nueva"), datos)
 		self.assertContains(respuesta, "al menos una tarea")
 		self.assertEqual(Actividad.objects.count(), 0)
 
-	def test_el_formulario_ofrece_solo_otra_gestion_y_texto_libre(self):
+	def test_la_tarea_es_solo_texto_sin_desplegable(self):
 		self.client.force_login(self.user)
 		pagina = self.client.get(reverse("servicios:actividad_nueva"))
-		self.assertContains(pagina, "Otra gestión")
 		self.assertContains(pagina, "Gestión de sillas")
+		self.assertNotContains(pagina, "tareas-0-tipo")
+		self.assertNotContains(pagina, "Otra gestión")
 		self.assertNotContains(pagina, "Solicitar sillas y mesas")
 		self.assertNotContains(pagina, "Solicitar colación")
-		self.assertNotContains(pagina, "Contratar animadores")
 
 		sin_texto = self.client.post(reverse("servicios:actividad_nueva"), self._datos(**{
-			"tareas-0-tipo": "otra", "tareas-0-descripcion": "   ",
-			"tareas-1-tipo": "", "tareas-1-descripcion": "",
+			"tareas-0-descripcion": "   ",
+			"tareas-1-descripcion": "",
 		}))
-		self.assertContains(sin_texto, "Escribe la gestión")
-		self.assertEqual(Actividad.objects.count(), 0)
-
-		catalogo = self.client.post(reverse("servicios:actividad_nueva"), self._datos(**{
-			"tareas-0-tipo": "sillas", "tareas-0-descripcion": "20 sillas",
-			"tareas-1-tipo": "", "tareas-1-descripcion": "",
-		}))
-		self.assertContains(catalogo, "La única opción es «Otra gestión»")
+		self.assertContains(sin_texto, "Escribe la tarea")
 		self.assertEqual(Actividad.objects.count(), 0)
 
 	def test_el_catalogo_antiguo_queda_en_el_texto(self):
@@ -619,11 +612,53 @@ class TransaccionRegistrarActividadTest(TestCase):
 			},
 		)
 
+	def test_solicitante_se_comparte_con_el_tubo_y_el_caso(self):
+		from .models import Caso, Compromiso, Gestion
+
+		self.client.force_login(self.user)
+		compromiso = Compromiso.objects.create(
+			delegacion=self.centro, responsable=self.funcionario, origen="Vecinal", solicitante="Junta Los Aromos",
+			territorio="Centro", descripcion="Luminaria", fecha_comprometida=HOY_PRUEBAS,
+		)
+		respuesta = self.client.post(
+			reverse("servicios:actividad_nueva"),
+			self._datos(compromiso=str(compromiso.pk), solicitante=""),
+			follow=True,
+		)
+		actividad = Actividad.objects.get()
+		self.assertEqual(actividad.solicitante, "Junta Los Aromos")
+		self.assertContains(respuesta, "Junta Los Aromos")
+		self.assertContains(self.client.get(reverse("servicios:actividades")), "Junta Los Aromos")
+		detalle_tubo = self.client.get(reverse("servicios:compromiso_detalle", args=[compromiso.pk]))
+		self.assertContains(detalle_tubo, "Solicitante")
+		self.assertContains(detalle_tubo, "Junta Los Aromos")
+
+		distinto = self.client.post(
+			reverse("servicios:actividad_nueva"),
+			self._datos(descripcion="Otra actividad", compromiso=str(compromiso.pk), solicitante="Otra persona"),
+		)
+		self.assertContains(distinto, "ingreso al tubo")
+		self.assertEqual(Actividad.objects.count(), 1)
+
+		caso = Caso.objects.create(identificacion="C-SOL", nombre="Persona atendida", delegacion=self.centro)
+		Gestion.objects.create(caso=caso, numero=1, descripcion="Primera gestión", actividad=actividad)
+		caso.refresh_from_db()
+		self.assertEqual(caso.solicitante, "Junta Los Aromos")
+		self.assertContains(self.client.get(reverse("servicios:caso_detalle", args=[caso.pk])), "Junta Los Aromos")
+		self.assertContains(self.client.get(reverse("servicios:casos")), "Junta Los Aromos")
+
+		compromiso.solicitante = "Junta Nueva"
+		compromiso.save()
+		actividad.refresh_from_db()
+		caso.refresh_from_db()
+		self.assertEqual(actividad.solicitante, "Junta Nueva")
+		self.assertEqual(caso.solicitante, "Junta Nueva")
+
 	def test_error_en_una_tarea_revierte_toda_la_transaccion(self):
 		from .models import TareaPreparatoria
 		from .transacciones import registrar_actividad
 
-		actividad = Actividad(periodo=self.periodo, item=self.item, fecha=HOY_PRUEBAS, descripcion="X", accion="Y")
+		actividad = Actividad(periodo=self.periodo, item=self.item, fecha=HOY_PRUEBAS, descripcion="X", accion="Y", solicitante="Vecino solicitante")
 		with self.assertRaises(ValidationError):
 			registrar_actividad(
 				actividad,

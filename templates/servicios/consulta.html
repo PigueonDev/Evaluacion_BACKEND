@@ -72,7 +72,7 @@
             </div>
             <div class="col-md-8 col-lg-6">
                 <label class="form-label fw-semibold" for="q-consulta">Texto</label>
-                <input class="form-control" id="q-consulta" name="q" type="search" value="{{ busqueda }}" placeholder="Descripción, acción, funcionario o código (COM1-1006-004)">
+                <input class="form-control" id="q-consulta" name="q" type="search" value="{{ busqueda }}" placeholder="Descripción, solicitante, acción, funcionario o código (COM1-1006-004)">
             </div>
             <div class="col-md-4 col-lg-3 d-flex align-items-end gap-2">
                 <button class="btn btn-primary" type="submit">Filtrar</button>
@@ -86,11 +86,12 @@
     <div class="panel-tabla">
         <div class="table-responsive">
             <table class="table tabla-municipal table-hover align-middle mb-0">
-                <thead><tr><th>Fecha</th><th>Funcionario</th><th>Delegación</th><th>Ítem</th><th>Descripción</th><th>Estado</th></tr></thead>
+                <thead><tr><th>Fecha</th><th>Solicitante</th><th>Funcionario</th><th>Delegación</th><th>Ítem</th><th>Descripción</th><th>Estado</th></tr></thead>
                 <tbody>
                 {% for actividad in actividades %}
                 <tr>
                     <td class="text-nowrap">{{ actividad.fecha|date:"d/m/Y" }}</td>
+                    <td>{{ actividad.solicitante|default:"Sin solicitante" }}</td>
                     <td>{{ actividad.funcionario.nombre_completo }}</td>
                     <td>{{ actividad.funcionario.delegacion.nombre }}</td>
                     <td><code>{{ actividad.item.codigo }}</code></td>
@@ -98,7 +99,7 @@
                     <td><span class="estado estado-{{ actividad.estado }}">{{ actividad.get_estado_display }}</span></td>
                 </tr>
                 {% empty %}
-                <tr><td colspan="6" class="text-secondary">No hay actividades que cumplan el filtro dentro de tu ámbito.</td></tr>
+                <tr><td colspan="7" class="text-secondary">No hay actividades que cumplan el filtro dentro de tu ámbito.</td></tr>
                 {% endfor %}
                 </tbody>
             </table>

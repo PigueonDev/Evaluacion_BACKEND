@@ -19,7 +19,7 @@ class ActividadForm(forms.ModelForm):
 
 	class Meta:
 		model = Actividad
-		fields = ["fecha", "periodo", "item", "servicio", "descripcion", "accion", "contacto", "telefono", "derivado_a", "compromiso"]
+		fields = ["fecha", "periodo", "item", "servicio", "descripcion", "accion", "solicitante", "contacto", "telefono", "derivado_a", "compromiso"]
 		labels = {
 			"fecha": "Fecha",
 			"periodo": "Período",
@@ -27,12 +27,14 @@ class ActividadForm(forms.ModelForm):
 			"servicio": "Servicio",
 			"descripcion": "Actividad o problema",
 			"accion": "Acción realizada",
+			"solicitante": "Solicitante",
 			"contacto": "Contacto",
 			"telefono": "Teléfono",
 			"derivado_a": "Derivado a",
 			"compromiso": "Ingreso al tubo",
 		}
 		help_texts = {
+			"solicitante": "Nombre de quien solicita. Si eliges un ingreso al tubo y lo dejas vacío, se usa el solicitante de ese compromiso. Si escribes un nombre, debe ser el mismo.",
 			"telefono": "Opcional. Solo números, espacios o guiones.",
 			"derivado_a": "Opcional. Unidad municipal o institución a la que se derivó a la persona.",
 			"compromiso": "Opcional. Asocia la actividad a un ingreso del tubo de trabajo de la misma delegación.",
@@ -45,6 +47,7 @@ class ActividadForm(forms.ModelForm):
 			"servicio": forms.Select(attrs={"class": "form-select"}),
 			"descripcion": forms.Textarea(attrs={"class": "form-control", "rows": 3}),
 			"accion": forms.Textarea(attrs={"class": "form-control", "rows": 3}),
+			"solicitante": forms.TextInput(attrs={"class": "form-control", "placeholder": "Ej.: Junta de vecinos Los Aromos"}),
 			"contacto": forms.TextInput(attrs={"class": "form-control"}),
 			"telefono": forms.TextInput(attrs={"class": "form-control", "inputmode": "tel"}),
 			"derivado_a": forms.Select(attrs={"class": "form-select"}),
@@ -67,6 +70,7 @@ class ActividadForm(forms.ModelForm):
 		self.fields["derivado_a"].empty_label = "Sin derivación"
 		self.fields["servicio"].queryset = Servicio.objects.filter(activo=True)
 		self.fields["servicio"].required = False
+		self.fields["solicitante"].required = False
 		self.fields["contacto"].required = False
 		self.fields["telefono"].required = False
 		self.fields["compromiso"].required = False
@@ -99,24 +103,19 @@ class ActividadForm(forms.ModelForm):
 
 
 class TareaForm(forms.Form):
-	tipo = forms.ChoiceField(
-		label="Tipo de gestión",
-		choices=[("", "Selecciona una tarea"), *TareaPreparatoria.TIPOS],
-		widget=forms.Select(attrs={"class": "form-select"}),
-		error_messages={
-			"required": "Elige «Otra gestión».",
-			"invalid_choice": "La única opción es «Otra gestión». Escribe el nombre de la tarea en el texto.",
-		},
-	)
 	descripcion = forms.CharField(
-		label="Gestión",
+		label="Tarea",
 		max_length=280,
+		strip=False,
 		widget=forms.TextInput(attrs={"class": "form-control", "placeholder": "Ej.: Gestión de sillas"}),
-		error_messages={"required": "Escribe la gestión, por ejemplo «Gestión de sillas»."},
+		error_messages={"required": "Escribe la tarea, por ejemplo «Gestión de sillas»."},
 	)
 
 	def clean_descripcion(self):
-		return (self.cleaned_data.get("descripcion") or "").strip()
+		texto = (self.cleaned_data.get("descripcion") or "").strip()
+		if not texto:
+			raise ValidationError("Escribe la tarea, por ejemplo «Gestión de sillas».")
+		return texto
 
 
 class TareaFormSetBase(forms.BaseFormSet):
@@ -144,18 +143,20 @@ class CasoForm(forms.ModelForm):
 	class Meta:
 		model = Caso
 		fields = [
-			"identificacion", "nombre", "rut", "telefono", "delegacion", "tipo_atencion", "sub_atencion", "fecha_ingreso",
+			"identificacion", "nombre", "solicitante", "rut", "telefono", "delegacion", "tipo_atencion", "sub_atencion", "fecha_ingreso",
 			"requiere_visita", "fecha_programada_visita", "fecha_visita", "fecha_entrega_informe", "fecha_entrega_beneficio",
 			"devoluciones_informe", "observacion",
 		]
 		labels = {
 			"identificacion": "Identificación principal",
 			"nombre": "Nombre de la persona usuaria",
+			"solicitante": "Solicitante",
 			"delegacion": "Delegación",
 			"observacion": "Observación",
 		}
 		help_texts = {
 			"identificacion": "Se registra una sola vez. Las gestiones se asocian a este caso y no repiten el identificador.",
+			"solicitante": "Nombre de quien solicita. Si el caso se asocia a una actividad o a un ingreso al tubo, debe ser el mismo nombre.",
 			"sub_atencion": "Debe corresponder al tipo de atención (hoja LISTA de la matriz).",
 			"fecha_programada_visita": "Plazo de la matriz: hasta 10 días desde el ingreso.",
 			"fecha_entrega_informe": "Plazo de la matriz: hasta 4 días desde la visita.",
@@ -165,6 +166,7 @@ class CasoForm(forms.ModelForm):
 		widgets = {
 			"identificacion": forms.TextInput(attrs={"class": "form-control"}),
 			"nombre": forms.TextInput(attrs={"class": "form-control"}),
+			"solicitante": forms.TextInput(attrs={"class": "form-control", "placeholder": "Ej.: Junta de vecinos Los Aromos"}),
 			"rut": forms.TextInput(attrs={"class": "form-control", "placeholder": "12.345.678-5"}),
 			"telefono": forms.TextInput(attrs={"class": "form-control", "inputmode": "tel"}),
 			"delegacion": forms.Select(attrs={"class": "form-select"}),
@@ -183,6 +185,7 @@ class CasoForm(forms.ModelForm):
 	def __init__(self, *args, delegacion=None, **kwargs):
 		super().__init__(*args, **kwargs)
 		self.fields["observacion"].required = False
+		self.fields["solicitante"].required = True
 		for nombre in ("fecha_ingreso", "fecha_programada_visita", "fecha_visita", "fecha_entrega_informe", "fecha_entrega_beneficio"):
 			self.fields[nombre].input_formats = ["%Y-%m-%d"]
 		self.fields["fecha_ingreso"].required = False

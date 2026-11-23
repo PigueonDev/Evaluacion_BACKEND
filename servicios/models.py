@@ -210,6 +210,12 @@ class Actividad(models.Model):
 	accion = models.TextField("acción")
 	contacto = models.CharField(max_length=160, blank=True)
 	telefono = models.CharField("teléfono", max_length=30, blank=True)
+	solicitante = models.CharField(
+		"solicitante",
+		max_length=160,
+		blank=True,
+		help_text="Nombre de quien solicita. Si hay un ingreso al tubo, es el mismo nombre.",
+	)
 	derivado_a = models.ForeignKey("institucional.UnidadMunicipal", on_delete=models.SET_NULL, null=True, blank=True, related_name="actividades_derivadas", verbose_name="derivado a")
 	estado = models.CharField(max_length=20, choices=ESTADOS, default="pendiente")
 	creada_en = models.DateTimeField("registrada el", auto_now_add=True)
@@ -260,6 +266,23 @@ class Actividad(models.Model):
 			errores["item"] = "El ítem de medición no está vigente."
 		if self.compromiso_id and self.funcionario_id and self.compromiso.delegacion_id != self.funcionario.delegacion_id:
 			errores["compromiso"] = "El compromiso debe pertenecer a la misma delegación."
+		nombre = (self.solicitante or "").strip()
+		if self.compromiso_id:
+			del_tubo = (self.compromiso.solicitante or "").strip()
+			if not nombre:
+				nombre = del_tubo
+			elif nombre.casefold() != del_tubo.casefold():
+				errores["solicitante"] = f"Debe coincidir con el solicitante del ingreso al tubo ({del_tubo})."
+		if self.pk and nombre:
+			gestion = Gestion.objects.filter(actividad_id=self.pk).select_related("caso").first()
+			if gestion is not None:
+				del_caso = (gestion.caso.solicitante or "").strip()
+				if del_caso and nombre.casefold() != del_caso.casefold():
+					errores["solicitante"] = f"Debe coincidir con el solicitante del caso ({del_caso})."
+		if not nombre:
+			errores["solicitante"] = "Indica el nombre del solicitante."
+		else:
+			self.solicitante = nombre
 		if errores:
 			raise ValidationError(errores)
 
@@ -271,6 +294,8 @@ class Actividad(models.Model):
 		if not self.codigo_verificador and self.funcionario_id and self.periodo_id:
 			self.codigo_verificador = self._siguiente_codigo_verificador()
 		super().save(*args, **kwargs)
+		if self.pk and self.solicitante:
+			Caso.objects.filter(gestiones__actividad_id=self.pk, solicitante="").update(solicitante=self.solicitante)
 
 	@classmethod
 	def asignar_codigos_pendientes(cls):
@@ -303,10 +328,10 @@ class Actividad(models.Model):
 
 
 class TareaPreparatoria(models.Model):
-	"""Gestión previa escrita en texto libre. Nunca suma al cumplimiento por sí sola.
+	"""Tarea escrita por quien registra la actividad. Nunca suma al cumplimiento por sí sola.
 
-	El catálogo fijo (sillas, colación, regalos, local, animación, difusión) quedó
-	en el texto: la migración copia esa etiqueta dentro de «gestión».
+	No hay catálogo ni desplegable: el texto es la tarea (por ejemplo «Gestión de sillas»).
+	El campo tipo queda fijo en «otra» para las filas antiguas; no se elige.
 	"""
 
 	TIPOS = [("otra", "Otra gestión")]
@@ -395,6 +420,12 @@ class Caso(models.Model):
 	sub_atencion = models.CharField("subatención", max_length=30, choices=SUBATENCIONES_SOCIALES, blank=True)
 	rut = models.CharField("RUT", max_length=12, blank=True)
 	telefono = models.CharField("teléfono", max_length=30, blank=True)
+	solicitante = models.CharField(
+		"solicitante",
+		max_length=160,
+		blank=True,
+		help_text="Nombre de quien solicita. Es el mismo de la actividad y del ingreso al tubo cuando están asociados.",
+	)
 	requiere_visita = models.BooleanField("requiere visita", default=False)
 	fecha_ingreso = models.DateField("fecha de ingreso", default=timezone.localdate)
 	fecha_programada_visita = models.DateField("fecha programada de visita", null=True, blank=True)
@@ -501,8 +532,28 @@ class Gestion(models.Model):
 				errores["numero"] = "Ese número de gestión ya está usado en el caso."
 		if self.actividad_id and self.caso_id and self.actividad.funcionario.delegacion_id != self.caso.delegacion_id:
 			errores["actividad"] = "La actividad debe ser de la misma delegación del caso."
+		if self.actividad_id and self.caso_id:
+			nombre_act = (self.actividad.solicitante or "").strip()
+			if not nombre_act and self.actividad.compromiso_id:
+				nombre_act = (self.actividad.compromiso.solicitante or "").strip()
+			nombre_caso = (self.caso.solicitante or "").strip()
+			if nombre_act and nombre_caso and nombre_act.casefold() != nombre_caso.casefold():
+				errores["actividad"] = f"El solicitante del caso ({nombre_caso}) debe coincidir con el de la actividad ({nombre_act})."
 		if errores:
 			raise ValidationError(errores)
+
+	def save(self, *args, **kwargs):
+		super().save(*args, **kwargs)
+		if not self.actividad_id or not self.caso_id:
+			return
+		nombre_act = (self.actividad.solicitante or "").strip()
+		if not nombre_act and self.actividad.compromiso_id:
+			nombre_act = (self.actividad.compromiso.solicitante or "").strip()
+		nombre_caso = (self.caso.solicitante or "").strip()
+		if nombre_act and not nombre_caso:
+			Caso.objects.filter(pk=self.caso_id).update(solicitante=nombre_act)
+		elif nombre_caso and not nombre_act:
+			Actividad.objects.filter(pk=self.actividad_id).update(solicitante=nombre_caso)
 
 	def __str__(self):
 		return f"Gestión {self.numero} de {self.caso.identificacion}"
@@ -596,6 +647,14 @@ class Compromiso(models.Model):
 				observacion=observacion,
 			)
 		return self
+
+	def save(self, *args, **kwargs):
+		self.solicitante = (self.solicitante or "").strip()
+		super().save(*args, **kwargs)
+		if not self.pk or not self.solicitante:
+			return
+		Actividad.objects.filter(compromiso_id=self.pk).exclude(solicitante=self.solicitante).update(solicitante=self.solicitante)
+		Caso.objects.filter(gestiones__actividad__compromiso_id=self.pk).exclude(solicitante=self.solicitante).update(solicitante=self.solicitante)
 
 	@property
 	def fuera_de_plazo(self):
