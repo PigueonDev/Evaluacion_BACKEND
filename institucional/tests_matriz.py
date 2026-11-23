@@ -6,12 +6,11 @@ from django.core.management import call_command
 from django.test import TestCase
 from django.urls import reverse
 
-from laserena.permisos import GRUPO_ADMINISTRADOR, GRUPO_ADMINISTRATIVO, GRUPO_SUPERVISOR, grupo_usuario
+from laserena.permisos import GRUPO_ADMINISTRADOR, GRUPO_ADMINISTRATIVO, GRUPO_SUPERVISOR, asignar_grupo, grupo_usuario
 from oficina.models import Reconocimiento
 from servicios.management.commands.cargar_datos_demo import CUENTAS_DEMO
 from servicios.models import Actividad, Periodo
 
-from .cuentas import asignar_grupo
 from .forms import UsuarioForm
 from .models import Cargo, Delegacion, Funcionario, UnidadMunicipal
 

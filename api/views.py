@@ -12,7 +12,20 @@ from rest_framework.response import Response
 from rest_framework_simplejwt.views import TokenBlacklistView, TokenObtainPairView, TokenRefreshView, TokenVerifyView
 
 from institucional.models import Delegacion
-from laserena.permisos import GRUPO_ADMINISTRATIVO, grupo_usuario, parametro_permitido, perfil_de_ambito, perfil_funcionario, texto_busqueda
+from laserena.filtros import parametro_permitido, texto_busqueda
+from laserena.permisos import (
+    GRUPO_ADMINISTRATIVO,
+    EsAdministradorOSoloLectura,
+    EsPersonalSGR,
+    PermisoActividad,
+    PermisoCarta,
+    PermisoRevision,
+    PermisoTarea,
+    es_administrador,
+    grupo_usuario,
+    perfil_de_ambito,
+    perfil_funcionario,
+)
 from oficina.models import Carta
 from oficina.views import _cartas_visibles
 from servicios.models import Actividad, TareaPreparatoria
@@ -23,15 +36,6 @@ from servicios.views import _actividades_ambito
 from .errores import cuerpo_error
 from .exportar import TIPO_EXCEL, TIPO_PDF, exportar
 from .paginacion import Paginacion
-from .permisos import (
-    EsAdministradorOSoloLectura,
-    EsPersonalSGR,
-    PermisoActividad,
-    PermisoCarta,
-    PermisoRevision,
-    PermisoTarea,
-    es_perfil_administrador,
-)
 from .serializers import (
     ActividadAdminSerializer,
     ActividadEdicionSerializer,
@@ -159,7 +163,7 @@ class RevocarTokenView(_ConLimiteDeIntentos, TokenBlacklistView):
 @permission_classes([EsPersonalSGR])
 def perfil_actual(request):
     perfil = perfil_funcionario(request.user)
-    es_admin = es_perfil_administrador(request.user)
+    es_admin = es_administrador(request.user)
     return Response({
         "usuario": request.user.get_username(),
         "nombre": perfil.nombre_completo if perfil else request.user.get_full_name(),
@@ -182,7 +186,7 @@ EJEMPLO_USUARIO = {
 
 def _usuarios_visibles(user):
     usuarios = User.objects.select_related("perfil_sgr__delegacion", "perfil_sgr__cargo").prefetch_related("groups").order_by("username")
-    if es_perfil_administrador(user):
+    if es_administrador(user):
         return usuarios
     perfil = perfil_de_ambito(user)
     if perfil is None:
@@ -191,7 +195,7 @@ def _usuarios_visibles(user):
 
 
 def _serializer_usuario(request):
-    return UsuarioAdminSerializer if es_perfil_administrador(request.user) else UsuarioPublicoSerializer
+    return UsuarioAdminSerializer if es_administrador(request.user) else UsuarioPublicoSerializer
 
 
 @extend_schema(
@@ -291,7 +295,7 @@ def cartas_para_exportar(request):
 
 
 def _serializer_carta(request):
-    return CartaAdminSerializer if es_perfil_administrador(request.user) else CartaUsuarioSerializer
+    return CartaAdminSerializer if es_administrador(request.user) else CartaUsuarioSerializer
 
 
 def _contexto_carta(request):
@@ -380,7 +384,7 @@ def carta_detalle(request, pk):
 @api_view(["GET"])
 @permission_classes([PermisoCarta])
 def cartas_exportar(request, formato):
-    return exportar("cartas", formato, cartas_para_exportar(request), request.user, es_perfil_administrador(request.user))
+    return exportar("cartas", formato, cartas_para_exportar(request), request.user, es_administrador(request.user))
 
 
 # --- Transacción: registrar actividad ---------------------------------------------------------------------
@@ -407,12 +411,12 @@ def actividades_para_exportar(request):
 
 
 def _serializer_actividad(request):
-    return ActividadAdminSerializer if es_perfil_administrador(request.user) else ActividadUsuarioSerializer
+    return ActividadAdminSerializer if es_administrador(request.user) else ActividadUsuarioSerializer
 
 
 def _actividad_propia(request, actividad):
     """El Administrativo solo modifica sus propias actividades; el Administrador, cualquiera."""
-    if es_perfil_administrador(request.user):
+    if es_administrador(request.user):
         return True
     return actividad.funcionario_id == getattr(perfil_funcionario(request.user), "pk", None)
 
@@ -448,7 +452,7 @@ def actividades_lista(request):
         return _paginar(request, actividades, _serializer_actividad(request))
 
     contexto = {"request": request}
-    if not es_perfil_administrador(request.user):
+    if not es_administrador(request.user):
         perfil = perfil_funcionario(request.user)
         if perfil is None:
             return Response(cuerpo_error(400, "Tu cuenta no tiene ficha de funcionario: no puede registrar actividades."), status=status.HTTP_400_BAD_REQUEST)
@@ -545,7 +549,7 @@ def actividad_revision(request, pk):
 @api_view(["GET"])
 @permission_classes([PermisoActividad])
 def actividades_exportar(request, formato):
-    return exportar("actividades", formato, actividades_para_exportar(request), request.user, es_perfil_administrador(request.user))
+    return exportar("actividades", formato, actividades_para_exportar(request), request.user, es_administrador(request.user))
 
 
 @extend_schema(exclude=True)

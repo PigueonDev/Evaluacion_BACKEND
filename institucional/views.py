@@ -14,19 +14,19 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse, reverse_lazy
 from django.utils import timezone
 
+from laserena.filtros import parametro_permitido, texto_busqueda
 from laserena.permisos import (
+    DESCRIPCION_PERFILES,
     GRUPO_ADMINISTRADOR,
-    GRUPO_ADMINISTRATIVO,
     GRUPO_SUPERVISOR,
     GRUPOS_SGR,
     acotar_ambito,
-    es_administracion,
+    es_administrador,
     grupo_usuario,
-    parametro_permitido,
+    matriz_permisos,
     perfil_funcionario,
-    solo_administracion,
-    solo_grupos,
-    texto_busqueda,
+    solo_administrador,
+    solo_personal,
 )
 from laserena.seguridad import ip_cliente
 from oficina.models import Ausencia, BeneficioNino, Carta, Reconocimiento
@@ -128,7 +128,7 @@ class RecuperarClaveListoView(auth_views.PasswordResetCompleteView):
     template_name = "institucional/recuperar/listo.html"
 
 
-@solo_grupos(GRUPO_SUPERVISOR, GRUPO_ADMINISTRATIVO)
+@solo_personal
 def mi_panel(request):
     """Dashboard según el grupo del usuario autenticado."""
     grupo = grupo_usuario(request.user)
@@ -182,7 +182,7 @@ def mi_panel(request):
     return render(request, "institucional/dashboard_administrativo.html", contexto)
 
 
-@solo_administracion
+@solo_administrador
 def panel(request):
     """Dashboard del Administrador: vista global, mantenedores y transacciones."""
     base = settings.PHPMYADMIN_URL
@@ -217,12 +217,12 @@ def panel(request):
     return render(request, "institucional/panel.html", contexto)
 
 
-@solo_administracion
+@solo_administrador
 def cuentas(request):
     return redirect("institucional:usuarios")
 
 
-@solo_administracion
+@solo_administrador
 def usuarios(request):
     queryset = User.objects.prefetch_related("groups").select_related("perfil_sgr", "perfil_sgr__delegacion").order_by("username")
     busqueda = texto_busqueda(request)
@@ -241,7 +241,7 @@ def usuarios(request):
     })
 
 
-@solo_administracion
+@solo_administrador
 def usuario_crear(request):
     form = UsuarioForm(request.POST or None)
     if request.method == "POST" and form.is_valid():
@@ -253,7 +253,7 @@ def usuario_crear(request):
     })
 
 
-@solo_administracion
+@solo_administrador
 def usuario_editar(request, pk):
     usuario = get_object_or_404(User, pk=pk)
     form = UsuarioForm(request.POST or None, usuario=usuario)
@@ -267,7 +267,7 @@ def usuario_editar(request, pk):
     })
 
 
-@solo_administracion
+@solo_administrador
 def usuario_eliminar(request, pk):
     usuario = get_object_or_404(User, pk=pk)
     if usuario == request.user:
@@ -286,16 +286,20 @@ def usuario_eliminar(request, pk):
     return render(request, "institucional/usuarios/eliminar.html", {"cuenta": usuario, "pagina_activa": "usuarios"})
 
 
-@solo_administracion
+@solo_administrador
 def grupos(request):
     busqueda = texto_busqueda(request)
     queryset = Group.objects.annotate(total_usuarios=Count("user", distinct=True), total_permisos=Count("permissions", distinct=True)).order_by("name")
     if busqueda:
         queryset = queryset.filter(name__icontains=busqueda)
-    return render(request, "institucional/grupos/listado.html", {"grupos": queryset, "busqueda": busqueda, "base": GRUPOS_SGR, "pagina_activa": "grupos"})
+    perfiles, matriz = matriz_permisos()
+    return render(request, "institucional/grupos/listado.html", {
+        "grupos": queryset, "busqueda": busqueda, "base": GRUPOS_SGR, "pagina_activa": "grupos",
+        "perfiles": [(nombre, DESCRIPCION_PERFILES.get(nombre, "")) for nombre in perfiles], "matriz": matriz,
+    })
 
 
-@solo_administracion
+@solo_administrador
 def grupo_crear(request):
     form = GrupoForm(request.POST or None)
     if request.method == "POST" and form.is_valid():
@@ -305,7 +309,7 @@ def grupo_crear(request):
     return render(request, "institucional/grupos/formulario.html", {"form": form, "titulo": "Crear grupo", "pagina_activa": "grupos"})
 
 
-@solo_administracion
+@solo_administrador
 def grupo_editar(request, pk):
     grupo = get_object_or_404(Group, pk=pk)
     form = GrupoForm(request.POST or None, instance=grupo)
@@ -319,7 +323,7 @@ def grupo_editar(request, pk):
     })
 
 
-@solo_administracion
+@solo_administrador
 def grupo_eliminar(request, pk):
     grupo = get_object_or_404(Group, pk=pk)
     if grupo.name in GRUPOS_SGR:
@@ -333,7 +337,7 @@ def grupo_eliminar(request, pk):
     return render(request, "institucional/grupos/eliminar.html", {"grupo": grupo, "pagina_activa": "grupos"})
 
 
-@solo_administracion
+@solo_administrador
 def cargos(request):
     """Cargos de la matriz: perfil que les corresponde, sigla del código y metas del trimestre vigente."""
     periodo = Periodo.objects.filter(estado="abierto").order_by("-fecha_inicio").first()
@@ -348,7 +352,7 @@ def cargos(request):
     return render(request, "institucional/cargos/listado.html", {"filas": filas, "periodo": periodo, "pagina_activa": "cargos"})
 
 
-@solo_administracion
+@solo_administrador
 def cargo_editar(request, pk):
     cargo = get_object_or_404(Cargo, pk=pk)
     form = CargoForm(request.POST or None, instance=cargo)
@@ -361,7 +365,7 @@ def cargo_editar(request, pk):
     })
 
 
-@solo_administracion
+@solo_administrador
 def unidades(request):
     busqueda = texto_busqueda(request)
     queryset = UnidadMunicipal.objects.all()
@@ -370,12 +374,12 @@ def unidades(request):
     return render(request, "institucional/unidades/listado.html", {"unidades": queryset, "busqueda": busqueda, "pagina_activa": "unidades"})
 
 
-@solo_administracion
+@solo_administrador
 def unidad_crear(request):
     return _unidad_formulario(request, UnidadMunicipal(), "Crear unidad municipal")
 
 
-@solo_administracion
+@solo_administrador
 def unidad_editar(request, pk):
     unidad = get_object_or_404(UnidadMunicipal, pk=pk)
     return _unidad_formulario(request, unidad, f"Editar {unidad.nombre}")
@@ -394,7 +398,7 @@ def _unidad_formulario(request, unidad, titulo):
 
 def verificar_acceso(request):
     """Subconsulta de Nginx (auth_request) que protege la ruta de phpMyAdmin."""
-    return HttpResponse(status=204 if es_administracion(request.user) else 401)
+    return HttpResponse(status=204 if es_administrador(request.user) else 401)
 
 
 def acceso_denegado(request, exception=None):

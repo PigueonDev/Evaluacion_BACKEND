@@ -8,11 +8,9 @@ from django.contrib.auth.password_validation import validate_password
 from django.contrib.auth.validators import UnicodeUsernameValidator
 from django.core.exceptions import ValidationError
 from django.db import transaction
-from django.db.models import Q
 
-from laserena.permisos import GRUPO_ADMINISTRADOR, GRUPOS_SGR, grupo_usuario
+from laserena.permisos import GRUPO_ADMINISTRADOR, GRUPOS_SGR, accion_del_permiso, asignar_grupo, grupo_usuario, permisos_del_sistema
 
-from .cuentas import APPS_ADMINISTRADOR, MODELOS_AUTH_ADMINISTRADOR, asignar_grupo
 from .models import Cargo, Delegacion, Funcionario, UnidadMunicipal
 
 User = get_user_model()
@@ -200,8 +198,14 @@ class UsuarioForm(forms.Form):
         return usuario
 
 
+class PermisosField(forms.ModelMultipleChoiceField):
+    def label_from_instance(self, obj):
+        accion = accion_del_permiso(obj.codename, obj.content_type.model)
+        return accion.capitalize() if accion else obj.name
+
+
 class GrupoForm(forms.ModelForm):
-    permissions = forms.ModelMultipleChoiceField(
+    permissions = PermisosField(
         label="Permisos",
         queryset=Permission.objects.none(),
         required=False,
@@ -216,13 +220,20 @@ class GrupoForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.fields["permissions"].queryset = Permission.objects.filter(
-            Q(content_type__app_label__in=APPS_ADMINISTRADOR)
-            | Q(content_type__app_label="auth", content_type__model__in=MODELOS_AUTH_ADMINISTRADOR)
-        ).select_related("content_type").order_by("content_type__app_label", "content_type__model", "codename")
+        self.fields["permissions"].queryset = permisos_del_sistema().select_related("content_type").order_by("content_type__app_label", "content_type__model", "codename")
         if self.instance.pk and self.instance.name in GRUPOS_SGR:
             self.fields["name"].disabled = True
             self.fields["name"].help_text = "Los tres perfiles base del SGR no cambian de nombre."
+
+    def permisos_por_recurso(self):
+        """Casillas de permisos agrupadas por recurso, para mostrarlas como una tabla."""
+        grupos = {}
+        for opcion in self["permissions"]:
+            tipo = opcion.data["value"].instance.content_type
+            modelo = tipo.model_class()
+            recurso = str(modelo._meta.verbose_name_plural).capitalize() if modelo else tipo.model
+            grupos.setdefault(recurso, []).append(opcion)
+        return sorted(grupos.items())
 
     def clean_name(self):
         nombre = " ".join(self.cleaned_data["name"].split())

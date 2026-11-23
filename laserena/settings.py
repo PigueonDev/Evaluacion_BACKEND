@@ -194,7 +194,7 @@ SIMPLE_JWT = {
     "ALGORITHM": "HS256",
     "SIGNING_KEY": os.getenv("JWT_SIGNING_KEY") or SECRET_KEY,
     "AUTH_HEADER_TYPES": ("Bearer",),
-    "USER_AUTHENTICATION_RULE": "api.permisos.puede_usar_api",
+    "USER_AUTHENTICATION_RULE": "laserena.permisos.puede_usar_api",
     "TOKEN_OBTAIN_SERIALIZER": "api.serializers.TokenSGRSerializer",
 }
 

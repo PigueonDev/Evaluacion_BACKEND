@@ -8,10 +8,9 @@ from django.core.management.base import BaseCommand
 
 from django.utils import timezone
 
-from institucional.cuentas import asegurar_grupos, asignar_grupo
 from institucional.models import Autoridad, Cargo, Delegacion, Funcionario, Municipio, UnidadMunicipal
 from laserena.rut import normalizar_rut
-from laserena.permisos import GRUPO_ADMINISTRADOR, GRUPO_ADMINISTRATIVO, GRUPO_SUPERVISOR
+from laserena.permisos import GRUPO_ADMINISTRADOR, GRUPO_ADMINISTRATIVO, GRUPO_SUPERVISOR, asegurar_grupos, asignar_grupo
 from oficina.models import Ausencia, BeneficioNino, Carta, Reconocimiento
 from oficina.transacciones import registrar_ausencia
 from servicios.desempeno import metas_vigentes

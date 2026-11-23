@@ -15,9 +15,8 @@ from django.core.management import call_command
 from django.test import TestCase, override_settings
 from django.urls import reverse
 
-from laserena.permisos import GRUPO_ADMINISTRADOR, GRUPO_ADMINISTRATIVO, GRUPO_SUPERVISOR, grupo_usuario
+from laserena.permisos import GRUPO_ADMINISTRADOR, GRUPO_ADMINISTRATIVO, GRUPO_SUPERVISOR, asignar_grupo, grupo_usuario
 
-from .cuentas import asignar_grupo
 from .models import Cargo, Delegacion, Funcionario
 
 CLAVE = "Serena-demo-2026"

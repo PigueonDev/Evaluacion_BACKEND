@@ -10,17 +10,15 @@ from django.utils import timezone
 from django.views.decorators.http import require_POST
 
 from institucional.models import Cargo, Delegacion, Funcionario
+from laserena.filtros import parametro_permitido, texto_busqueda
 from laserena.permisos import (
     acotar_ambito,
-    parametro_permitido,
     perfil_de_ambito,
     perfil_funcionario,
-    solo_administracion,
-    solo_consulta,
-    solo_delegado,
-    solo_funcionario,
-    solo_funcionario_o_delegado,
-    texto_busqueda,
+    solo_administrador,
+    solo_administrativo,
+    solo_personal,
+    solo_supervisor,
 )
 
 from .desempeno import resumen_equipo
@@ -109,7 +107,7 @@ def _contexto_semana(funcionario):
     }
 
 
-@solo_administracion
+@solo_administrador
 def dashboard(request):
     actividades = _actividades_ambito(request.user)
     compromisos = _compromisos_ambito(request.user)
@@ -140,7 +138,7 @@ def dashboard(request):
     return render(request, "servicios/dashboard.html", contexto)
 
 
-@solo_funcionario
+@solo_administrativo
 def actividades(request):
     queryset = _actividades_ambito(request.user)
     estado = parametro_permitido(request, "estado", dict(Actividad.ESTADOS))
@@ -153,7 +151,7 @@ def actividades(request):
     return render(request, "servicios/actividades.html", contexto)
 
 
-@solo_funcionario
+@solo_administrativo
 def actividad_nueva(request):
     perfil = perfil_funcionario(request.user)
     if request.method == "POST":
@@ -182,7 +180,7 @@ def actividad_nueva(request):
     return render(request, "servicios/actividad_formulario.html", contexto)
 
 
-@solo_funcionario
+@solo_administrativo
 def actividad_detalle(request, pk):
     actividad = get_object_or_404(_actividades_ambito(request.user).prefetch_related("tareas"), pk=pk)
     return render(
@@ -197,7 +195,7 @@ def actividad_detalle(request, pk):
     )
 
 
-@solo_funcionario
+@solo_administrativo
 def actividad_editar(request, pk):
     actividad = get_object_or_404(_actividades_ambito(request.user), pk=pk)
     if actividad.estado == "anulada":
@@ -228,7 +226,7 @@ def actividad_editar(request, pk):
     )
 
 
-@solo_funcionario
+@solo_administrativo
 @require_POST
 def actividad_anular(request, pk):
     actividad = get_object_or_404(_actividades_ambito(request.user), pk=pk)
@@ -245,7 +243,7 @@ def actividad_anular(request, pk):
     return redirect("servicios:actividad_detalle", pk=actividad.pk)
 
 
-@solo_funcionario
+@solo_administrativo
 @require_POST
 def tarea_marcar(request, pk, tarea_pk):
     actividad = get_object_or_404(_actividades_ambito(request.user), pk=pk)
@@ -259,7 +257,7 @@ def tarea_marcar(request, pk, tarea_pk):
     return redirect("servicios:actividad_detalle", pk=actividad.pk)
 
 
-@solo_delegado
+@solo_supervisor
 def aprobaciones(request):
     base = _actividades_ambito(request.user).prefetch_related("tareas")
     hoy = timezone.localdate()
@@ -276,7 +274,7 @@ def aprobaciones(request):
     return render(request, "servicios/aprobaciones.html", contexto)
 
 
-@solo_delegado
+@solo_supervisor
 @require_POST
 def actividad_revisar(request, pk):
     actividad = get_object_or_404(_actividades_ambito(request.user), pk=pk)
@@ -298,7 +296,7 @@ def actividad_revisar(request, pk):
     return redirect("servicios:aprobaciones")
 
 
-@solo_funcionario
+@solo_administrativo
 def actividad_por_codigo(request):
     codigo = request.GET.get("codigo", "").strip()
     actividad = None
@@ -323,7 +321,7 @@ def actividad_por_codigo(request):
     )
 
 
-@solo_funcionario
+@solo_administrativo
 def casos(request):
     queryset = _casos_ambito(request.user)
     busqueda = texto_busqueda(request)
@@ -336,7 +334,7 @@ def casos(request):
     )
 
 
-@solo_funcionario
+@solo_administrativo
 def caso_nuevo(request):
     delegacion = _delegacion_usuario(request.user)
     if request.method == "POST":
@@ -350,7 +348,7 @@ def caso_nuevo(request):
     return render(request, "servicios/caso_formulario.html", {"form": form, "titulo": "Registrar caso", "pagina_activa": "casos"})
 
 
-@solo_funcionario
+@solo_administrativo
 def caso_detalle(request, pk):
     caso = get_object_or_404(_casos_ambito(request.user).prefetch_related("gestiones__actividad"), pk=pk)
     return render(
@@ -366,7 +364,7 @@ def caso_detalle(request, pk):
     )
 
 
-@solo_funcionario
+@solo_administrativo
 def caso_editar(request, pk):
     caso = get_object_or_404(_casos_ambito(request.user), pk=pk)
     delegacion = _delegacion_usuario(request.user) or caso.delegacion
@@ -381,7 +379,7 @@ def caso_editar(request, pk):
     return render(request, "servicios/caso_formulario.html", {"form": form, "caso": caso, "titulo": "Editar caso", "pagina_activa": "casos"})
 
 
-@solo_funcionario
+@solo_administrativo
 @require_POST
 def caso_desactivar(request, pk):
     caso = get_object_or_404(_casos_ambito(request.user), pk=pk)
@@ -391,7 +389,7 @@ def caso_desactivar(request, pk):
     return redirect("servicios:caso_detalle", pk=caso.pk)
 
 
-@solo_funcionario
+@solo_administrativo
 def gestion_nueva(request, pk):
     caso = get_object_or_404(_casos_ambito(request.user), pk=pk)
     if caso.gestiones.count() >= MAXIMO_GESTIONES_POR_CASO:
@@ -412,7 +410,7 @@ def gestion_nueva(request, pk):
     )
 
 
-@solo_funcionario
+@solo_administrativo
 def gestion_editar(request, caso_pk, pk):
     caso = get_object_or_404(_casos_ambito(request.user), pk=caso_pk)
     gestion = get_object_or_404(caso.gestiones, pk=pk)
@@ -431,7 +429,7 @@ def gestion_editar(request, caso_pk, pk):
     )
 
 
-@solo_funcionario
+@solo_administrativo
 @require_POST
 def gestion_desactivar(request, caso_pk, pk):
     caso = get_object_or_404(_casos_ambito(request.user), pk=caso_pk)
@@ -442,7 +440,7 @@ def gestion_desactivar(request, caso_pk, pk):
     return redirect("servicios:caso_detalle", pk=caso.pk)
 
 
-@solo_funcionario
+@solo_administrativo
 def agenda(request):
     compromisos = _compromisos_ambito(request.user).order_by("fecha_comprometida", "creado_en")
     responsables = _funcionarios_ambito(request.user).order_by("nombre_completo")
@@ -484,7 +482,7 @@ def _publicar_compromiso(form, usuario):
     return compromiso
 
 
-@solo_funcionario
+@solo_administrativo
 def compromiso_nuevo(request):
     delegacion = _delegacion_usuario(request.user)
     if request.method == "POST":
@@ -507,7 +505,7 @@ def compromiso_nuevo(request):
     )
 
 
-@solo_funcionario_o_delegado
+@solo_personal
 def compromiso_detalle(request, pk):
     compromiso = get_object_or_404(_compromisos_ambito(request.user, solo_activos=False).prefetch_related("historial__autor"), pk=pk)
     return render(
@@ -517,7 +515,7 @@ def compromiso_detalle(request, pk):
     )
 
 
-@solo_funcionario
+@solo_administrativo
 def compromiso_editar(request, pk):
     compromiso = get_object_or_404(_compromisos_ambito(request.user, solo_activos=False), pk=pk)
     if not compromiso.activo:
@@ -555,7 +553,7 @@ def compromiso_editar(request, pk):
     )
 
 
-@solo_funcionario
+@solo_administrativo
 @require_POST
 def compromiso_desactivar(request, pk):
     compromiso = get_object_or_404(_compromisos_ambito(request.user, solo_activos=False), pk=pk)
@@ -565,7 +563,7 @@ def compromiso_desactivar(request, pk):
     return redirect("servicios:compromiso_detalle", pk=compromiso.pk)
 
 
-@solo_delegado
+@solo_supervisor
 def resumen_matriz(request):
     """Hojas RESUMEN y SEMAFORO de la matriz: cumplimiento ponderado, semáforo y ranking por colaborador."""
     periodos = Periodo.objects.all()
@@ -596,7 +594,7 @@ def resumen_matriz(request):
     })
 
 
-@solo_delegado
+@solo_supervisor
 def resumen_agenda(request):
     hoy = timezone.localdate()
     limite = hoy + timedelta(days=DIAS_COMPROMISO_PROXIMO)
@@ -636,7 +634,7 @@ def resumen_agenda(request):
     return render(request, "servicios/resumen_agenda.html", contexto)
 
 
-@solo_consulta
+@solo_supervisor
 def consulta(request):
     actividades = _actividades_ambito(request.user)
     perfil = perfil_de_ambito(request.user)
@@ -702,7 +700,7 @@ def consulta(request):
     return render(request, "servicios/consulta.html", contexto)
 
 
-@solo_consulta
+@solo_supervisor
 def consulta_actividad(request, pk):
     actividad = get_object_or_404(_actividades_ambito(request.user), pk=pk)
     return render(
