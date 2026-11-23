@@ -109,6 +109,13 @@ def accion_del_permiso(codename, modelo):
     return ACCION_POR_CODIGO.get(prefijo) if resto == modelo else None
 
 
+def nombre_recurso(tipo):
+    """Nombre plural del modelo de un ContentType, con mayúscula inicial («Cartas de Oficina de Partes»)."""
+    modelo = tipo.model_class()
+    texto = str(modelo._meta.verbose_name_plural) if modelo else tipo.model
+    return texto[:1].upper() + texto[1:]
+
+
 def nombre_permiso(accion, verbose_name):
     return f"Puede {accion} {verbose_name}"
 
@@ -405,8 +412,7 @@ def matriz_permisos(grupos=None):
         for permiso in permisos_del_sistema().select_related("content_type"):
             por_tipo.setdefault(permiso.content_type, []).append(permiso)
         for tipo, permisos in por_tipo.items():
-            modelo = tipo.model_class()
-            etiqueta = str(modelo._meta.verbose_name_plural).capitalize() if modelo else tipo.model
+            etiqueta = nombre_recurso(tipo)
             celdas = []
             for grupo in grupos:
                 acciones = [accion_del_permiso(p.codename, tipo.model) or p.codename for p in permisos if (tipo.id, p.codename) in concedidos[grupo.name]]
