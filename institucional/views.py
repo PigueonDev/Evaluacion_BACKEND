@@ -3,12 +3,12 @@ from urllib.parse import urlencode
 
 from django.conf import settings
 from django.contrib import messages
-from django.contrib.auth import get_user_model
+from django.contrib.auth import get_user_model, update_session_auth_hash
 from django.contrib.auth import views as auth_views
 from django.contrib.auth.models import Group
 from django.core.cache import cache
 from django.core.paginator import Paginator
-from django.db.models import Count, ProtectedError, Q
+from django.db.models import Count, Exists, OuterRef, ProtectedError, Q
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse, reverse_lazy
@@ -35,8 +35,9 @@ from servicios.models import Actividad, Auditoria, Caso, Compromiso, Evidencia, 
 from servicios.desempeno import resumen_equipo, resumen_funcionario
 from servicios.reglas import MAXIMO_ACTIVIDADES_POR_DIA, fin_semana_laboral, inicio_semana
 
+from .claves import clave_temporal_pendiente, marcar_clave_temporal
 from .forms import AccesoForm, CargoForm, GrupoForm, NuevaClaveForm, RecuperarClaveForm, UnidadMunicipalForm, UsuarioForm
-from .models import Autoridad, Cargo, Delegacion, Funcionario, Municipio, UnidadMunicipal
+from .models import Autoridad, Cargo, Delegacion, EstadoClave, Funcionario, Municipio, UnidadMunicipal
 
 User = get_user_model()
 USUARIOS_POR_PAGINA = 20
@@ -122,6 +123,29 @@ class RecuperarClaveConfirmarView(auth_views.PasswordResetConfirmView):
     template_name = "institucional/recuperar/nueva_clave.html"
     form_class = NuevaClaveForm
     success_url = reverse_lazy("institucional:recuperar_listo")
+
+    def form_valid(self, form):
+        respuesta = super().form_valid(form)
+        marcar_clave_temporal(form.user, False)
+        return respuesta
+
+
+def cambiar_clave(request):
+    """Cambio obligatorio de la contraseña temporal en el primer ingreso."""
+    if not request.user.is_authenticated:
+        from django.contrib.auth.views import redirect_to_login
+
+        return redirect_to_login(request.get_full_path(), login_url=settings.LOGIN_URL)
+    if not clave_temporal_pendiente(request.user):
+        return redirect("institucional:mi_panel")
+    form = NuevaClaveForm(request.user, request.POST or None)
+    if request.method == "POST" and form.is_valid():
+        form.save()
+        marcar_clave_temporal(request.user, False)
+        update_session_auth_hash(request, request.user)
+        messages.success(request, "Contraseña actualizada. Ya puedes usar el sistema.")
+        return redirect("institucional:mi_panel")
+    return render(request, "institucional/cambiar_clave.html", {"form": form})
 
 
 class RecuperarClaveListoView(auth_views.PasswordResetCompleteView):
@@ -225,7 +249,9 @@ def cuentas(request):
 
 @solo_administrador
 def usuarios(request):
-    queryset = User.objects.prefetch_related("groups").select_related("perfil_sgr", "perfil_sgr__delegacion").order_by("username")
+    queryset = User.objects.prefetch_related("groups").select_related("perfil_sgr", "perfil_sgr__delegacion").annotate(
+        clave_temporal=Exists(EstadoClave.objects.filter(usuario=OuterRef("pk"), debe_cambiar_clave=True)),
+    ).order_by("username")
     busqueda = texto_busqueda(request)
     grupos = list(Group.objects.order_by("name").values_list("name", flat=True))
     grupo = parametro_permitido(request, "grupo", grupos)

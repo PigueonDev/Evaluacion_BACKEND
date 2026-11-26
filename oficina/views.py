@@ -306,7 +306,7 @@ def reconocimientos(request):
 
 @con_permiso("oficina.add_reconocimiento")
 def reconocimiento_crear(request):
-	form = ReconocimientoForm(request.POST or None, usuario=request.user)
+	form = ReconocimientoForm(request.POST or None, request.FILES or None, usuario=request.user)
 	if request.method == "POST" and form.is_valid():
 		registro = form.save(commit=False)
 		registro.registrado_por = request.user

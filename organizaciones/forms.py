@@ -24,6 +24,15 @@ class OrganizacionForm(forms.ModelForm):
 
 	def __init__(self, *args, **kwargs):
 		super().__init__(*args, **kwargs)
+		from institucional.models import Territorio
+
+		from .models import TERRITORIOS
+
+		opciones = list(Territorio.objects.filter(activo=True).order_by("nombre").values_list("codigo", "nombre")) or list(TERRITORIOS)
+		actual = getattr(self.instance, "territorio", "")
+		if actual and actual not in dict(opciones):
+			opciones.append((actual, actual))
+		self.fields["territorio"].choices = opciones
 		for nombre in ("fecha_constitucion", "fecha_inscripcion"):
 			self.fields[nombre].input_formats = ["%Y-%m-%d"]
 		for campo in self.fields.values():

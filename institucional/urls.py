@@ -1,7 +1,7 @@
 from django.contrib.auth import views as auth_views
 from django.urls import path
 
-from . import views
+from . import mantenedores, views
 
 app_name = "institucional"
 
@@ -10,6 +10,7 @@ urlpatterns = [
     path("autoridades/", views.autoridades, name="autoridades"),
     path("acceso/", views.AccesoView.as_view(), name="acceso"),
     path("acceso/salir/", auth_views.LogoutView.as_view(), name="salir"),
+    path("acceso/cambiar-clave/", views.cambiar_clave, name="cambiar_clave"),
     path("acceso/verificar/", views.verificar_acceso, name="verificar"),
     path("acceso/recuperar/", views.RecuperarClaveView.as_view(), name="recuperar"),
     path("acceso/recuperar/enviado/", views.RecuperarClaveEnviadoView.as_view(), name="recuperar_enviado"),
@@ -27,7 +28,36 @@ urlpatterns = [
     path("administracion/grupos/<int:pk>/editar/", views.grupo_editar, name="grupo_editar"),
     path("administracion/grupos/<int:pk>/eliminar/", views.grupo_eliminar, name="grupo_eliminar"),
     path("administracion/cargos/", views.cargos, name="cargos"),
+    path("administracion/cargos/nuevo/", mantenedores.cargo_crear, name="cargo_crear"),
     path("administracion/cargos/<int:pk>/editar/", views.cargo_editar, name="cargo_editar"),
+    path("administracion/cargos/<int:pk>/eliminar/", mantenedores.cargo_eliminar, name="cargo_eliminar"),
+    path("administracion/delegaciones/", mantenedores.delegaciones, name="delegaciones"),
+    path("administracion/delegaciones/nueva/", mantenedores.delegacion_crear, name="delegacion_crear"),
+    path("administracion/delegaciones/<int:pk>/editar/", mantenedores.delegacion_editar, name="delegacion_editar"),
+    path("administracion/delegaciones/<int:pk>/eliminar/", mantenedores.delegacion_eliminar, name="delegacion_eliminar"),
+    path("administracion/territorios/", mantenedores.territorios, name="territorios"),
+    path("administracion/territorios/nuevo/", mantenedores.territorio_crear, name="territorio_crear"),
+    path("administracion/territorios/<int:pk>/editar/", mantenedores.territorio_editar, name="territorio_editar"),
+    path("administracion/territorios/<int:pk>/eliminar/", mantenedores.territorio_eliminar, name="territorio_eliminar"),
+    path("administracion/vecinos/", mantenedores.vecinos, name="vecinos"),
+    path("administracion/vecinos/nuevo/", mantenedores.vecino_crear, name="vecino_crear"),
+    path("administracion/vecinos/<int:pk>/editar/", mantenedores.vecino_editar, name="vecino_editar"),
+    path("administracion/vecinos/<int:pk>/eliminar/", mantenedores.vecino_eliminar, name="vecino_eliminar"),
+    path("administracion/hitos/", mantenedores.hitos, name="hitos"),
+    path("administracion/hitos/nuevo/", mantenedores.hito_crear, name="hito_crear"),
+    path("administracion/hitos/<int:pk>/editar/", mantenedores.hito_editar, name="hito_editar"),
+    path("administracion/hitos/<int:pk>/eliminar/", mantenedores.hito_eliminar, name="hito_eliminar"),
+    path("administracion/trimestres/", mantenedores.trimestres, name="trimestres"),
+    path("administracion/trimestres/nuevo/", mantenedores.trimestre_crear, name="trimestre_crear"),
+    path("administracion/trimestres/<int:pk>/estado/", mantenedores.trimestre_estado, name="trimestre_estado"),
+    path("administracion/trimestres/<int:pk>/metas/", mantenedores.trimestre_metas, name="trimestre_metas"),
+    path("administracion/tipos-atencion/", mantenedores.tipos_atencion, name="tipos_atencion"),
+    path("administracion/tipos-atencion/nuevo/", mantenedores.tipo_crear, name="tipo_crear"),
+    path("administracion/tipos-atencion/<int:pk>/editar/", mantenedores.tipo_editar, name="tipo_editar"),
+    path("administracion/tipos-atencion/<int:pk>/eliminar/", mantenedores.tipo_eliminar, name="tipo_eliminar"),
+    path("administracion/tipos-atencion/<int:tipo_pk>/subtipos/nuevo/", mantenedores.subtipo_crear, name="subtipo_crear"),
+    path("administracion/tipos-atencion/subtipos/<int:pk>/editar/", mantenedores.subtipo_editar, name="subtipo_editar"),
+    path("administracion/tipos-atencion/subtipos/<int:pk>/eliminar/", mantenedores.subtipo_eliminar, name="subtipo_eliminar"),
     path("administracion/unidades/", views.unidades, name="unidades"),
     path("administracion/unidades/nueva/", views.unidad_crear, name="unidad_crear"),
     path("administracion/unidades/<int:pk>/editar/", views.unidad_editar, name="unidad_editar"),

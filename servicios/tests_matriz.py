@@ -4,6 +4,7 @@ from unittest import mock
 
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
+from django.core.files.base import ContentFile
 from django.core.management import call_command
 from django.test import TestCase
 from django.urls import reverse
@@ -28,7 +29,11 @@ def cuenta(username, grupo):
 
 def aprobar(funcionario, periodo, item, cantidad, fecha=HOY):
 	for numero in range(cantidad):
-		Actividad.objects.create(funcionario=funcionario, periodo=periodo, item=item, fecha=fecha, descripcion=f"Registro {numero}", accion="Prueba", estado="validada")
+		Actividad.objects.create(
+			funcionario=funcionario, periodo=periodo, item=item, fecha=fecha,
+			descripcion=f"Registro {numero}", accion="Prueba", estado="validada",
+			solicitante=f"Vecino {numero}", telefono="+56 9 1111 2222",
+		)
 
 
 class CargarMatrizTest(TestCase):
@@ -111,7 +116,11 @@ class DesempenoMatrizTest(TestCase):
 
 	def test_felicitaciones_con_maximo_reclamos_y_piso(self):
 		for numero in range(4):
-			Reconocimiento.objects.create(tipo="felicitacion", funcionario=self.apoyo, periodo=self.periodo, fecha=HOY, registrado_por=self.registra, usuario_nombre="V", situacion=f"Buena atención {numero}")
+			Reconocimiento.objects.create(
+				tipo="felicitacion", funcionario=self.apoyo, periodo=self.periodo, fecha=HOY, registrado_por=self.registra,
+				usuario_nombre="V", situacion=f"Buena atención {numero}",
+				respaldo=ContentFile(b"%PDF-1.4 respaldo", name=f"respaldo-{numero}.pdf"),
+			)
 		resumen = resumen_funcionario(self.apoyo, self.periodo, HOY)
 		self.assertEqual(resumen["felicitaciones"], 4)
 		self.assertEqual(resumen["bono"], 30)

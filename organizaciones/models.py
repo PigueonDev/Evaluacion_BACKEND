@@ -17,6 +17,10 @@ TERRITORIOS = [
 
 def normalizar_territorio(valor):
 	texto = " ".join(str(valor or "").upper().split())
+	from institucional.models import Territorio
+
+	if texto and Territorio.objects.filter(codigo__iexact=texto, activo=True).exists():
+		return texto
 	codigos = {codigo for codigo, _ in TERRITORIOS}
 	return texto if texto in codigos else "SIN TERRITORIO"
 
@@ -28,7 +32,7 @@ class OrganizacionComunitaria(models.Model):
 	nombre = models.CharField("nombre", max_length=200)
 	tipo = models.CharField("tipo", max_length=20, choices=TIPOS, default="funcional")
 	domicilio = models.CharField("domicilio legal", max_length=250, blank=True)
-	territorio = models.CharField("territorio o delegación", max_length=20, choices=TERRITORIOS, default="SIN TERRITORIO")
+	territorio = models.CharField("territorio o delegación", max_length=40, default="SIN TERRITORIO")
 	socios_activos = models.PositiveIntegerField("socios activos", null=True, blank=True)
 	fecha_constitucion = models.DateField("fecha de constitución", null=True, blank=True)
 	numero_registro_pj = models.PositiveIntegerField("N° registro personalidad jurídica", null=True, blank=True)
@@ -53,6 +57,14 @@ class OrganizacionComunitaria(models.Model):
 
 	def __str__(self):
 		return self.nombre
+
+	def get_territorio_display(self):
+		from institucional.models import Territorio
+
+		territorio = Territorio.objects.filter(codigo=self.territorio).first()
+		if territorio is not None:
+			return territorio.nombre
+		return dict(TERRITORIOS).get(self.territorio, self.territorio)
 
 	def clean(self):
 		if self.fecha_constitucion and self.fecha_inscripcion and self.fecha_inscripcion < self.fecha_constitucion:

@@ -43,6 +43,7 @@ MIDDLEWARE = [
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
+    "institucional.claves.ClaveTemporalMiddleware",
     "laserena.permisos.RolMiddleware",
     "laserena.seguridad.CabecerasSeguridadMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",

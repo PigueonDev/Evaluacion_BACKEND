@@ -5,6 +5,7 @@ from django.contrib import messages
 from django.core.exceptions import ValidationError
 from django.db import transaction
 from django.db.models import Count, Q
+from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from django.views.decorators.http import require_POST
@@ -24,6 +25,8 @@ from laserena.permisos import (
 )
 
 from .desempeno import resumen_equipo
+from .graficos import barras, linea, por_semana
+from .personas import buscar_personas
 from .forms import ActividadForm, CasoForm, CompromisoForm, EvidenciaForm, GestionForm, RevisionEvidenciaForm, RevisionForm, TareaFormSet
 from .models import CODIGO_VERIFICADOR, DIAS_COMPROMISO_PROXIMO, MAXIMO_GESTIONES_POR_CASO, Actividad, Caso, Compromiso, Evidencia, Gestion, HistorialCompromiso, ItemMedicion, Meta, Periodo, Servicio, TareaPreparatoria
 from .reglas import MAXIMO_ACTIVIDADES_POR_DIA, fin_semana_laboral, inicio_semana, semana_abierta
@@ -75,9 +78,17 @@ def _evidencias_ambito(user):
     return acotar_ambito(queryset, user, "actividad__funcionario__delegacion")
 
 
+def _es_propio(user, funcionario_id):
+    """El Administrativo y el Supervisor solo modifican sus registros. El Administrador, cualquiera."""
+    if es_administrador(user):
+        return True
+    perfil = perfil_funcionario(user)
+    return perfil is not None and funcionario_id == perfil.pk
+
+
 def _puede_cargar_evidencia(user, actividad):
     """El funcionario adjunta la captura de su propia actividad. El Administrador, de cualquiera."""
-    if not user.has_perm("servicios.add_evidencia") or actividad.estado == "anulada":
+    if not user.has_perm("servicios.add_evidencia") or actividad.estado in ("anulada", "validada"):
         return False
     if es_administrador(user):
         return True
@@ -100,6 +111,37 @@ def _casos_ambito(user):
 def _funcionarios_ambito(user):
     queryset = Funcionario.objects.filter(activo=True).select_related("delegacion", "cargo")
     return acotar_ambito(queryset, user, "delegacion")
+
+
+def _etiqueta_corta(nombre):
+    partes = (nombre or "").split()
+    return partes[0][:12] if partes else "—"
+
+
+def _graficos_actividades(actividades, funcionarios, periodo):
+    """Carga por funcionario y tendencia semanal de actividades."""
+    hoy = timezone.localdate()
+    if periodo is not None:
+        inicio, termino = periodo.fecha_inicio, min(periodo.fecha_termino, hoy)
+        fechas = actividades.filter(fecha__gte=periodo.fecha_inicio, fecha__lte=periodo.fecha_termino).values_list("fecha", flat=True)
+    else:
+        inicio, termino = hoy - timedelta(days=56), hoy
+        fechas = actividades.filter(fecha__gte=inicio).values_list("fecha", flat=True)
+    conteo = {
+        fila["funcionario_id"]: fila["total"]
+        for fila in actividades.values("funcionario_id").annotate(total=Count("id"))
+    }
+    carga = [
+        {"etiqueta": _etiqueta_corta(funcionario.nombre_completo), "valor": conteo.get(funcionario.pk, 0)}
+        for funcionario in funcionarios
+    ]
+    carga.sort(key=lambda fila: (-fila["valor"], fila["etiqueta"]))
+    return {
+        "grafico_carga": barras(carga[:12]),
+        "grafico_tendencia": linea(por_semana(fechas, inicio, termino)),
+        "titulo_carga": "Carga de trabajo por funcionario",
+        "titulo_tendencia": "Tendencia semanal de actividades",
+    }
 
 
 def _fecha_get(request, nombre):
@@ -153,6 +195,7 @@ def panel_municipal(request):
         "compromisos_recientes": compromisos[:8],
         "metas": [{"meta": meta, "cumplimiento": meta.cumplimiento, "semaforo": meta.semaforo()} for meta in metas],
         "pagina_activa": "panel_municipal",
+        **_graficos_actividades(actividades, funcionarios, periodo),
     }
     return render(request, "servicios/panel_municipal.html", contexto)
 
@@ -209,7 +252,7 @@ def actividad_detalle(request, pk):
         formulario = EvidenciaForm(request.POST, request.FILES, actividad=actividad)
         if formulario.is_valid():
             try:
-                cargar_evidencia(actividad, formulario.cleaned_data["tarea"], formulario.cleaned_data["archivo"], request.user)
+                cargar_evidencia(actividad, formulario.cleaned_data["texto_tarea"], formulario.cleaned_data["archivo"], request.user)
             except ValidationError as error:
                 formulario.add_error(None, error)
             else:
@@ -225,7 +268,7 @@ def actividad_detalle(request, pk):
             "tareas": actividad.tareas.all(),
             "evidencias": actividad.evidencias.all(),
             "formulario_evidencia": formulario,
-            "editable": actividad.estado == "pendiente" and semana_abierta(actividad.fecha),
+            "editable": actividad.estado in ("pendiente", "antecedentes") and semana_abierta(actividad.fecha) and _es_propio(request.user, actividad.funcionario_id),
             "pagina_activa": "actividades",
         },
     )
@@ -234,13 +277,18 @@ def actividad_detalle(request, pk):
 @solo_administrativo
 def actividad_editar(request, pk):
     actividad = get_object_or_404(_actividades_ambito(request.user), pk=pk)
+    if not _es_propio(request.user, actividad.funcionario_id):
+        return render(request, "institucional/denegado.html", status=403)
+    if actividad.estado == "validada":
+        messages.warning(request, "Un registro aprobado no se modifica.")
+        return redirect("servicios:actividad_detalle", pk=actividad.pk)
     if actividad.estado == "anulada":
         messages.warning(request, "La actividad está anulada. El código se conserva y no se reutiliza.")
         return redirect("servicios:actividad_detalle", pk=actividad.pk)
     if actividad.periodo.estado != "abierto":
         messages.warning(request, "El período está cerrado. La actividad se puede consultar, no modificar.")
         return redirect("servicios:actividad_detalle", pk=actividad.pk)
-    if actividad.estado != "pendiente" or not semana_abierta(actividad.fecha):
+    if actividad.estado not in ("pendiente", "antecedentes") or not semana_abierta(actividad.fecha):
         messages.warning(request, "La actividad ya fue revisada o su semana laboral cerró: queda bloqueada.")
         return redirect("servicios:actividad_detalle", pk=actividad.pk)
     if request.method == "POST":
@@ -266,12 +314,15 @@ def actividad_editar(request, pk):
 @require_POST
 def actividad_anular(request, pk):
     actividad = get_object_or_404(_actividades_ambito(request.user), pk=pk)
+    if not _es_propio(request.user, actividad.funcionario_id):
+        return render(request, "institucional/denegado.html", status=403)
+    if actividad.estado == "validada":
+        messages.warning(request, "Un registro aprobado no se modifica.")
+        return redirect("servicios:actividad_detalle", pk=actividad.pk)
     if actividad.periodo.estado != "abierto":
         messages.warning(request, "No se modifica una actividad de un período cerrado.")
     elif not semana_abierta(actividad.fecha):
         messages.warning(request, "La semana laboral de esta actividad ya cerró: queda bloqueada.")
-    elif actividad.estado == "validada":
-        messages.warning(request, "Una actividad aprobada no se anula.")
     elif actividad.estado != "anulada":
         actividad.estado = "anulada"
         actividad.save(update_fields=["estado"])
@@ -283,6 +334,8 @@ def actividad_anular(request, pk):
 @require_POST
 def tarea_marcar(request, pk, tarea_pk):
     actividad = get_object_or_404(_actividades_ambito(request.user), pk=pk)
+    if not _es_propio(request.user, actividad.funcionario_id):
+        return render(request, "institucional/denegado.html", status=403)
     tarea = get_object_or_404(TareaPreparatoria, pk=tarea_pk, actividad=actividad)
     try:
         marcar_tarea(tarea, request.POST.get("realizada") == "1", request.user)
@@ -327,8 +380,11 @@ def evidencia_revisar(request, pk):
     except ValidationError as error:
         messages.warning(request, " ".join(error.messages))
     else:
-        if form.cleaned_data["decision"] == "aprobar":
+        decision = form.cleaned_data["decision"]
+        if decision == "aprobar":
             messages.success(request, "Evidencia aprobada.")
+        elif decision == "solicitar":
+            messages.success(request, "Se solicitaron más antecedentes. El registro aprobado sigue sin poder modificarse; este queda pendiente de ellos.")
         else:
             messages.success(request, "Evidencia rechazada. El funcionario verá el motivo.")
     return redirect("servicios:evidencias")
@@ -338,7 +394,7 @@ def evidencia_revisar(request, pk):
 def aprobaciones(request):
     base = _actividades_ambito(request.user).prefetch_related("tareas")
     hoy = timezone.localdate()
-    pendientes = [a for a in base.filter(estado="pendiente", fecha__gte=inicio_semana(hoy))]
+    pendientes = [a for a in base.filter(estado__in=("pendiente", "antecedentes"), fecha__gte=inicio_semana(hoy))]
     revisadas = base.filter(estado__in=["validada", "rechazada"], fecha__gte=inicio_semana(hoy))
     contexto = {
         "pendientes": pendientes,
@@ -366,8 +422,11 @@ def actividad_revisar(request, pk):
     except ValidationError as error:
         messages.warning(request, " ".join(error.messages))
     else:
-        if form.cleaned_data["decision"] == "aprobar":
-            messages.success(request, f"Actividad de {actividad.funcionario.nombre_completo} aprobada: ya suma a su cumplimiento.")
+        decision = form.cleaned_data["decision"]
+        if decision == "aprobar":
+            messages.success(request, f"Actividad de {actividad.funcionario.nombre_completo} aprobada: ya suma a su cumplimiento si tiene nombre, teléfono y no es del delegado.")
+        elif decision == "solicitar":
+            messages.success(request, "Se solicitaron más antecedentes. El funcionario puede completar el registro y reenviarlo.")
         else:
             messages.success(request, "Actividad rechazada. No suma al cumplimiento.")
     return redirect("servicios:aprobaciones")
@@ -517,30 +576,76 @@ def gestion_desactivar(request, caso_pk, pk):
     return redirect("servicios:caso_detalle", pk=caso.pk)
 
 
-@solo_administrativo
-def agenda(request):
-    compromisos = _compromisos_ambito(request.user).order_by("fecha_comprometida", "creado_en")
+def _filtrar_tubo(request, compromisos):
+    """Filtros del tubo: texto al escribir (código, RUT o nombre), funcionario, estado y rango de fechas."""
     responsables = _funcionarios_ambito(request.user).order_by("nombre_completo")
     ids = [str(funcionario.pk) for funcionario in responsables]
     responsable = parametro_permitido(request, "responsable", ids)
     estado = parametro_permitido(request, "estado", dict(Compromiso.ESTADOS))
     busqueda = texto_busqueda(request)
+    desde = _fecha_get(request, "desde")
+    hasta = _fecha_get(request, "hasta")
     if responsable:
         compromisos = compromisos.filter(responsable_id=responsable)
     if estado:
         compromisos = compromisos.filter(estado=estado)
+    if desde:
+        compromisos = compromisos.filter(fecha_comprometida__gte=desde)
+    if hasta:
+        compromisos = compromisos.filter(fecha_comprometida__lte=hasta)
     if busqueda:
-        compromisos = compromisos.filter(Q(descripcion__icontains=busqueda) | Q(solicitante__icontains=busqueda) | Q(delegacion__nombre__icontains=busqueda))
-    compromisos = compromisos.order_by("fecha_comprometida", "creado_en")
-    contexto = {
-        "compromisos": compromisos,
+        compacto = "".join(caracter for caracter in busqueda.upper() if caracter.isalnum())
+        compromisos = compromisos.filter(
+            Q(descripcion__icontains=busqueda)
+            | Q(solicitante__icontains=busqueda)
+            | Q(delegacion__nombre__icontains=busqueda)
+            | Q(codigo__icontains=busqueda)
+            | Q(rut__icontains=busqueda)
+            | Q(rut__icontains=compacto)
+            | Q(telefono__icontains=busqueda)
+            | Q(responsable__nombre_completo__icontains=busqueda)
+        )
+    return compromisos.order_by("fecha_comprometida", "creado_en"), {
         "responsables": responsables,
         "estado_activo": estado,
         "responsable_activo": responsable,
         "busqueda": busqueda,
-        "pagina_activa": "agenda",
+        "desde": desde.isoformat() if desde else "",
+        "hasta": hasta.isoformat() if hasta else "",
     }
-    return render(request, "servicios/agenda.html", contexto)
+
+
+@solo_personal
+def autocompletar_persona(request):
+    return JsonResponse({"resultados": buscar_personas(request.user, request.GET.get("q", ""), acotar_ambito)})
+
+
+@solo_administrativo
+@require_POST
+def evidencia_reenviar(request, pk):
+    evidencia = get_object_or_404(_evidencias_ambito(request.user), pk=pk)
+    if evidencia.estado == "aprobada":
+        messages.warning(request, "Un registro aprobado no se modifica.")
+    elif not _es_propio(request.user, evidencia.actividad.funcionario_id):
+        return render(request, "institucional/denegado.html", status=403)
+    elif evidencia.estado == "antecedentes":
+        evidencia.estado = "pendiente"
+        evidencia.save(update_fields=["estado"])
+        messages.success(request, "La evidencia volvió a revisión.")
+    return redirect("servicios:actividad_detalle", pk=evidencia.actividad_id)
+
+
+@solo_personal
+def agenda(request):
+    compromisos, filtros = _filtrar_tubo(request, _compromisos_ambito(request.user))
+    if request.GET.get("parcial") == "1":
+        return render(request, "servicios/includes/agenda_filas.html", {"compromisos": compromisos, "es_administrador": es_administrador(request.user)})
+    return render(request, "servicios/agenda.html", {
+        "compromisos": compromisos,
+        **filtros,
+        "pagina_activa": "agenda",
+        "puede_publicar": es_administrador(request.user) or request.user.has_perm("servicios.add_compromiso"),
+    })
 
 
 def _publicar_compromiso(form, usuario):
@@ -582,19 +687,33 @@ def compromiso_nuevo(request):
     )
 
 
+def _puede_modificar_tubo(user, compromiso):
+    return compromiso.estado != "realizado" and _es_propio(user, compromiso.responsable_id)
+
+
 @solo_personal
 def compromiso_detalle(request, pk):
     compromiso = get_object_or_404(_compromisos_ambito(request.user, solo_activos=False).prefetch_related("historial__autor"), pk=pk)
     return render(
         request,
         "servicios/compromiso_detalle.html",
-        {"compromiso": compromiso, "historial": compromiso.historial.all(), "pagina_activa": "agenda"},
+        {
+            "compromiso": compromiso,
+            "historial": compromiso.historial.all(),
+            "puede_modificar": _puede_modificar_tubo(request.user, compromiso),
+            "pagina_activa": "agenda",
+        },
     )
 
 
-@solo_administrativo
+@solo_personal
 def compromiso_editar(request, pk):
     compromiso = get_object_or_404(_compromisos_ambito(request.user, solo_activos=False), pk=pk)
+    if compromiso.estado == "realizado":
+        messages.warning(request, "Un ingreso al tubo realizado no se modifica.")
+        return redirect("servicios:compromiso_detalle", pk=compromiso.pk)
+    if not _es_propio(request.user, compromiso.responsable_id):
+        return render(request, "institucional/denegado.html", status=403)
     if not compromiso.activo:
         messages.warning(request, "El compromiso está desactivado. Su historial se conserva.")
         return redirect("servicios:compromiso_detalle", pk=compromiso.pk)
@@ -630,10 +749,15 @@ def compromiso_editar(request, pk):
     )
 
 
-@solo_administrativo
+@solo_personal
 @require_POST
 def compromiso_desactivar(request, pk):
     compromiso = get_object_or_404(_compromisos_ambito(request.user, solo_activos=False), pk=pk)
+    if compromiso.estado == "realizado":
+        messages.warning(request, "Un ingreso al tubo realizado no se modifica.")
+        return redirect("servicios:compromiso_detalle", pk=compromiso.pk)
+    if not _es_propio(request.user, compromiso.responsable_id):
+        return render(request, "institucional/denegado.html", status=403)
     compromiso.activo = not compromiso.activo
     compromiso.save(update_fields=["activo"])
     messages.success(request, "Compromiso desactivado. El historial no se borra." if not compromiso.activo else "Compromiso publicado nuevamente.")
@@ -659,6 +783,24 @@ def resumen_matriz(request):
         funcionarios = funcionarios.filter(delegacion=delegacion)
     hoy = timezone.localdate()
     equipo = resumen_equipo(funcionarios, periodo, hoy) if periodo else None
+    if periodo and equipo is not None:
+        carga = [{"etiqueta": _etiqueta_corta(fila["funcionario"].nombre_completo), "valor": fila["ingresos"]} for fila in equipo["filas"]]
+        actividades = Actividad.objects.filter(periodo=periodo)
+        if delegacion is not None:
+            actividades = actividades.filter(funcionario__delegacion=delegacion)
+        graficos = {
+            "grafico_carga": barras(carga),
+            "grafico_tendencia": linea(por_semana(actividades.values_list("fecha", flat=True), periodo.fecha_inicio, min(periodo.fecha_termino, hoy))),
+            "titulo_carga": "Carga de trabajo por colaborador",
+            "titulo_tendencia": "Tendencia semanal de actividades",
+        }
+    else:
+        graficos = {
+            "grafico_carga": barras([]),
+            "grafico_tendencia": linea([]),
+            "titulo_carga": "Carga de trabajo por colaborador",
+            "titulo_tendencia": "Tendencia semanal de actividades",
+        }
     return render(request, "servicios/resumen_matriz.html", {
         "periodo": periodo,
         "periodos": periodos,
@@ -668,6 +810,7 @@ def resumen_matriz(request):
         "equipo": equipo,
         "esperado": periodo.avance_esperado(hoy) if periodo else 0,
         "pagina_activa": "resumen_matriz",
+        **graficos,
     })
 
 
@@ -698,6 +841,11 @@ def resumen_agenda(request):
             "porcentaje_realizado": round(fila["realizados"] * 100 / total, 1),
             "porcentaje_pendiente": round(fila["pendientes"] * 100 / total, 1),
         })
+    fechas = list(base.values_list("fecha_comprometida", flat=True))
+    if fechas:
+        inicio, termino = min(fechas), max(fechas)
+    else:
+        inicio = termino = hoy
     contexto = {
         "pendientes": pendientes.count(),
         "proximos": proximos,
@@ -707,6 +855,12 @@ def resumen_agenda(request):
         "filas": filas,
         "dias_proximos": DIAS_COMPROMISO_PROXIMO,
         "pagina_activa": "agenda",
+        "grafico_carga": barras([
+            {"etiqueta": _etiqueta_corta(fila["responsable__nombre_completo"]), "valor": fila["total"]} for fila in filas
+        ]),
+        "grafico_tendencia": linea(por_semana(fechas, inicio, termino)),
+        "titulo_carga": "Carga del tubo por responsable",
+        "titulo_tendencia": "Tendencia de ingresos al tubo",
     }
     return render(request, "servicios/resumen_agenda.html", contexto)
 

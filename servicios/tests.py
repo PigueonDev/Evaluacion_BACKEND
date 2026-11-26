@@ -82,6 +82,8 @@ class ReglasSgrTest(TestCase):
 			item=self.item,
 			descripcion="Actividad validada",
 			accion="Acción de prueba",
+			solicitante="Vecino solicitante",
+			telefono="+56 9 1111 2222",
 			estado="validada",
 		)
 		self.assertEqual(meta.avance_aprobado, 1)
@@ -495,12 +497,12 @@ class MantenedoresCristhopherTest(TestCase):
 			"servicios:actividad_nueva",
 			"servicios:casos",
 			"servicios:caso_nuevo",
-			"servicios:agenda",
 			"servicios:compromiso_nuevo",
 			"servicios:panel_municipal",
 			"institucional:panel",
 		):
 			self.assertEqual(self.client.get(reverse(nombre)).status_code, 403, nombre)
+		self.assertEqual(self.client.get(reverse("servicios:agenda")).status_code, 200)
 		self.assertEqual(self.client.post(reverse("servicios:actividad_nueva"), self._datos_actividad()).status_code, 403)
 		self.assertEqual(self.client.get("/admin/").status_code, 404)
 		menu = self.client.get(reverse("institucional:inicio"))
@@ -532,7 +534,7 @@ class TransaccionRegistrarActividadTest(TestCase):
 		from .models import TareaPreparatoria
 		from .transacciones import registrar_actividad
 
-		actividad = Actividad(periodo=self.periodo, item=self.item, fecha=fecha, descripcion="Celebración vecinal", accion="Coordinar", solicitante="Vecino solicitante")
+		actividad = Actividad(periodo=self.periodo, item=self.item, fecha=fecha, descripcion="Celebración vecinal", accion="Coordinar", solicitante="Vecino solicitante", telefono="+56 9 1111 2222")
 		return registrar_actividad(actividad, [TareaPreparatoria(tipo="otra", descripcion=texto) for texto in tareas], self.funcionario, self.user)
 
 	def _datos(self, fecha="2026-06-17", **extra):
@@ -811,7 +813,7 @@ class EvidenciasTest(TestCase):
 
 		actividad = Actividad(
 			periodo=self.periodo, item=self.item, fecha=HOY_PRUEBAS, descripcion="Celebración vecinal",
-			accion="Coordinar", solicitante="Junta Los Aromos",
+			accion="Coordinar", solicitante="Junta Los Aromos", telefono="+56 9 1111 2222",
 		)
 		return registrar_actividad(actividad, [TareaPreparatoria(tipo="otra", descripcion=texto) for texto in tareas], self.funcionario, self.user)
 
@@ -830,7 +832,7 @@ class EvidenciasTest(TestCase):
 			cliente.force_login(self.user)
 		return cliente.post(
 			reverse("servicios:actividad_detalle", args=[actividad.pk]),
-			{"tarea": str(tarea.pk), "archivo": archivo or imagen_prueba()},
+			{"texto_tarea": tarea.descripcion, "archivo": archivo or imagen_prueba()},
 		)
 
 	def test_funcionario_adjunta_la_captura_de_la_tarea_hecha(self):
@@ -841,6 +843,10 @@ class EvidenciasTest(TestCase):
 		self.assertContains(detalle, "Adjuntar captura")
 		self.assertContains(detalle, "Junta Los Aromos")
 		self.assertContains(detalle, "Gestión de sillas")
+		self.assertContains(detalle, 'name="texto_tarea"')
+		self.assertContains(detalle, 'value="Gestión de sillas"')
+		self.assertNotContains(detalle, "Elige la tarea")
+		self.assertNotContains(detalle, "<select")
 		for nombre, formato in (("captura.png", "PNG"), ("captura.jpg", "JPEG"), ("captura.webp", "WEBP")):
 			if formato != "PNG":
 				actividad = self._actividad(tareas=(f"Tarea {formato}",))
@@ -857,6 +863,29 @@ class EvidenciasTest(TestCase):
 			self.assertContains(pagina, "Pendiente")
 			self.assertContains(pagina, evidencia.archivo.url)
 
+	def test_la_captura_usa_el_texto_escrito_o_uno_libre(self):
+		actividad = self._actividad(tareas=("Gestión de sillas", "Gestión de colación"))
+		self._tarea_lista(actividad)
+		self.client.force_login(self.user)
+		pagina = self.client.get(reverse("servicios:actividad_detalle", args=[actividad.pk]))
+		self.assertNotContains(pagina, "Elige la tarea")
+		self.assertNotContains(pagina, "<select")
+		self.assertContains(pagina, 'name="texto_tarea"')
+		libre = self.client.post(
+			reverse("servicios:actividad_detalle", args=[actividad.pk]),
+			{"texto_tarea": "Registro fotográfico del patio", "archivo": imagen_prueba("libre.png")},
+		)
+		self.assertRedirects(libre, reverse("servicios:actividad_detalle", args=[actividad.pk]))
+		suelta = actividad.evidencias.get(texto_tarea="Registro fotográfico del patio")
+		self.assertIsNone(suelta.tarea_id)
+		escrita = self.client.post(
+			reverse("servicios:actividad_detalle", args=[actividad.pk]),
+			{"texto_tarea": "gestión de sillas", "archivo": imagen_prueba("sillas.png")},
+		)
+		self.assertRedirects(escrita, reverse("servicios:actividad_detalle", args=[actividad.pk]))
+		vinculada = actividad.evidencias.get(texto_tarea="Gestión de sillas")
+		self.assertEqual(vinculada.tarea.descripcion, "Gestión de sillas")
+
 	def test_rechaza_pdf_imagen_falsa_y_mas_de_5_mb(self):
 		from django.core.files.uploadedfile import SimpleUploadedFile
 
@@ -871,7 +900,7 @@ class EvidenciasTest(TestCase):
 			SimpleUploadedFile("falso.png", b"esto no es una imagen"),
 			imagen_prueba("captura.png", "GIF"),
 		):
-			respuesta = self.client.post(url, {"tarea": str(tarea.pk), "archivo": archivo})
+			respuesta = self.client.post(url, {"texto_tarea": tarea.descripcion, "archivo": archivo})
 			self.assertEqual(respuesta.status_code, 200, archivo.name)
 			self.assertEqual(actividad.evidencias.count(), 0)
 		grande = SimpleUploadedFile("grande.png", b"x")
@@ -886,7 +915,7 @@ class EvidenciasTest(TestCase):
 		self.client.force_login(self.user)
 		respuesta = self.client.post(
 			reverse("servicios:actividad_detalle", args=[actividad.pk]),
-			{"tarea": str(pendiente.pk), "archivo": imagen_prueba()},
+			{"texto_tarea": pendiente.descripcion, "archivo": imagen_prueba()},
 		)
 		self.assertEqual(respuesta.status_code, 200)
 		self.assertEqual(actividad.evidencias.count(), 0)
@@ -906,7 +935,7 @@ class EvidenciasTest(TestCase):
 		self.assertEqual(vista.status_code, 200)
 		self.assertNotContains(vista, "Enviar captura")
 		self.client.force_login(self.supervisor)
-		self.assertEqual(self.client.post(reverse("servicios:actividad_detalle", args=[actividad.pk]), {"tarea": tarea.pk}).status_code, 403)
+		self.assertEqual(self.client.post(reverse("servicios:actividad_detalle", args=[actividad.pk]), {"texto_tarea": tarea.descripcion}).status_code, 403)
 		actividad.estado = "anulada"
 		actividad.save(update_fields=["estado"])
 		self.assertEqual(self._cargar(actividad, tarea).status_code, 403)

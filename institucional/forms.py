@@ -102,11 +102,14 @@ class UsuarioForm(forms.Form):
         self.fields["delegacion"].queryset = Delegacion.objects.filter(activa=True)
         self.fields["cargo"].queryset = Cargo.objects.filter(activo=True)
         if usuario is None:
+            self.fields["clave"].label = "Contraseña temporal"
+            self.fields["clave_confirmacion"].label = "Repite la contraseña temporal"
             self.fields["clave"].required = True
             self.fields["clave_confirmacion"].required = True
-            self.fields["clave"].help_text = "Mínimo 10 caracteres. No puede ser solo números, una clave común ni parecerse al usuario."
+            self.fields["clave"].help_text = "Es temporal: en el primer ingreso el sistema obliga a cambiarla. Mínimo 10 caracteres. No puede ser solo números, una clave común ni parecerse al usuario."
         else:
-            self.fields["clave"].help_text = "Déjala vacía para mantener la contraseña actual."
+            self.fields["clave"].label = "Nueva contraseña temporal"
+            self.fields["clave"].help_text = "Déjala vacía para mantener la actual. Si escribes una, queda temporal y deberá cambiarla al ingresar."
         for campo in self.fields.values():
             if not isinstance(campo.widget, forms.CheckboxInput):
                 _control(campo.widget)
@@ -177,9 +180,14 @@ class UsuarioForm(forms.Form):
         usuario.email = datos["email"]
         usuario.is_active = datos.get("is_active", False)
         usuario.is_staff = False
-        if datos.get("clave"):
+        clave_nueva = bool(datos.get("clave"))
+        if clave_nueva:
             usuario.set_password(datos["clave"])
         usuario.save()
+        if clave_nueva:
+            from .claves import marcar_clave_temporal
+
+            marcar_clave_temporal(usuario, True)
         grupo = datos["grupo"]
         if grupo.name in GRUPOS_SGR:
             asignar_grupo(usuario, grupo.name)

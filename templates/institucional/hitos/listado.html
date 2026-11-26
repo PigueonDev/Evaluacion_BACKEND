@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block titulo %}Hitos · SGR{% endblock %}
+{% block contenido %}
+{% url 'institucional:panel' as url_panel %}
+{% include "includes/cabecera.html" with antetitulo="Mantenedor" titulo="Hitos" bajada="Hitos territoriales y el funcionario responsable de cada uno." seccion="Panel" seccion_url=url_panel %}
+<section class="container py-5">
+    <form class="row g-2 align-items-end mb-3" method="get">
+        <div class="col-md-6"><label class="form-label small fw-semibold" for="q">Buscar</label><input class="form-control" id="q" name="q" value="{{ busqueda }}" placeholder="Nombre o responsable"></div>
+        <div class="col-md-2"><button class="btn btn-primary w-100" type="submit">Buscar</button></div>
+        <div class="col-md-4 text-md-end"><a class="btn btn-success" href="{% url 'institucional:hito_crear' %}">Crear hito</a></div>
+    </form>
+    <div class="panel-tabla"><div class="table-responsive"><table class="table tabla-municipal align-middle mb-0">
+        <thead><tr><th>Hito</th><th>Fecha</th><th>Delegación</th><th>Responsable</th><th>Estado</th><th class="text-end">Acciones</th></tr></thead>
+        <tbody>
+        {% for hito in hitos %}
+        <tr>
+            <td><strong>{{ hito.nombre }}</strong></td>
+            <td>{{ hito.fecha|date:"d/m/Y" }}</td>
+            <td>{{ hito.delegacion.nombre }}</td>
+            <td>{{ hito.responsable.nombre_completo }}</td>
+            <td><span class="estado estado-{{ hito.estado }}">{{ hito.get_estado_display }}</span></td>
+            <td class="text-end text-nowrap"><a class="btn btn-outline-secondary btn-sm" href="{% url 'institucional:hito_editar' hito.pk %}">Editar</a> <a class="btn btn-outline-danger btn-sm" href="{% url 'institucional:hito_eliminar' hito.pk %}">Eliminar</a></td>
+        </tr>
+        {% empty %}<tr><td colspan="6" class="text-center text-secondary py-4">No hay hitos.</td></tr>{% endfor %}
+        </tbody>
+    </table></div></div>
+</section>
+{% endblock %}

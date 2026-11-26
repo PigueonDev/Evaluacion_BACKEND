@@ -55,12 +55,11 @@
             {% if formulario_evidencia.non_field_errors %}
             <div class="alert alert-danger">{{ formulario_evidencia.non_field_errors }}</div>
             {% endif %}
-            {% if formulario_evidencia.fields.tarea.queryset %}
             <div class="mb-3">
-                <label class="form-label fw-semibold" for="{{ formulario_evidencia.tarea.id_for_label }}">Tarea que acredita</label>
-                {{ formulario_evidencia.tarea }}
-                <div class="form-text">{{ formulario_evidencia.tarea.help_text }}</div>
-                {% for error in formulario_evidencia.tarea.errors %}<div class="invalid-feedback d-block">{{ error }}</div>{% endfor %}
+                <label class="form-label fw-semibold" for="{{ formulario_evidencia.texto_tarea.id_for_label }}">Tarea que acredita</label>
+                {{ formulario_evidencia.texto_tarea }}
+                <div class="form-text">{{ formulario_evidencia.texto_tarea.help_text }}</div>
+                {% for error in formulario_evidencia.texto_tarea.errors %}<div class="invalid-feedback d-block">{{ error }}</div>{% endfor %}
             </div>
             <div class="mb-3">
                 <label class="form-label fw-semibold" for="{{ formulario_evidencia.archivo.id_for_label }}">Captura de pantalla</label>
@@ -69,11 +68,11 @@
                 {% for error in formulario_evidencia.archivo.errors %}<div class="invalid-feedback d-block">{{ error }}</div>{% endfor %}
             </div>
             <button class="btn btn-primary" type="submit">Enviar captura</button>
-            {% else %}
-            <p class="mb-0 text-secondary">Marca una tarea como realizada para adjuntar la captura del trabajo ya hecho.</p>
-            {% endif %}
         </form>
         {% endif %}
+        {% if actividad.estado == 'antecedentes' %}<div class="alert alert-warning">El delegado pidió más antecedentes{% if actividad.observacion_revision %}: {{ actividad.observacion_revision }}{% endif %}. Al guardar, la actividad vuelve a revisión.</div>{% endif %}
+        {% if actividad.estado == 'validada' %}<div class="alert alert-secondary">Registro aprobado: no se puede modificar.</div>{% endif %}
+        {% if not actividad.telefono %}<div class="alert alert-warning">Sin teléfono este registro no obtiene puntuación, aunque se apruebe.</div>{% endif %}
         {% if not editable and actividad.estado == 'pendiente' %}<div class="alert alert-secondary">La semana laboral de esta actividad cerró: queda bloqueada y no se traspasa.</div>{% endif %}
         <div class="d-flex flex-wrap gap-2">
             <a class="btn btn-outline-secondary" href="{% url 'servicios:actividades' %}">Volver al listado</a>
