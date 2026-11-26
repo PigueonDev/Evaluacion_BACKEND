@@ -721,16 +721,22 @@ class Evidencia(models.Model):
 		self.texto_tarea = (self.texto_tarea or "").strip()
 		self.observacion = (self.observacion or "").strip()
 		if not self.pk:
-			if not self.tarea_id:
-				errores["tarea"] = "Elige la tarea que esta captura acredita."
-			elif not self.tarea.realizada:
-				errores["tarea"] = "Solo puedes adjuntar la captura de una tarea ya realizada."
 			if self.actividad_id and self.actividad.estado == "anulada":
 				errores["actividad"] = "No se adjunta evidencia a una actividad anulada."
-			if self.tarea_id and self.estado == "pendiente" and Evidencia.objects.filter(tarea_id=self.tarea_id, estado="pendiente").exists():
-				errores["tarea"] = "Esta tarea ya tiene una evidencia pendiente de revisión."
+			if self.tarea_id and not self.tarea.realizada:
+				errores["texto_tarea"] = "Solo puedes adjuntar la captura de una tarea ya realizada."
+			if self.estado == "pendiente" and self.tarea_id and Evidencia.objects.filter(tarea_id=self.tarea_id, estado="pendiente").exists():
+				errores["texto_tarea"] = "Esta tarea ya tiene una evidencia pendiente de revisión."
+			elif (
+				self.estado == "pendiente"
+				and not self.tarea_id
+				and self.actividad_id
+				and self.texto_tarea
+				and Evidencia.objects.filter(actividad_id=self.actividad_id, texto_tarea__iexact=self.texto_tarea, estado="pendiente").exists()
+			):
+				errores["texto_tarea"] = "Esta tarea ya tiene una evidencia pendiente de revisión."
 		if not self.texto_tarea:
-			errores["__all__"] = "La evidencia debe indicar el texto de la tarea que acredita."
+			errores["texto_tarea"] = "Escribe la tarea que esta captura acredita."
 		if self.estado in ("rechazada", "antecedentes"):
 			etiqueta = "del rechazo" if self.estado == "rechazada" else "de la solicitud de antecedentes"
 			if not self.observacion:

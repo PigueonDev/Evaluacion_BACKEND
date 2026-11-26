@@ -252,7 +252,7 @@ def actividad_detalle(request, pk):
         formulario = EvidenciaForm(request.POST, request.FILES, actividad=actividad)
         if formulario.is_valid():
             try:
-                cargar_evidencia(actividad, formulario.cleaned_data["tarea"], formulario.cleaned_data["archivo"], request.user)
+                cargar_evidencia(actividad, formulario.cleaned_data["texto_tarea"], formulario.cleaned_data["archivo"], request.user)
             except ValidationError as error:
                 formulario.add_error(None, error)
             else:

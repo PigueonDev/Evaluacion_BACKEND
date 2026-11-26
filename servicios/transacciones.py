@@ -110,21 +110,26 @@ def revisar_actividad(actividad, decision, usuario, observacion="", hoy=None):
 
 
 @transaction.atomic
-def cargar_evidencia(actividad, tarea, archivo, usuario):
-	"""Adjunta la captura de una tarea ya realizada. Si la regla falla, no queda archivo a medias."""
-	tarea = TareaPreparatoria.objects.select_for_update().get(pk=tarea.pk, actividad=actividad)
+def cargar_evidencia(actividad, texto, archivo, usuario):
+	"""Adjunta la captura de un texto: la tarea ya escrita o uno libre. Si la regla falla, no queda archivo a medias."""
+	texto = (texto or "").strip()
+	if not texto:
+		raise ValidationError("Escribe la tarea que esta captura acredita.")
 	if actividad.estado == "anulada":
 		raise ValidationError("No se adjunta evidencia a una actividad anulada.")
 	if actividad.estado == "validada":
 		raise ValidationError("Un registro aprobado no se modifica.")
-	if not tarea.realizada:
+	tarea = TareaPreparatoria.objects.select_for_update().filter(actividad=actividad, descripcion__iexact=texto).first()
+	if tarea is not None and not tarea.realizada:
 		raise ValidationError("Solo puedes adjuntar la captura de una tarea ya realizada.")
-	if Evidencia.objects.filter(tarea=tarea, estado="pendiente").exists():
+	if tarea is not None and Evidencia.objects.filter(tarea=tarea, estado="pendiente").exists():
+		raise ValidationError("Esta tarea ya tiene una evidencia pendiente de revisión.")
+	if tarea is None and Evidencia.objects.filter(actividad=actividad, texto_tarea__iexact=texto, estado="pendiente").exists():
 		raise ValidationError("Esta tarea ya tiene una evidencia pendiente de revisión.")
 	evidencia = Evidencia(
 		actividad=actividad,
 		tarea=tarea,
-		texto_tarea=tarea.descripcion,
+		texto_tarea=tarea.descripcion if tarea is not None else texto,
 		archivo=archivo,
 		autor=usuario,
 		estado="pendiente",
@@ -136,7 +141,7 @@ def cargar_evidencia(actividad, tarea, archivo, usuario):
 		accion="cargar_evidencia",
 		entidad="Evidencia",
 		identificador=str(evidencia.pk),
-		valor_nuevo={"actividad": actividad.pk, "tarea": tarea.descripcion, "estado": "pendiente"},
+		valor_nuevo={"actividad": actividad.pk, "tarea": evidencia.texto_tarea, "estado": "pendiente"},
 	)
 	return evidencia
 

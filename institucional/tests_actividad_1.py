@@ -266,7 +266,7 @@ class Actividad1HuecosTest(TestCase):
 		tarea = actividad.tareas.get()
 		tarea.realizada = True
 		tarea.save(update_fields=["realizada"])
-		self.client.post(reverse("servicios:actividad_detalle", args=[actividad.pk]), {"tarea": str(tarea.pk), "archivo": _png()})
+		self.client.post(reverse("servicios:actividad_detalle", args=[actividad.pk]), {"texto_tarea": tarea.descripcion, "archivo": _png()})
 		evidencia = actividad.evidencias.get()
 		self._entrar(self.supervisor_user)
 		self.client.post(reverse("servicios:evidencia_revisar", args=[evidencia.pk]), {"decision": "solicitar", "motivo": "La captura no se lee"})
