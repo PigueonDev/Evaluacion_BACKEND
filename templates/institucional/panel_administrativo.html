@@ -16,8 +16,8 @@
     <div class="panel-tabla mb-4">
         <div class="panel-tabla-encabezado"><h2 class="h5 mb-0">Semana laboral {{ semana_inicio|date:"d/m" }} al {{ semana_fin|date:"d/m/Y" }}</h2></div>
         <div class="table-responsive"><table class="table tabla-municipal align-middle mb-0">
-            <thead><tr><th>Fecha</th><th>Actividad</th><th>Tareas</th><th>Estado</th><th>Suma</th></tr></thead>
-            <tbody>{% for actividad in semana %}<tr><td>{{ actividad.fecha|date:"d/m" }}</td><td><a href="{% url 'servicios:actividad_detalle' actividad.pk %}">{{ actividad.descripcion|truncatewords:8 }}</a></td><td>{{ actividad.tareas_realizadas }}/{{ actividad.total_tareas }}</td><td><span class="estado estado-{{ actividad.estado }}">{{ actividad.get_estado_display }}</span></td><td>{% if actividad.puntua %}Sí{% else %}No{% endif %}</td></tr>{% empty %}<tr><td colspan="5" class="text-center text-secondary py-4">Aún no registras actividades esta semana.</td></tr>{% endfor %}</tbody>
+            <thead><tr><th>Fecha</th><th>Solicitante</th><th>Actividad</th><th>Tareas</th><th>Estado</th><th>Suma</th></tr></thead>
+            <tbody>{% for actividad in semana %}<tr><td>{{ actividad.fecha|date:"d/m" }}</td><td>{{ actividad.solicitante|default:"Sin solicitante" }}</td><td><a href="{% url 'servicios:actividad_detalle' actividad.pk %}">{{ actividad.descripcion|truncatewords:8 }}</a></td><td>{{ actividad.tareas_realizadas }}/{{ actividad.total_tareas }}</td><td><span class="estado estado-{{ actividad.estado }}">{{ actividad.get_estado_display }}</span></td><td>{% if actividad.puntua %}Sí{% else %}No{% endif %}</td></tr>{% empty %}<tr><td colspan="6" class="text-center text-secondary py-4">Aún no registras actividades esta semana.</td></tr>{% endfor %}</tbody>
         </table></div>
     </div>
     <div class="panel-tabla">

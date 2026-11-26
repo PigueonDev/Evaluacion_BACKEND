@@ -269,18 +269,31 @@ class CartaSeguimientoSerializer(ValidacionModeloMixin, serializers.ModelSeriali
 
 
 class TareaSerializer(serializers.ModelSerializer):
-    tipo_texto = serializers.CharField(source="get_tipo_display", read_only=True)
-
     class Meta:
         model = TareaPreparatoria
-        fields = ["id", "tipo", "tipo_texto", "descripcion", "realizada", "realizada_en"]
+        fields = ["id", "descripcion", "realizada", "realizada_en"]
         read_only_fields = ["realizada", "realizada_en"]
+        extra_kwargs = {
+            "descripcion": {"label": "Tarea", "help_text": "Texto libre de la tarea. Ejemplo: Gestión de sillas."},
+        }
 
 
-class TareaEntradaSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = TareaPreparatoria
-        fields = ["tipo", "descripcion"]
+class TareaEntradaSerializer(serializers.Serializer):
+    descripcion = serializers.CharField(
+        max_length=280,
+        label="Tarea",
+        help_text="Texto libre. Ejemplo: Gestión de sillas. No hay catálogo ni opción para elegir.",
+        error_messages={
+            "blank": "Escribe la tarea, por ejemplo «Gestión de sillas».",
+            "required": "Escribe la tarea, por ejemplo «Gestión de sillas».",
+        },
+    )
+
+    def validate_descripcion(self, valor):
+        valor = (valor or "").strip()
+        if not valor:
+            raise serializers.ValidationError("Escribe la tarea, por ejemplo «Gestión de sillas».")
+        return valor
 
 
 class TareaMarcaSerializer(serializers.Serializer):
@@ -309,7 +322,7 @@ class ActividadUsuarioSerializer(serializers.ModelSerializer):
         model = Actividad
         fields = [
             "id", "codigo_verificador", "codigo_evidencia", "funcionario", "funcionario_nombre", "delegacion", "periodo", "periodo_nombre",
-            "item", "item_nombre", "servicio", "compromiso", "fecha", "descripcion", "accion", "derivado_a", "derivado_a_nombre",
+            "item", "item_nombre", "servicio", "compromiso", "solicitante", "fecha", "descripcion", "accion", "derivado_a", "derivado_a_nombre",
             "estado", "estado_texto", "tareas", "tareas_completas", "revisada_por", "revisada_en", "observacion_revision", "creada_en",
         ]
         read_only_fields = fields
@@ -339,8 +352,13 @@ class ActividadEdicionSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Actividad
-        fields = ["fecha", "periodo", "item", "servicio", "compromiso", "descripcion", "accion", "contacto", "telefono", "derivado_a"]
+        fields = ["fecha", "periodo", "item", "servicio", "compromiso", "solicitante", "descripcion", "accion", "contacto", "telefono", "derivado_a"]
         extra_kwargs = {
+            "solicitante": {
+                "required": False,
+                "allow_blank": True,
+                "help_text": "Nombre de quien solicita. Si indicas un ingreso al tubo y lo omites, se usa el solicitante de ese compromiso. Si lo escribes, debe coincidir.",
+            },
             "contacto": {"required": False, "help_text": "Dato sensible: solo lo ve el perfil Administrador."},
             "telefono": {"required": False, "help_text": "Dato sensible: 8 a 15 dígitos. Solo lo ve el perfil Administrador."},
         }
@@ -380,7 +398,7 @@ class ActividadEntradaSerializer(ActividadEdicionSerializer):
         queryset=Funcionario.objects.filter(activo=True), required=False, write_only=True,
         help_text="Solo el Administrador lo indica. Para el Administrativo se usa su propia ficha.",
     )
-    tareas = TareaEntradaSerializer(many=True, help_text=f"Entre 1 y {MAXIMO_TAREAS} tareas preparatorias.")
+    tareas = TareaEntradaSerializer(many=True, help_text=f"Entre 1 y {MAXIMO_TAREAS} tareas en texto libre, por ejemplo «Gestión de sillas».")
 
     class Meta(ActividadEdicionSerializer.Meta):
         fields = ActividadEdicionSerializer.Meta.fields + ["funcionario", "tareas"]
@@ -401,7 +419,7 @@ class ActividadEntradaSerializer(ActividadEdicionSerializer):
         return super().validate(attrs)
 
     def create(self, validated_data):
-        tareas = [TareaPreparatoria(**tarea) for tarea in validated_data.pop("tareas")]
+        tareas = [TareaPreparatoria(tipo="otra", descripcion=tarea["descripcion"]) for tarea in validated_data.pop("tareas")]
         funcionario = self.titular(validated_data)
         validated_data.pop("funcionario", None)
         try:

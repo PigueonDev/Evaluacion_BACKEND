@@ -319,8 +319,8 @@ class ActividadesAPITest(BaseAPI):
 
     def datos(self, **extra):
         datos = {"fecha": HOY_PRUEBAS.isoformat(), "periodo": self.periodo.pk, "item": self.item.pk, "descripcion": "Taller de huertos",
-                 "accion": "Se inscribieron 25 vecinos", "contacto": "María González", "telefono": "+56 9 1234 5678",
-                 "tareas": [{"tipo": "sillas", "descripcion": "30 sillas"}, {"tipo": "difusion", "descripcion": "Afiches"}]}
+                 "accion": "Se inscribieron 25 vecinos", "solicitante": "Junta de vecinos Villa Alegre", "contacto": "María González", "telefono": "+56 9 1234 5678",
+                 "tareas": [{"descripcion": "Gestión de sillas"}, {"descripcion": "Gestión de afiches"}]}
         datos.update(extra)
         return datos
 
@@ -335,6 +335,9 @@ class ActividadesAPITest(BaseAPI):
         self.assertEqual(actividad["estado"], "pendiente")
         self.assertEqual(actividad["funcionario_nombre"], "Ana Funcionaria")
         self.assertEqual(len(actividad["tareas"]), 2)
+        self.assertEqual({tarea["descripcion"] for tarea in actividad["tareas"]}, {"Gestión de sillas", "Gestión de afiches"})
+        self.assertTrue(all("tipo" not in tarea for tarea in actividad["tareas"]))
+        self.assertEqual(actividad["solicitante"], "Junta de vecinos Villa Alegre")
         self.assertNotIn("telefono", actividad)
         self.assertNotIn("contacto", actividad)
         guardada = Actividad.objects.get()
@@ -367,6 +370,18 @@ class ActividadesAPITest(BaseAPI):
         self.assertIn("telefono", cuerpo["detalle"])
         self.assertFalse(Actividad.objects.exists())
         self.assertFalse(TareaPreparatoria.objects.exists())
+
+    def test_la_tarea_es_texto_libre_sin_tipo(self):
+        self.autenticar(self.administrativo)
+        cuerpo = self.assertError(
+            self.client.post("/api/actividades/", self.datos(tareas=[{"descripcion": "  "}]), format="json"),
+            400,
+        )
+        self.assertIn("Gestión de sillas", str(cuerpo))
+        actividad = self.registrar(tareas=[{"tipo": "sillas", "descripcion": "Gestión de sillas"}])
+        self.assertEqual(actividad["tareas"][0]["descripcion"], "Gestión de sillas")
+        self.assertNotIn("tipo", actividad["tareas"][0])
+        self.assertFalse(TareaPreparatoria.objects.exclude(descripcion="Gestión de sillas").exists())
 
     def test_cupo_diario_de_siete_actividades(self):
         for _ in range(7):
@@ -461,7 +476,7 @@ class ExportacionesTest(BaseAPI):
         periodo = Periodo.objects.create(nombre="P", fecha_inicio=date(2026, 1, 1), fecha_termino=date(2026, 12, 31))
         item = ItemMedicion.objects.create(codigo="X-1", nombre="Atención")
         actividad = Actividad.objects.create(funcionario=self.funcionario, periodo=periodo, item=item, fecha=HOY_PRUEBAS, descripcion="Atención", accion="Orientación", telefono="+56 9 5555 6666")
-        TareaPreparatoria.objects.create(actividad=actividad, tipo="sillas")
+        TareaPreparatoria.objects.create(actividad=actividad, tipo="otra", descripcion="Gestión de sillas")
         self.autenticar(self.admin)
         encabezado, filas = self.hoja(self.client.get("/api/actividades/exportar/excel/"))
         self.assertIn("Teléfono", encabezado)

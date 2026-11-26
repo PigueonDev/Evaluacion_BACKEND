@@ -392,7 +392,8 @@ def cartas_exportar(request, formato):
 EJEMPLO_ACTIVIDAD = {
     "fecha": "2026-11-17", "periodo": 2, "item": 7, "descripcion": "Taller de huertos urbanos con la JJVV Villa Alegre",
     "accion": "Se coordinó el taller y se inscribieron 25 vecinos.", "contacto": "María González (presidenta)", "telefono": "+56 9 1234 5678",
-    "derivado_a": None, "compromiso": None, "tareas": [{"tipo": "sillas", "descripcion": "30 sillas a la sede"}, {"tipo": "difusion", "descripcion": "Afiches y WhatsApp"}],
+    "solicitante": "Junta de Vecinos Villa Alegre", "derivado_a": None, "compromiso": None,
+    "tareas": [{"descripcion": "Gestión de sillas"}, {"descripcion": "Gestión de afiches y WhatsApp"}],
 }
 
 
@@ -402,7 +403,7 @@ def _filtrar_actividades(request, actividades):
         actividades = actividades.filter(estado=estado)
     busqueda = texto_busqueda(request)
     if busqueda:
-        actividades = actividades.filter(Q(descripcion__icontains=busqueda) | Q(funcionario__nombre_completo__icontains=busqueda) | Q(item__nombre__icontains=busqueda) | Q(codigo_verificador__icontains=busqueda))
+        actividades = actividades.filter(Q(descripcion__icontains=busqueda) | Q(solicitante__icontains=busqueda) | Q(funcionario__nombre_completo__icontains=busqueda) | Q(item__nombre__icontains=busqueda) | Q(codigo_verificador__icontains=busqueda))
     return actividades
 
 

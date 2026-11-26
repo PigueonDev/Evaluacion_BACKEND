@@ -11,7 +11,7 @@
             <input type="hidden" name="estado" value="{{ estado_activo }}">
             <label class="visually-hidden" for="q-actividades">Buscar actividad</label>
             <svg class="icono"><use href="#i-search"/></svg>
-            <input id="q-actividades" name="q" type="search" value="{{ busqueda }}" placeholder="Buscar por descripción, funcionario o ítem">
+            <input id="q-actividades" name="q" type="search" value="{{ busqueda }}" placeholder="Buscar por descripción, solicitante, funcionario o ítem">
             <button class="btn btn-primary" type="submit">Buscar</button>
         </form>
         <div class="d-flex flex-wrap justify-content-between gap-2">
@@ -33,12 +33,13 @@
     <div class="panel-tabla">
         <div class="table-responsive">
             <table class="table tabla-municipal table-hover align-middle mb-0">
-                <thead><tr><th>Código</th><th>Fecha</th><th>Funcionario</th><th>Ítem</th><th>Descripción</th><th>Estado</th><th></th></tr></thead>
+                <thead><tr><th>Código</th><th>Fecha</th><th>Solicitante</th><th>Funcionario</th><th>Ítem</th><th>Descripción</th><th>Estado</th><th></th></tr></thead>
                 <tbody>
                 {% for actividad in actividades %}
                 <tr>
                     <td><a href="{% url 'servicios:actividad_detalle' actividad.pk %}"><code class="small">{{ actividad.codigo_verificador|default:actividad.codigo_evidencia|truncatechars:15 }}</code></a></td>
                     <td class="text-nowrap">{{ actividad.fecha|date:"d/m/Y" }}</td>
+                    <td>{{ actividad.solicitante|default:"Sin solicitante" }}</td>
                     <td>{{ actividad.funcionario.nombre_completo }}</td>
                     <td>{{ actividad.item.nombre }}</td>
                     <td class="text-secondary">{{ actividad.descripcion|truncatewords:12 }}</td>
@@ -46,7 +47,7 @@
                     <td class="text-nowrap"><a href="{% url 'servicios:actividad_detalle' actividad.pk %}">Ver</a></td>
                 </tr>
                 {% empty %}
-                <tr><td colspan="7" class="text-secondary">No hay actividades para este filtro.</td></tr>
+                <tr><td colspan="8" class="text-secondary">No hay actividades para este filtro.</td></tr>
                 {% endfor %}
                 </tbody>
             </table>

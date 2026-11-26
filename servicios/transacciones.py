@@ -102,5 +102,5 @@ def tareas_desde_formset(formset):
 	for form in formset.forms:
 		if not form.has_changed() or form.cleaned_data.get("DELETE"):
 			continue
-		tareas.append(TareaPreparatoria(tipo=form.cleaned_data["tipo"], descripcion=form.cleaned_data.get("descripcion", "")))
+		tareas.append(TareaPreparatoria(tipo="otra", descripcion=form.cleaned_data.get("descripcion", "")))
 	return tareas
