@@ -5,9 +5,8 @@ from django.contrib.auth import get_user_model
 from django.test import TestCase
 from django.urls import reverse
 
-from institucional.cuentas import asignar_grupo
 from institucional.models import Cargo, Delegacion, Funcionario, UnidadMunicipal
-from laserena.permisos import GRUPO_ADMINISTRADOR, GRUPO_ADMINISTRATIVO, GRUPO_SUPERVISOR
+from laserena.permisos import GRUPO_ADMINISTRADOR, GRUPO_ADMINISTRATIVO, GRUPO_SUPERVISOR, asignar_grupo
 from servicios.management.commands.cargar_matriz import cargar_matriz
 from servicios.models import Meta, Periodo
 
@@ -98,6 +97,8 @@ class FelicitacionesYReclamosTest(MatrizOficinaBase):
 		self.assertEqual(self.client.post(reverse("oficina:reconocimiento_anular", args=[propio.pk])).status_code, 403)
 
 	def test_supervisor_registra_en_su_delegacion_y_anula(self):
+		from django.core.files.uploadedfile import SimpleUploadedFile
+
 		self.client.force_login(self.supervisor)
 		formulario = self.client.get(reverse("oficina:reconocimiento_crear")).context["form"]
 		self.assertEqual(list(formulario.fields["funcionario"].queryset), [self.social])
@@ -105,7 +106,8 @@ class FelicitacionesYReclamosTest(MatrizOficinaBase):
 		self.assertEqual(ajeno.status_code, 200)
 		futuro = self.client.post(reverse("oficina:reconocimiento_crear"), self.datos(fecha="2026-11-30"))
 		self.assertContains(futuro, "no puede ser futura")
-		self.client.post(reverse("oficina:reconocimiento_crear"), self.datos())
+		archivo = SimpleUploadedFile("respaldo.pdf", b"%PDF-1.4 respaldo", content_type="application/pdf")
+		self.client.post(reverse("oficina:reconocimiento_crear"), self.datos(respaldo=archivo))
 		registro = Reconocimiento.objects.get()
 		self.assertEqual((registro.registrado_por, registro.estado), (self.supervisor, "vigente"))
 		self.client.post(reverse("oficina:reconocimiento_anular", args=[registro.pk]))
@@ -118,12 +120,12 @@ class FelicitacionesYReclamosTest(MatrizOficinaBase):
 
 
 class AusenciaMetasMatrizTest(MatrizOficinaBase):
-	def test_ausencia_solo_reduce_metas_de_conteo(self):
+	def test_ausencia_ajusta_conteo_tasa_del_tubo_y_emergencia(self):
 		registrar_ausencia(
 			Ausencia(funcionario=self.social, periodo=self.periodo, fecha_inicio=date(2026, 11, 2), fecha_termino=date(2026, 11, 3), motivo="compensatorio"),
 			self.admin,
 		)
 		personales = dict(Meta.objects.filter(funcionario=self.social).values_list("item__codigo", "objetivo"))
-		self.assertNotIn("TUB", personales)
-		self.assertNotIn("EME", personales)
 		self.assertLess(personales["EIN"], 40)
+		self.assertLess(personales["TUB"], 80)
+		self.assertLess(personales["EME"], 1)

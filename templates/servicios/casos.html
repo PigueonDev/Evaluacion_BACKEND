@@ -10,7 +10,7 @@
         <form method="get" class="buscador-interno" role="search">
             <label class="visually-hidden" for="q-casos">Buscar caso</label>
             <svg class="icono"><use href="#i-search"/></svg>
-            <input id="q-casos" name="q" type="search" value="{{ busqueda }}" placeholder="Buscar por identificación o nombre">
+            <input id="q-casos" name="q" type="search" value="{{ busqueda }}" placeholder="Buscar por identificación, persona usuaria o solicitante">
             <button class="btn btn-primary" type="submit">Buscar</button>
         </form>
         <div class="d-flex justify-content-end">
@@ -21,19 +21,20 @@
     <div class="panel-tabla">
         <div class="table-responsive">
             <table class="table tabla-municipal table-hover align-middle mb-0">
-                <thead><tr><th>Identificación</th><th>Persona usuaria</th><th>Delegación</th><th>Atenciones</th><th>Estado</th><th></th></tr></thead>
+                <thead><tr><th>Identificación</th><th>Persona usuaria</th><th>Solicitante</th><th>Delegación</th><th>Atenciones</th><th>Estado</th><th></th></tr></thead>
                 <tbody>
                 {% for caso in casos %}
                 <tr>
                     <td><code>{{ caso.identificacion }}</code></td>
                     <td>{{ caso.nombre }}</td>
+                    <td>{{ caso.solicitante|default:"Sin solicitante" }}</td>
                     <td>{{ caso.delegacion.nombre }}</td>
                     <td>{{ caso.atenciones_contadas }}</td>
                     <td>{% if caso.activo %}<span class="estado estado-validada">Activo</span>{% else %}<span class="estado estado-anulada">Inactivo</span>{% endif %}</td>
                     <td><a href="{% url 'servicios:caso_detalle' caso.pk %}">Ver caso</a></td>
                 </tr>
                 {% empty %}
-                <tr><td colspan="6" class="text-secondary">No hay casos para este filtro.</td></tr>
+                <tr><td colspan="7" class="text-secondary">No hay casos para este filtro.</td></tr>
                 {% endfor %}
                 </tbody>
             </table>

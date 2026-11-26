@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block titulo %}Tipos de atención · SGR{% endblock %}
+{% block contenido %}
+{% url 'institucional:panel' as url_panel %}
+{% include "includes/cabecera.html" with antetitulo="Mantenedor" titulo="Tipos y subtipos de atención" bajada="Catálogo que usa el caso social. Reemplaza la lista fija de la matriz." seccion="Panel" seccion_url=url_panel %}
+<section class="container py-5">
+    <div class="d-flex justify-content-end mb-3"><a class="btn btn-success" href="{% url 'institucional:tipo_crear' %}">Crear tipo</a></div>
+    {% for tipo in tipos %}
+    <article class="tarjeta-info mb-4">
+        <div class="d-flex flex-wrap justify-content-between gap-2 mb-2">
+            <h2 class="h5 mb-0">{{ tipo.nombre }} {% if not tipo.activo %}<span class="badge text-bg-secondary">inactivo</span>{% endif %}</h2>
+            <div class="d-flex gap-2">
+                <a class="btn btn-outline-secondary btn-sm" href="{% url 'institucional:tipo_editar' tipo.pk %}">Editar tipo</a>
+                <a class="btn btn-outline-primary btn-sm" href="{% url 'institucional:subtipo_crear' tipo.pk %}">Agregar subtipo</a>
+                <a class="btn btn-outline-danger btn-sm" href="{% url 'institucional:tipo_eliminar' tipo.pk %}">Eliminar</a>
+            </div>
+        </div>
+        <p class="small text-secondary mb-2"><code>{{ tipo.codigo }}</code></p>
+        <ul class="mb-0">
+            {% for subtipo in tipo.subtipos.all %}
+            <li class="d-flex flex-wrap justify-content-between gap-2 py-1">
+                <span>{{ subtipo.nombre }}{% if subtipo.forma %} · {{ subtipo.forma }}{% endif %}{% if not subtipo.activo %} <span class="badge text-bg-secondary">inactivo</span>{% endif %}</span>
+                <span><a href="{% url 'institucional:subtipo_editar' subtipo.pk %}">Editar</a> · <a href="{% url 'institucional:subtipo_eliminar' subtipo.pk %}">Eliminar</a></span>
+            </li>
+            {% empty %}<li class="text-secondary">Sin subtipos.</li>{% endfor %}
+        </ul>
+    </article>
+    {% empty %}<p class="text-secondary">No hay tipos de atención.</p>{% endfor %}
+</section>
+{% endblock %}

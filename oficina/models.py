@@ -1,5 +1,6 @@
 from django.conf import settings
 from django.core.exceptions import ValidationError
+from django.core.validators import FileExtensionValidator
 from django.db import models
 from django.utils import timezone
 
@@ -157,7 +158,7 @@ class Ausencia(models.Model):
 	ESTADOS = [("vigente", "Vigente"), ("anulada", "Anulada")]
 
 	funcionario = models.ForeignKey("institucional.Funcionario", on_delete=models.PROTECT, related_name="ausencias")
-	periodo = models.ForeignKey("servicios.Periodo", on_delete=models.PROTECT, related_name="ausencias")
+	periodo = models.ForeignKey("servicios.Periodo", on_delete=models.PROTECT, related_name="ausencias", verbose_name="período")
 	fecha_inicio = models.DateField("desde")
 	fecha_termino = models.DateField("hasta")
 	motivo = models.CharField("motivo", max_length=20, choices=MOTIVOS)
@@ -169,6 +170,8 @@ class Ausencia(models.Model):
 	anulada_en = models.DateTimeField(null=True, blank=True)
 
 	class Meta:
+		verbose_name = "ausencia"
+		verbose_name_plural = "ausencias"
 		ordering = ["-fecha_inicio"]
 		permissions = [("anular_ausencia", "Puede anular una ausencia y restituir las metas")]
 
@@ -192,6 +195,8 @@ class AjusteMeta(models.Model):
 	semaforo_nuevo = models.CharField(max_length=10)
 
 	class Meta:
+		verbose_name = "ajuste de meta"
+		verbose_name_plural = "ajustes de meta"
 		ordering = ["meta__item__nombre"]
 
 
@@ -211,6 +216,13 @@ class Reconocimiento(models.Model):
 	ubicacion = models.CharField("ubicación", max_length=160, blank=True)
 	situacion = models.TextField("situación que felicita o reclama")
 	medio = models.CharField("medio escrito", max_length=20, choices=MEDIOS)
+	respaldo = models.FileField(
+		"respaldo formal del delegado",
+		upload_to="reconocimientos/%Y/%m/",
+		blank=True,
+		validators=[FileExtensionValidator(["pdf", "jpg", "jpeg", "png", "webp"])],
+		help_text="Documento o imagen que acredita la felicitación. Sin este archivo la felicitación no puntúa.",
+	)
 	estado = models.CharField("estado", max_length=20, choices=ESTADOS, default="vigente")
 	registrado_por = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="reconocimientos_registrados")
 	creado_en = models.DateTimeField(auto_now_add=True)
@@ -234,5 +246,7 @@ class Reconocimiento(models.Model):
 			errores["fecha"] = "La fecha no puede ser futura."
 		if not (self.situacion or "").strip():
 			errores["situacion"] = "Describe la situación."
+		if self.tipo == "felicitacion" and not self.respaldo:
+			errores["respaldo"] = "La felicitación solo es válida con el respaldo formal del delegado."
 		if errores:
 			raise ValidationError(errores)

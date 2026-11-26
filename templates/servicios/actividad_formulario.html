@@ -21,13 +21,13 @@
                     {% include "servicios/includes/campos.html" %}
                     {% if formset %}
                     <h2 class="h5 mt-4">Tareas preparatorias</h2>
-                    <p class="small text-secondary">Gestiones previas (sillas, colación, regalos, local, animadores…). No suman al porcentaje por sí solas; se marcan como realizadas en el detalle de la actividad.</p>
+                    <p class="small text-secondary">Escribe cada tarea, por ejemplo «Gestión de sillas». No hay un listado para elegir. No suma al porcentaje por sí sola; se marca como realizada en el detalle de la actividad.</p>
                     {{ formset.management_form }}
                     {% for error in formset.non_form_errors %}<div class="alert alert-danger py-2">{{ error }}</div>{% endfor %}
                     {% for tarea in formset %}
-                    <div class="row g-2 mb-2">
-                        <div class="col-md-5">{{ tarea.tipo }}{% for error in tarea.tipo.errors %}<div class="invalid-feedback d-block">{{ error }}</div>{% endfor %}</div>
-                        <div class="col-md-7">{{ tarea.descripcion }}</div>
+                    <div class="mb-2">
+                        <label class="form-label small mb-1" for="{{ tarea.descripcion.id_for_label }}">Tarea</label>
+                        {{ tarea.descripcion }}{% for error in tarea.descripcion.errors %}<div class="invalid-feedback d-block">{{ error }}</div>{% endfor %}
                     </div>
                     {% endfor %}
                     {% endif %}

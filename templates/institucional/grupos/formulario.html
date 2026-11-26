@@ -12,8 +12,15 @@
             {% csrf_token %}
             <div class="mb-4" style="max-width:480px"><label class="form-label fw-semibold" for="{{ form.name.id_for_label }}">{{ form.name.label }}</label>{{ form.name }}{% if form.name.help_text %}<div class="form-text">{{ form.name.help_text }}</div>{% endif %}{% for error in form.name.errors %}<div class="invalid-feedback d-block">{{ error }}</div>{% endfor %}</div>
             <h2 class="h6 text-uppercase text-secondary">Permisos</h2>
-            <div class="row row-cols-1 row-cols-md-2 row-cols-xl-3 g-1 mb-4 small" style="max-height:420px;overflow:auto">
-                {% for opcion in form.permissions %}<div class="col"><div class="form-check">{{ opcion.tag }}<label class="form-check-label" for="{{ opcion.id_for_label }}">{{ opcion.choice_label }}</label></div></div>{% endfor %}
+            <div class="table-responsive mb-4" style="max-height:480px;overflow:auto">
+                <table class="table table-sm align-middle small mb-0">
+                    <thead><tr><th scope="col">Recurso</th><th scope="col">Acciones permitidas</th></tr></thead>
+                    <tbody>
+                    {% for recurso, opciones in form.permisos_por_recurso %}
+                    <tr><th scope="row" class="fw-semibold">{{ recurso }}</th><td>{% for opcion in opciones %}<div class="form-check form-check-inline">{{ opcion.tag }}<label class="form-check-label" for="{{ opcion.id_for_label }}">{{ opcion.choice_label }}</label></div>{% endfor %}</td></tr>
+                    {% endfor %}
+                    </tbody>
+                </table>
             </div>
             {% if miembros %}<p class="small text-secondary">Miembros: {% for miembro in miembros %}{{ miembro.username }}{% if not forloop.last %}, {% endif %}{% endfor %}</p>{% endif %}
             <div class="d-flex gap-2"><button class="btn btn-primary" type="submit">Guardar</button><a class="btn btn-outline-secondary" href="{% url 'institucional:grupos' %}">Cancelar</a></div>

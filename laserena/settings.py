@@ -2,6 +2,7 @@
 
 import os
 import sys
+from datetime import timedelta
 from pathlib import Path
 
 from django.core.exceptions import ImproperlyConfigured
@@ -26,6 +27,13 @@ INSTALLED_APPS = [
     "servicios",
     "oficina",
     "organizaciones",
+    "rest_framework",
+    # Se instala la app base de SimpleJWT solo para cargar sus traducciones al español.
+    "rest_framework_simplejwt",
+    "rest_framework_simplejwt.token_blacklist",
+    "drf_spectacular",
+    "drf_spectacular_sidecar",
+    "api",
 ]
 
 MIDDLEWARE = [
@@ -35,6 +43,7 @@ MIDDLEWARE = [
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
+    "institucional.claves.ClaveTemporalMiddleware",
     "laserena.permisos.RolMiddleware",
     "laserena.seguridad.CabecerasSeguridadMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
@@ -83,7 +92,9 @@ AUTH_PASSWORD_VALIDATORS = [
     {"NAME": "django.contrib.auth.password_validation.NumericPasswordValidator"},
 ]
 
+# Todo el sistema en español: los textos propios ya lo están y Django, DRF y SimpleJWT traen sus traducciones.
 LANGUAGE_CODE = "es-cl"
+LANGUAGES = [("es-cl", "Español (Chile)")]
 TIME_ZONE = "America/Santiago"
 USE_I18N = True
 USE_TZ = True
@@ -152,6 +163,83 @@ if os.getenv("HTTPS", "False").lower() == "true":
     SECURE_REDIRECT_EXEMPT = [r"^acceso/verificar/$"]
     SECURE_HSTS_SECONDS = 30 * 24 * 60 * 60
 
+# --- API REST (Django REST Framework + SimpleJWT + drf-spectacular) ---------------
+# Todo endpoint exige un token de acceso válido salvo que la vista diga lo contrario.
+REST_FRAMEWORK = {
+    "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
+    "DEFAULT_AUTHENTICATION_CLASSES": ("rest_framework_simplejwt.authentication.JWTAuthentication",),
+    "DEFAULT_PERMISSION_CLASSES": ("rest_framework.permissions.IsAuthenticated",),
+    "DEFAULT_RENDERER_CLASSES": ("rest_framework.renderers.JSONRenderer",)
+    + (("rest_framework.renderers.BrowsableAPIRenderer",) if DEBUG else ()),
+    "DEFAULT_PARSER_CLASSES": ("rest_framework.parsers.JSONParser",),
+    "DEFAULT_CONTENT_NEGOTIATION_CLASS": "api.negociacion.NegociacionJSON",
+    "EXCEPTION_HANDLER": "api.errores.manejar_excepcion",
+    "DEFAULT_PAGINATION_CLASS": "api.paginacion.Paginacion",
+    "PAGE_SIZE": 20,
+    "DEFAULT_THROTTLE_CLASSES": (
+        "rest_framework.throttling.AnonRateThrottle",
+        "rest_framework.throttling.UserRateThrottle",
+    ),
+    "DEFAULT_THROTTLE_RATES": {
+        "anon": os.getenv("API_LIMITE_ANONIMO", "60/min"),
+        "user": os.getenv("API_LIMITE_USUARIO", "600/min"),
+        "token": os.getenv("API_LIMITE_TOKEN", "10/min"),
+    },
+    # Nginx agrega la IP real al final de X-Forwarded-For; así un cliente no evade el límite falsificando esa cabecera.
+    "NUM_PROXIES": int(os.getenv("API_NUM_PROXIES", "1")),
+    "UNICODE_JSON": True,
+    "NON_FIELD_ERRORS_KEY": "errores_generales",
+}
+
+SIMPLE_JWT = {
+    "ACCESS_TOKEN_LIFETIME": timedelta(minutes=int(os.getenv("JWT_ACCESS_MINUTOS", "15"))),
+    "REFRESH_TOKEN_LIFETIME": timedelta(hours=int(os.getenv("JWT_REFRESH_HORAS", "8"))),
+    "ROTATE_REFRESH_TOKENS": True,
+    "BLACKLIST_AFTER_ROTATION": True,
+    "UPDATE_LAST_LOGIN": True,
+    "ALGORITHM": "HS256",
+    "SIGNING_KEY": os.getenv("JWT_SIGNING_KEY") or SECRET_KEY,
+    "AUTH_HEADER_TYPES": ("Bearer",),
+    "USER_AUTHENTICATION_RULE": "laserena.permisos.puede_usar_api",
+    "TOKEN_OBTAIN_SERIALIZER": "api.serializers.TokenSGRSerializer",
+}
+
+SPECTACULAR_SETTINGS = {
+    "TITLE": "API SGR · Municipalidad de La Serena",
+    "DESCRIPTION": (
+        "API RESTful del Sistema de Gestión de Resultados (SGR) de las delegaciones municipales.\n\n"
+        "1. Obtén los tokens en `POST /api/token/` con tu usuario (`username`) y contraseña (`password`) del SGR.\n"
+        "2. Pulsa el botón **Authorize** (Autorizar) y pega el valor de `access` (sin escribir «Bearer»).\n"
+        "3. El token de acceso dura 15 minutos; renuévalo con el token de renovación (`refresh`) en `POST /api/token/renovar/`.\n\n"
+        "El perfil **Administrador** recibe todos los campos. Los perfiles **Supervisor** y **Administrativo** "
+        "(perfil Usuario) solo reciben campos públicos y operacionales de su delegación: nunca contraseñas, "
+        "correos, teléfonos ni contactos personales.\n\n"
+        "Los errores siempre vuelven en JSON: `{\"error\": {\"codigo\", \"tipo\", \"mensaje\", \"detalle\"}}`. "
+        "Los listados vienen paginados con `total`, `siguiente`, `anterior` y `resultados`."
+    ),
+    "VERSION": "1.0.0",
+    "CONTACT": {"name": "Cristhopher Rubio y Rodrigo Álvarez · INACAP La Serena"},
+    "SERVE_INCLUDE_SCHEMA": False,
+    "PREPROCESSING_HOOKS": ["api.esquema.ocultar_rutas_anteriores"],
+    "SCHEMA_PATH_PREFIX": r"/api/",
+    "COMPONENT_SPLIT_REQUEST": True,
+    "SWAGGER_UI_DIST": "SIDECAR",
+    "SWAGGER_UI_FAVICON_HREF": "SIDECAR",
+    "REDOC_DIST": "SIDECAR",
+    "SWAGGER_UI_SETTINGS": {"persistAuthorization": False, "displayRequestDuration": True, "tryItOutEnabled": True},
+    # El esquema de seguridad «BearerAuth» (http, bearer, JWT) lo registra api/esquema.py.
+    "ENUM_NAME_OVERRIDES": {
+        "TipoCartaEnum": "oficina.models.Carta.TIPOS",
+        "TipoTareaEnum": "servicios.models.TareaPreparatoria.TIPOS",
+    },
+    "TAGS": [
+        {"name": "Autenticación JWT", "description": "Obtención, renovación, verificación y revocación de tokens."},
+        {"name": "Usuarios", "description": "Mantenedor 1: cuentas, perfil y ficha de funcionario."},
+        {"name": "Cartas", "description": "Mantenedor 2: cartas de Oficina de Partes (tubo de cartas)."},
+        {"name": "Actividades", "description": "Transacción «Registrar actividad» con sus tareas preparatorias."},
+    ],
+}
+
 FILE_UPLOAD_PERMISSIONS = 0o640
 DATA_UPLOAD_MAX_NUMBER_FIELDS = 500
 
@@ -164,9 +252,11 @@ LOGGING = {
         "laserena.seguridad": {"handlers": ["consola"], "level": "INFO", "propagate": False},
         "django.security": {"handlers": ["consola"], "level": "WARNING", "propagate": False},
         "institucional": {"handlers": ["consola"], "level": "WARNING", "propagate": False},
+        "api": {"handlers": ["consola"], "level": "WARNING", "propagate": False},
     },
 }
 
 if sys.argv[1:2] == ["test"]:
     LOGGING["loggers"]["laserena.seguridad"]["level"] = "CRITICAL"
     LOGGING["loggers"]["institucional"]["level"] = "CRITICAL"
+    LOGGING["loggers"]["api"]["level"] = "CRITICAL"

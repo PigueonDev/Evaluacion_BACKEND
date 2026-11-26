@@ -10,6 +10,6 @@ class InstitucionalConfig(AppConfig):
 
         from laserena import seguridad  # noqa: F401  registra las señales de login
 
-        from .cuentas import sincronizar_grupos
+        from laserena.permisos import sincronizar_grupos
 
         post_migrate.connect(sincronizar_grupos, dispatch_uid="sgr-sincronizar-grupos")

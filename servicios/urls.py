@@ -1,12 +1,17 @@
-from django.urls import path
+from django.urls import path, re_path
+from django.views.generic import RedirectView
+
+from api.web import exportar_actividades
 
 from . import views
 
 app_name = "servicios"
 
 urlpatterns = [
-    path("dashboard/", views.dashboard, name="dashboard"),
+    path("panel-municipal/", views.panel_municipal, name="panel_municipal"),
+    path("dashboard/", RedirectView.as_view(pattern_name="servicios:panel_municipal")),
     path("actividades/", views.actividades, name="actividades"),
+    re_path(r"^actividades/exportar/(?P<formato>excel|pdf)/$", exportar_actividades, name="actividades_exportar"),
     path("actividades/nueva/", views.actividad_nueva, name="actividad_nueva"),
     path("actividades/codigo/", views.actividad_por_codigo, name="actividad_codigo"),
     path("actividades/<int:pk>/", views.actividad_detalle, name="actividad_detalle"),
@@ -14,6 +19,8 @@ urlpatterns = [
     path("actividades/<int:pk>/anular/", views.actividad_anular, name="actividad_anular"),
     path("actividades/<int:pk>/tareas/<int:tarea_pk>/", views.tarea_marcar, name="tarea_marcar"),
     path("actividades/<int:pk>/revisar/", views.actividad_revisar, name="actividad_revisar"),
+    path("evidencias/", views.evidencias, name="evidencias"),
+    path("evidencias/<int:pk>/revisar/", views.evidencia_revisar, name="evidencia_revisar"),
     path("aprobaciones/", views.aprobaciones, name="aprobaciones"),
     path("casos/", views.casos, name="casos"),
     path("casos/nuevo/", views.caso_nuevo, name="caso_nuevo"),
@@ -23,6 +30,8 @@ urlpatterns = [
     path("casos/<int:pk>/gestiones/nueva/", views.gestion_nueva, name="gestion_nueva"),
     path("casos/<int:caso_pk>/gestiones/<int:pk>/editar/", views.gestion_editar, name="gestion_editar"),
     path("casos/<int:caso_pk>/gestiones/<int:pk>/desactivar/", views.gestion_desactivar, name="gestion_desactivar"),
+    path("personas/", views.autocompletar_persona, name="autocompletar_persona"),
+    path("evidencias/<int:pk>/reenviar/", views.evidencia_reenviar, name="evidencia_reenviar"),
     path("agenda/", views.agenda, name="agenda"),
     path("agenda/nueva/", views.compromiso_nuevo, name="compromiso_nuevo"),
     path("agenda/resumen/", views.resumen_agenda, name="resumen_agenda"),

@@ -30,7 +30,8 @@ class CabecerasSeguridadMiddleware:
         respuesta.setdefault("Content-Security-Policy", POLITICA_CONTENIDO)
         respuesta.setdefault("Permissions-Policy", "camera=(), microphone=(), geolocation=(), payment=()")
         respuesta.setdefault("Cross-Origin-Opener-Policy", "same-origin")
-        if request.user.is_authenticated:
+        # En la API el usuario se autentica con JWT dentro de la vista, después de este middleware.
+        if request.user.is_authenticated or request.path.startswith("/api/"):
             respuesta.setdefault("Cache-Control", "no-store, private")
         return respuesta
 
@@ -46,12 +47,12 @@ def ip_cliente(request):
 
 @receiver(user_logged_in)
 def _login_exitoso(sender, request, user, **kwargs):
-    registro.info("Login exitoso usuario=%s ip=%s", user.get_username(), ip_cliente(request))
+    registro.info("Inicio de sesión exitoso usuario=%s ip=%s", user.get_username(), ip_cliente(request))
 
 
 @receiver(user_login_failed)
 def _login_fallido(sender, credentials, request=None, **kwargs):
-    registro.warning("Login fallido usuario=%s ip=%s", credentials.get("username", "-")[:150], ip_cliente(request))
+    registro.warning("Inicio de sesión fallido usuario=%s ip=%s", credentials.get("username", "-")[:150], ip_cliente(request))
 
 
 @receiver(user_logged_out)

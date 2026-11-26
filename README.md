@@ -1,17 +1,39 @@
 # Ilustre Municipalidad de La Serena — sitio informativo Django
-# Sistema de Gestión de Resultados (SGR) · Evaluación Sumativa 3
+# Sistema de Gestión de Resultados (SGR) · Evaluaciones Sumativas 3 y 4
 
 ## Qué incluye
 Proyecto Django con tres aplicaciones (`institucional`, `servicios` y `organizaciones`) para registrar delegaciones, funcionarios, actividades, evidencias, compromisos, períodos de medición y organizaciones comunitarias. Toda la operación se hace con Django Templates y Bootstrap: **Django Admin está desactivado**.
 
 ### Evaluación Sumativa 3
 - **Autenticación:** login, logout, bloqueo tras 5 intentos fallidos y vistas protegidas.
-- **Perfiles con Grupos de Django:** `Administrador` (coordinación, crea usuarios), `Supervisor` (delegado) y `Administrativo` (funcionario). La migración `institucional/0006_roles_a_grupos` traslada el antiguo campo `rol` a grupos (el rol "consulta" pasa a Supervisor) y `0007` elimina el campo. Los permisos de cada grupo se sincronizan tras cada `migrate` (`institucional/cuentas.py`).
-- **Dashboard por perfil** en `/panel/`.
+- **Perfiles con Grupos de Django:** `Administrador` (coordinación, crea usuarios), `Supervisor` (delegado) y `Administrativo` (funcionario). La migración `institucional/0006_roles_a_grupos` traslada el antiguo campo `rol` a grupos (el rol "consulta" pasa a Supervisor) y `0007` elimina el campo. Los permisos de cada grupo se definen en un solo módulo, `laserena/permisos.py` (matriz por perfil y por acción), y se sincronizan tras cada `migrate`. La matriz vigente se ve en `/administracion/grupos/`.
+- **Panel por perfil** en `/panel/`.
 - **Mantenedores CRUD (4, grupo de 2 integrantes):** usuarios y grupos (`/administracion/usuarios/`, `/administracion/grupos/`), organizaciones comunitarias (`/organizaciones/`), cartas de Oficina de Partes (`/oficina/cartas/`: folio correlativo, derivación, estado y respuesta) y beneficios para niños (`/oficina/beneficios/`: RUT chileno validado por módulo 11 y único en todas las delegaciones). Todos con búsqueda, filtros y paginación.
 - **Transacción "Registrar actividad"** (`servicios/transacciones.py`, `transaction.atomic`): actividad + tareas preparatorias + auditoría. Las tareas no suman; la actividad suma al cumplimiento solo con todas sus tareas realizadas y la aprobación del Supervisor. Tope 120 % por ítem, máximo 7 actividades por día, ingreso solo dentro de los 5 días hábiles de su semana; al cerrar la semana todo queda bloqueado y no se traspasa.
 - **Transacción "Registrar ausencia"** (`oficina/transacciones.py`, `transaction.atomic`): ausencia + ajuste proporcional de las metas del período (crea la meta personal si solo existe la del cargo) + registro del semáforo antes/después + auditoría. Si algo falla no queda nada a medias. Se puede anular y las metas se restituyen.
 - **Recuperación de contraseña por correo con token** (`/acceso/recuperar/`): enlace firmado de un solo uso que vence en una hora. Se envía por SMTP de Gmail (contraseña de aplicación en `.env`: `EMAIL_HOST_USER`, `EMAIL_HOST_PASSWORD`) en HTML y texto, solo a cuentas activas con ese correo. Sin credenciales, los correos se guardan en `correos_enviados/` y el sitio sigue funcionando; un error SMTP se registra en el log sin romper la página.
+
+### Evaluación Sumativa 4: API RESTful
+App `api` con Django REST Framework (vistas basadas en funciones con `@api_view`), autenticación JWT con SimpleJWT y documentación Swagger/OpenAPI con drf-spectacular.
+
+| Recurso | Endpoints | Operaciones |
+|---|---|---|
+| JWT | `/api/token/`, `/api/token/renovar/`, `/api/token/verificar/`, `/api/token/revocar/`, `/api/yo/` | obtener, renovar (con rotación), verificar, revocar, perfil actual. Las rutas anteriores (`refresh/`, `verify/`, `blacklist/`) siguen respondiendo, pero no aparecen en Swagger |
+| Mantenedor 1: usuarios | `/api/usuarios/`, `/api/usuarios/<id>/` | GET, POST, PUT, DELETE (escritura solo Administrador) |
+| Mantenedor 2: cartas de Oficina de Partes | `/api/cartas/`, `/api/cartas/<id>/` | GET, POST, PUT, DELETE |
+| Transacción «Registrar actividad» | `/api/actividades/`, `/api/actividades/<id>/`, `.../tareas/<id>/`, `.../revision/` | consultar, registrar (atómica, con tareas), modificar, anular (DELETE), marcar tarea, aprobar o rechazar |
+| Exportaciones | `/api/cartas/exportar/excel/` y `/pdf/`, `/api/actividades/exportar/excel/` y `/pdf/` | Excel (openpyxl) y PDF (ReportLab); también con botones en `/oficina/cartas/` y `/servicios/actividades/` |
+| Documentación | `/api/swagger/`, `/api/redoc/`, `/api/esquema/` | Swagger UI con el botón **Authorize** (BearerAuth). `/api/schema/` queda como alias |
+
+El perfil **Administrador** recibe todos los campos. **Supervisor** y **Administrativo** (perfil Usuario) solo reciben campos públicos de su delegación: nunca contraseñas, correos, teléfonos ni contactos personales, tampoco en Excel o PDF. Todas las respuestas son JSON y en español; los errores usan el formato `{"error": {"codigo", "tipo", "mensaje", "detalle"}}` y los listados `{"total", "siguiente", "anterior", "resultados"}`. Solo el par de credenciales (`username`, `password`) y los tokens (`access`, `refresh`) conservan los nombres del estándar JWT. Las recomendaciones de seguridad obtenidas con IA y su prueba están en `EVIDENCIAS_IA.md` (sección 8).
+
+Prueba rápida:
+
+```bash
+curl -s -X POST http://127.0.0.1:8000/api/token/ -H "Content-Type: application/json" \
+     -d '{"username": "admin.demo", "password": "Serena-demo-2026"}'
+curl -s http://127.0.0.1:8000/api/cartas/ -H "Authorization: Bearer <access>"
+```
 
 Integrantes: Cristhopher Rubio y Rodrigo Maximiliano Álvarez Montero.
 
@@ -57,7 +79,7 @@ Abrir http://127.0.0.1:8000/
 | `/autoridades/` | institucional | Autoridades y delegaciones (ORM) |
 | `/servicios/` | servicios | Catálogo filtrable (ORM) |
 | `/servicios/<slug>/` | servicios | Ficha de trámite |
-| `/servicios/dashboard/` | servicios | Panel SGR (solo personal) |
+| `/servicios/panel-municipal/` | servicios | Panel municipal: metas y semáforo (solo Administrador; `/servicios/dashboard/` redirige aquí) |
 | `/servicios/actividades/` | servicios | Actividades y filtros (solo personal) |
 | `/servicios/actividades/nueva/` | servicios | Registrar actividad con período abierto (SCRUM-10) |
 | `/servicios/actividades/codigo/` | servicios | Consultar el código de evidencia según ámbito (SCRUM-15) |
@@ -77,7 +99,7 @@ Abrir http://127.0.0.1:8000/
 | `/oficina/felicitaciones-y-reclamos/` | oficina | Felicitaciones y reclamos escritos que suman o descuentan cumplimiento |
 | `/administracion/` | institucional | Dashboard del Administrador |
 | `/administracion/usuarios/` | institucional | CRUD de usuarios |
-| `/administracion/grupos/` | institucional | CRUD de grupos y permisos |
+| `/administracion/grupos/` | institucional | CRUD de grupos y matriz de permisos por perfil |
 | `/administracion/cargos/` | institucional | Cargos de la matriz, perfil, sigla y metas del trimestre |
 | `/administracion/unidades/` | institucional | Unidades municipales para derivar tubo, cartas y actividades |
 | `/organizaciones/` | organizaciones | CRUD de organizaciones comunitarias y verificación |
@@ -85,7 +107,7 @@ Abrir http://127.0.0.1:8000/
 
 ## Acceso funcionarios y phpMyAdmin
 
-En la esquina superior derecha de todas las páginas está el botón **Acceso funcionarios**. Cada perfil llega a su propio dashboard. phpMyAdmin queda solo como herramienta técnica del Administrador.
+En la esquina superior derecha de todas las páginas está el botón **Acceso funcionarios**. Cada perfil llega a su propio panel. phpMyAdmin queda solo como herramienta técnica del Administrador.
 
 La URL de phpMyAdmin se configura con `PHPMYADMIN_URL` en `.env` (por defecto `/phpmyadmin/`). En EC2, `deploy/nginx.conf` publica phpMyAdmin en `/phpmyadmin/` y usa `auth_request` contra `/acceso/verificar/`: sin sesión de Administrador en Django, Nginx redirige al login.
 
@@ -149,7 +171,7 @@ echo "\$cfg['LoginCookieValidity'] = 1800;" | sudo tee -a /usr/share/phpmyadmin/
 6. **Actualizaciones:** `sudo dnf upgrade -y` y `pip install -U -r requirements.txt` cada cierto tiempo.
 
 ## Librería externa
-Además de Django se usa **WhiteNoise** para servir archivos estáticos y **Pillow** para generar las imágenes institucionales locales.
+Además de Django se usa **WhiteNoise** para servir archivos estáticos y **Pillow** para generar las imágenes institucionales locales. La API usa **djangorestframework 3.15.2**, **djangorestframework-simplejwt 5.3.1**, **drf-spectacular 0.27.2** (con **drf-spectacular-sidecar**, para servir Swagger sin CDN), **openpyxl** y **reportlab 4.2.5**, versiones compatibles con Python 3.9 y Django 4.2.
 
 ## Datos y dominio SGR
 

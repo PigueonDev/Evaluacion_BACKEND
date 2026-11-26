@@ -15,12 +15,17 @@
             <div><dt>Funcionario</dt><dd>{{ actividad.funcionario.nombre_completo }}</dd></div>
             <div><dt>Cargo</dt><dd>{{ actividad.funcionario.cargo.nombre }}</dd></div>
             <div><dt>Delegación</dt><dd>{{ actividad.funcionario.delegacion.nombre }}</dd></div>
+            <div><dt>Solicitante</dt><dd>{{ actividad.solicitante|default:"Sin solicitante" }}</dd></div>
+            <div><dt>Ingreso al tubo</dt><dd>{% if actividad.compromiso %}{{ actividad.compromiso.solicitante }} · {{ actividad.compromiso.fecha_comprometida|date:"d/m/Y" }}{% else %}Sin compromiso asociado{% endif %}</dd></div>
             <div><dt>Período</dt><dd>{{ actividad.periodo.nombre }}</dd></div>
             <div><dt>Ítem</dt><dd>{{ actividad.item.codigo }} — {{ actividad.item.nombre }}</dd></div>
             <div><dt>Actividad o problema</dt><dd>{{ actividad.descripcion }}</dd></div>
             <div><dt>Acción</dt><dd>{{ actividad.accion }}</dd></div>
             <div><dt>Estado</dt><dd><span class="estado estado-{{ actividad.estado }}">{{ actividad.get_estado_display }}</span></dd></div>
         </dl>
+        <h2 class="h5 mt-4">Evidencias</h2>
+        <p class="text-secondary">Capturas que acreditan esta actividad y el texto de la tarea.</p>
+        {% include "servicios/includes/evidencias.html" with evidencias=evidencias %}
         <a class="btn btn-primary" href="{% url 'servicios:consulta' %}?{{ consulta_query }}">Volver a la consulta</a>
     </article>
 </section>

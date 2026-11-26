@@ -24,7 +24,7 @@
                 <td class="small">{{ cuenta.email|default:"—" }}</td>
                 <td>{% for grupo in cuenta.groups.all %}<span class="badge text-bg-primary">{{ grupo.name }}</span> {% empty %}{% if cuenta.is_superuser %}<span class="badge text-bg-dark">Superusuario</span>{% else %}<span class="text-secondary">Sin grupo</span>{% endif %}{% endfor %}</td>
                 <td>{{ cuenta.perfil_sgr.delegacion.nombre|default:"—" }}</td>
-                <td>{% if cuenta.is_active %}<span class="badge text-bg-success">Activa</span>{% else %}<span class="badge text-bg-secondary">Inactiva</span>{% endif %}</td>
+                <td>{% if cuenta.is_active %}<span class="badge text-bg-success">Activa</span>{% else %}<span class="badge text-bg-secondary">Inactiva</span>{% endif %}{% if cuenta.clave_temporal %} <span class="badge text-bg-warning">Clave temporal</span>{% endif %}</td>
                 <td class="text-end text-nowrap"><a class="btn btn-outline-secondary btn-sm" href="{% url 'institucional:usuario_editar' cuenta.pk %}">Editar</a>{% if cuenta != user %} <a class="btn btn-outline-danger btn-sm" href="{% url 'institucional:usuario_eliminar' cuenta.pk %}">Eliminar</a>{% endif %}</td>
             </tr>
             {% empty %}

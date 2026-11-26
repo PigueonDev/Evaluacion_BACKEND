@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% block titulo %}Territorios · SGR{% endblock %}
+{% block contenido %}
+{% url 'institucional:panel' as url_panel %}
+{% include "includes/cabecera.html" with antetitulo="Mantenedor" titulo="Territorios" bajada="Catálogo de territorios que usan las delegaciones y las organizaciones." seccion="Panel" seccion_url=url_panel %}
+<section class="container py-5">
+    <form class="row g-2 align-items-end mb-3" method="get">
+        <div class="col-md-6"><label class="form-label small fw-semibold" for="q">Buscar</label><input class="form-control" id="q" name="q" value="{{ busqueda }}" placeholder="Nombre o código"></div>
+        <div class="col-md-2"><button class="btn btn-primary w-100" type="submit">Buscar</button></div>
+        <div class="col-md-4 text-md-end"><a class="btn btn-success" href="{% url 'institucional:territorio_crear' %}">Crear territorio</a></div>
+    </form>
+    <div class="panel-tabla"><div class="table-responsive"><table class="table tabla-municipal align-middle mb-0">
+        <thead><tr><th>Territorio</th><th>Código</th><th>Estado</th><th class="text-end">Acciones</th></tr></thead>
+        <tbody>
+        {% for territorio in territorios %}
+        <tr>
+            <td><strong>{{ territorio.nombre }}</strong>{% if territorio.descripcion %}<div class="small text-secondary">{{ territorio.descripcion|truncatewords:16 }}</div>{% endif %}</td>
+            <td><code>{{ territorio.codigo }}</code></td>
+            <td>{% if territorio.activo %}<span class="badge text-bg-success">Activo</span>{% else %}<span class="badge text-bg-secondary">Inactivo</span>{% endif %}</td>
+            <td class="text-end text-nowrap"><a class="btn btn-outline-secondary btn-sm" href="{% url 'institucional:territorio_editar' territorio.pk %}">Editar</a> <a class="btn btn-outline-danger btn-sm" href="{% url 'institucional:territorio_eliminar' territorio.pk %}">Eliminar</a></td>
+        </tr>
+        {% empty %}<tr><td colspan="4" class="text-center text-secondary py-4">No hay territorios.</td></tr>{% endfor %}
+        </tbody>
+    </table></div></div>
+</section>
+{% endblock %}

@@ -1,42 +1,50 @@
 {% extends "base.html" %}
 
-{% block titulo %}Agenda colectiva · SGR{% endblock %}
+{% block titulo %}Tubo de la delegación · SGR{% endblock %}
 
 {% block contenido %}
-{% include "includes/cabecera.html" with antetitulo="Compromisos territoriales" titulo="Agenda colectiva" bajada="Seguimiento de los compromisos asumidos con la comunidad por cada delegación." %}
+{% include "includes/cabecera.html" with antetitulo="Tubo de seguimiento" titulo="Tubo de la delegación" bajada="Todos los funcionarios de la delegación pueden consultar el tubo. Cada uno modifica solo sus ingresos mientras no estén realizados." %}
 
 <section class="container py-5">
     <div class="barra-filtros mb-4">
-        <form method="get" class="row g-2 align-items-end">
+        <form method="get" id="filtros-tubo" action="{% url 'servicios:agenda' %}" class="row g-2 align-items-end">
             <input type="hidden" name="estado" value="{{ estado_activo }}">
-            <div class="col-md-5">
-                <label class="visually-hidden" for="q-agenda">Buscar compromiso</label>
-                <input class="form-control" id="q-agenda" name="q" type="search" value="{{ busqueda }}" placeholder="Buscar por solicitante, delegación o descripción">
+            <div class="col-lg-4">
+                <label class="form-label fw-semibold mb-1" for="q-agenda">Buscar al escribir</label>
+                <input class="form-control" id="q-agenda" name="q" type="search" value="{{ busqueda }}" placeholder="Código, RUT o nombre" autocomplete="off">
             </div>
-            <div class="col-md-4">
-                <label class="form-label fw-semibold mb-1" for="responsable">Responsable</label>
+            <div class="col-md-4 col-lg-2">
+                <label class="form-label fw-semibold mb-1" for="desde">Desde</label>
+                <input class="form-control" id="desde" name="desde" type="date" value="{{ desde }}">
+            </div>
+            <div class="col-md-4 col-lg-2">
+                <label class="form-label fw-semibold mb-1" for="hasta">Hasta</label>
+                <input class="form-control" id="hasta" name="hasta" type="date" value="{{ hasta }}">
+            </div>
+            <div class="col-md-4 col-lg-3">
+                <label class="form-label fw-semibold mb-1" for="responsable">Funcionario</label>
                 <select class="form-select" id="responsable" name="responsable">
-                    <option value="">Todos los responsables</option>
+                    <option value="">Todos</option>
                     {% for funcionario in responsables %}
                     <option value="{{ funcionario.pk }}" {% if responsable_activo == funcionario.pk|stringformat:"s" %}selected{% endif %}>{{ funcionario.nombre_completo }}</option>
                     {% endfor %}
                 </select>
             </div>
-            <div class="col-md-3">
+            <div class="col-md-12 col-lg-1">
                 <button class="btn btn-primary w-100" type="submit">Filtrar</button>
             </div>
         </form>
-        <div class="d-flex flex-wrap justify-content-between gap-2">
+        <div class="d-flex flex-wrap justify-content-between gap-2 mt-3">
             <div class="d-flex flex-wrap gap-2">
-                <a class="chip {% if not estado_activo %}activo{% endif %}" href="?responsable={{ responsable_activo }}&q={{ busqueda|urlencode }}">Todos</a>
-                <a class="chip {% if estado_activo == 'ingresado' %}activo{% endif %}" href="?estado=ingresado&responsable={{ responsable_activo }}&q={{ busqueda|urlencode }}">Ingresados</a>
-                <a class="chip {% if estado_activo == 'pendiente' %}activo{% endif %}" href="?estado=pendiente&responsable={{ responsable_activo }}&q={{ busqueda|urlencode }}">Pendientes</a>
-                <a class="chip {% if estado_activo == 'proceso' %}activo{% endif %}" href="?estado=proceso&responsable={{ responsable_activo }}&q={{ busqueda|urlencode }}">En proceso</a>
-                <a class="chip {% if estado_activo == 'realizado' %}activo{% endif %}" href="?estado=realizado&responsable={{ responsable_activo }}&q={{ busqueda|urlencode }}">Realizados</a>
+                <a class="chip {% if not estado_activo %}activo{% endif %}" href="?responsable={{ responsable_activo }}&q={{ busqueda|urlencode }}&desde={{ desde }}&hasta={{ hasta }}">Todos</a>
+                <a class="chip {% if estado_activo == 'ingresado' %}activo{% endif %}" href="?estado=ingresado&responsable={{ responsable_activo }}&q={{ busqueda|urlencode }}&desde={{ desde }}&hasta={{ hasta }}">Ingresados</a>
+                <a class="chip {% if estado_activo == 'pendiente' %}activo{% endif %}" href="?estado=pendiente&responsable={{ responsable_activo }}&q={{ busqueda|urlencode }}&desde={{ desde }}&hasta={{ hasta }}">Pendientes</a>
+                <a class="chip {% if estado_activo == 'proceso' %}activo{% endif %}" href="?estado=proceso&responsable={{ responsable_activo }}&q={{ busqueda|urlencode }}&desde={{ desde }}&hasta={{ hasta }}">En proceso</a>
+                <a class="chip {% if estado_activo == 'realizado' %}activo{% endif %}" href="?estado=realizado&responsable={{ responsable_activo }}&q={{ busqueda|urlencode }}&desde={{ desde }}&hasta={{ hasta }}">Realizados</a>
             </div>
             <div class="d-flex flex-wrap gap-2">
-                <a class="btn btn-success btn-sm" href="{% url 'servicios:compromiso_nuevo' %}"><svg class="icono"><use href="#i-plus"/></svg>Publicar compromiso</a>
-                {% if es_administracion %}<a class="btn btn-outline-dark btn-sm" href="{% url 'servicios:resumen_agenda' %}">Resumen</a>{% endif %}
+                {% if puede_publicar %}<a class="btn btn-success btn-sm" href="{% url 'servicios:compromiso_nuevo' %}"><svg class="icono"><use href="#i-plus"/></svg>Publicar compromiso</a>{% endif %}
+                {% if es_supervisor or es_administrador %}<a class="btn btn-outline-dark btn-sm" href="{% url 'servicios:resumen_agenda' %}">Resumen</a>{% endif %}
             </div>
         </div>
     </div>
@@ -44,23 +52,9 @@
     <div class="panel-tabla">
         <div class="table-responsive">
             <table class="table tabla-municipal table-hover align-middle mb-0">
-                <thead><tr><th>Fecha</th><th>Solicitante</th><th>Delegación</th><th>Responsable</th><th>Descripción</th><th>Estado</th></tr></thead>
-                <tbody>
-                {% for compromiso in compromisos %}
-                <tr class="{% if compromiso.vencido %}fila-vencida{% endif %}">
-                    <td class="text-nowrap">{{ compromiso.fecha_comprometida|date:"d/m/Y" }}</td>
-                    <td><a href="{% url 'servicios:compromiso_detalle' compromiso.pk %}">{{ compromiso.solicitante }}</a></td>
-                    <td>{{ compromiso.delegacion.nombre }}</td>
-                    <td>{{ compromiso.responsable.nombre_completo }}</td>
-                    <td class="text-secondary">{{ compromiso.descripcion|truncatewords:12 }}</td>
-                    <td class="text-nowrap">
-                        <span class="estado estado-{{ compromiso.estado }}">{{ compromiso.get_estado_display }}</span>
-                        {% if compromiso.vencido %}<span class="estado estado-rechazada">Vencido</span>{% endif %}
-                    </td>
-                </tr>
-                {% empty %}
-                <tr><td colspan="6" class="text-secondary">No hay compromisos para este filtro.</td></tr>
-                {% endfor %}
+                <thead><tr><th>Código</th><th>Fecha</th><th>Solicitante</th><th>Delegación</th><th>Responsable</th><th>Descripción</th><th>Estado</th></tr></thead>
+                <tbody id="cuerpo-tubo">
+                {% include "servicios/includes/agenda_filas.html" %}
                 </tbody>
             </table>
         </div>

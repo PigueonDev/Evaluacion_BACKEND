@@ -19,6 +19,7 @@
             <div><dt>Ítem</dt><dd>{{ actividad.item.codigo }} — {{ actividad.item.nombre }}</dd></div>
             <div><dt>Actividad o problema</dt><dd>{{ actividad.descripcion }}</dd></div>
             <div><dt>Acción realizada</dt><dd>{{ actividad.accion }}</dd></div>
+            <div><dt>Solicitante</dt><dd>{{ actividad.solicitante|default:"Sin solicitante" }}</dd></div>
             <div><dt>Contacto</dt><dd>{{ actividad.contacto|default:"Sin contacto" }}</dd></div>
             <div><dt>Teléfono</dt><dd>{{ actividad.telefono|default:"Sin teléfono" }}</dd></div>
             <div><dt>Derivado a</dt><dd>{{ actividad.derivado_a|default:"Sin derivación" }}</dd></div>
@@ -31,7 +32,7 @@
         <ul class="list-group mb-4">
             {% for tarea in tareas %}
             <li class="list-group-item d-flex justify-content-between align-items-center gap-2">
-                <span>{% if tarea.realizada %}<span class="badge text-bg-success me-2">Realizada</span>{% else %}<span class="badge text-bg-warning me-2">Pendiente</span>{% endif %}<strong>{{ tarea.get_tipo_display }}</strong>{% if tarea.descripcion %} · {{ tarea.descripcion }}{% endif %}</span>
+                <span>{% if tarea.realizada %}<span class="badge text-bg-success me-2">Realizada</span>{% else %}<span class="badge text-bg-warning me-2">Pendiente</span>{% endif %}<strong>{{ tarea.descripcion }}</strong></span>
                 {% if editable %}
                 <form method="post" action="{% url 'servicios:tarea_marcar' actividad.pk tarea.pk %}">
                     {% csrf_token %}
@@ -44,6 +45,34 @@
             <li class="list-group-item text-secondary">Sin tareas preparatorias.</li>
             {% endfor %}
         </ul>
+        <h2 class="h5">Evidencias</h2>
+        <p class="text-secondary">Captura del trabajo ya realizado. Cada imagen acredita esta actividad y el texto de una tarea.</p>
+        {% include "servicios/includes/evidencias.html" with evidencias=evidencias %}
+        {% if formulario_evidencia %}
+        <form method="post" enctype="multipart/form-data" class="border rounded p-3 mb-4">
+            {% csrf_token %}
+            <h3 class="h6">Adjuntar captura</h3>
+            {% if formulario_evidencia.non_field_errors %}
+            <div class="alert alert-danger">{{ formulario_evidencia.non_field_errors }}</div>
+            {% endif %}
+            <div class="mb-3">
+                <label class="form-label fw-semibold" for="{{ formulario_evidencia.texto_tarea.id_for_label }}">Tarea que acredita</label>
+                {{ formulario_evidencia.texto_tarea }}
+                <div class="form-text">{{ formulario_evidencia.texto_tarea.help_text }}</div>
+                {% for error in formulario_evidencia.texto_tarea.errors %}<div class="invalid-feedback d-block">{{ error }}</div>{% endfor %}
+            </div>
+            <div class="mb-3">
+                <label class="form-label fw-semibold" for="{{ formulario_evidencia.archivo.id_for_label }}">Captura de pantalla</label>
+                {{ formulario_evidencia.archivo }}
+                <div class="form-text">{{ formulario_evidencia.archivo.help_text }}</div>
+                {% for error in formulario_evidencia.archivo.errors %}<div class="invalid-feedback d-block">{{ error }}</div>{% endfor %}
+            </div>
+            <button class="btn btn-primary" type="submit">Enviar captura</button>
+        </form>
+        {% endif %}
+        {% if actividad.estado == 'antecedentes' %}<div class="alert alert-warning">El delegado pidió más antecedentes{% if actividad.observacion_revision %}: {{ actividad.observacion_revision }}{% endif %}. Al guardar, la actividad vuelve a revisión.</div>{% endif %}
+        {% if actividad.estado == 'validada' %}<div class="alert alert-secondary">Registro aprobado: no se puede modificar.</div>{% endif %}
+        {% if not actividad.telefono %}<div class="alert alert-warning">Sin teléfono este registro no obtiene puntuación, aunque se apruebe.</div>{% endif %}
         {% if not editable and actividad.estado == 'pendiente' %}<div class="alert alert-secondary">La semana laboral de esta actividad cerró: queda bloqueada y no se traspasa.</div>{% endif %}
         <div class="d-flex flex-wrap gap-2">
             <a class="btn btn-outline-secondary" href="{% url 'servicios:actividades' %}">Volver al listado</a>

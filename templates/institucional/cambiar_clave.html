@@ -1,0 +1,21 @@
+{% extends "institucional/recuperar/_tarjeta.html" %}
+
+{% block encabezado %}
+<h1 class="h4 mt-3 mb-1">Cambia tu contraseña temporal</h1>
+<p class="text-secondary mb-0">El primer ingreso exige una contraseña propia. Hasta cambiarla no se abre el resto del sistema.</p>
+{% endblock %}
+
+{% block cuerpo %}
+<form method="post" novalidate>
+    {% csrf_token %}
+    {% for campo in form %}
+    <div class="mb-3">
+        <label class="form-label fw-semibold" for="{{ campo.id_for_label }}">{{ campo.label }}</label>
+        {{ campo }}
+        {% for error in campo.errors %}<div class="invalid-feedback d-block">{{ error }}</div>{% endfor %}
+    </div>
+    {% endfor %}
+    <p class="small text-secondary">Mínimo 10 caracteres. No puede ser solo números, una clave común ni parecerse a tu usuario.</p>
+    <button class="btn btn-primary btn-lg w-100" type="submit">Guardar contraseña</button>
+</form>
+{% endblock %}

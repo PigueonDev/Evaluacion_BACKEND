@@ -3,40 +3,41 @@ from urllib.parse import urlencode
 
 from django.conf import settings
 from django.contrib import messages
-from django.contrib.auth import get_user_model
+from django.contrib.auth import get_user_model, update_session_auth_hash
 from django.contrib.auth import views as auth_views
 from django.contrib.auth.models import Group
 from django.core.cache import cache
 from django.core.paginator import Paginator
-from django.db.models import Count, ProtectedError, Q
+from django.db.models import Count, Exists, OuterRef, ProtectedError, Q
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse, reverse_lazy
 from django.utils import timezone
 
+from laserena.filtros import parametro_permitido, texto_busqueda
 from laserena.permisos import (
+    DESCRIPCION_PERFILES,
     GRUPO_ADMINISTRADOR,
-    GRUPO_ADMINISTRATIVO,
     GRUPO_SUPERVISOR,
     GRUPOS_SGR,
     acotar_ambito,
-    es_administracion,
+    es_administrador,
     grupo_usuario,
-    parametro_permitido,
+    matriz_permisos,
     perfil_funcionario,
-    solo_administracion,
-    solo_grupos,
-    texto_busqueda,
+    solo_administrador,
+    solo_personal,
 )
 from laserena.seguridad import ip_cliente
 from oficina.models import Ausencia, BeneficioNino, Carta, Reconocimiento
 from organizaciones.models import OrganizacionComunitaria
-from servicios.models import Actividad, Auditoria, Caso, Compromiso, ItemMedicion, Meta, Periodo, Servicio
+from servicios.models import Actividad, Auditoria, Caso, Compromiso, Evidencia, ItemMedicion, Meta, Periodo, Servicio
 from servicios.desempeno import resumen_equipo, resumen_funcionario
 from servicios.reglas import MAXIMO_ACTIVIDADES_POR_DIA, fin_semana_laboral, inicio_semana
 
+from .claves import clave_temporal_pendiente, marcar_clave_temporal
 from .forms import AccesoForm, CargoForm, GrupoForm, NuevaClaveForm, RecuperarClaveForm, UnidadMunicipalForm, UsuarioForm
-from .models import Autoridad, Cargo, Delegacion, Funcionario, Municipio, UnidadMunicipal
+from .models import Autoridad, Cargo, Delegacion, EstadoClave, Funcionario, Municipio, UnidadMunicipal
 
 User = get_user_model()
 USUARIOS_POR_PAGINA = 20
@@ -123,14 +124,37 @@ class RecuperarClaveConfirmarView(auth_views.PasswordResetConfirmView):
     form_class = NuevaClaveForm
     success_url = reverse_lazy("institucional:recuperar_listo")
 
+    def form_valid(self, form):
+        respuesta = super().form_valid(form)
+        marcar_clave_temporal(form.user, False)
+        return respuesta
+
+
+def cambiar_clave(request):
+    """Cambio obligatorio de la contraseña temporal en el primer ingreso."""
+    if not request.user.is_authenticated:
+        from django.contrib.auth.views import redirect_to_login
+
+        return redirect_to_login(request.get_full_path(), login_url=settings.LOGIN_URL)
+    if not clave_temporal_pendiente(request.user):
+        return redirect("institucional:mi_panel")
+    form = NuevaClaveForm(request.user, request.POST or None)
+    if request.method == "POST" and form.is_valid():
+        form.save()
+        marcar_clave_temporal(request.user, False)
+        update_session_auth_hash(request, request.user)
+        messages.success(request, "Contraseña actualizada. Ya puedes usar el sistema.")
+        return redirect("institucional:mi_panel")
+    return render(request, "institucional/cambiar_clave.html", {"form": form})
+
 
 class RecuperarClaveListoView(auth_views.PasswordResetCompleteView):
     template_name = "institucional/recuperar/listo.html"
 
 
-@solo_grupos(GRUPO_SUPERVISOR, GRUPO_ADMINISTRATIVO)
+@solo_personal
 def mi_panel(request):
-    """Dashboard según el grupo del usuario autenticado."""
+    """Panel según el perfil del usuario autenticado."""
     grupo = grupo_usuario(request.user)
     if grupo == GRUPO_ADMINISTRADOR:
         return redirect("institucional:panel")
@@ -158,10 +182,11 @@ def mi_panel(request):
             "cartas_abiertas": acotar_ambito(Carta.objects.exclude(estado__in=("respondida", "archivada")), request.user, "delegacion").count(),
             "beneficios_por_entregar": acotar_ambito(BeneficioNino.objects.filter(estado="registrado"), request.user, "delegacion").count(),
             "ausencias_vigentes": acotar_ambito(Ausencia.objects.filter(estado="vigente", fecha_termino__gte=hoy), request.user, "funcionario__delegacion").select_related("funcionario")[:5],
+            "evidencias_pendientes": acotar_ambito(Evidencia.objects.filter(estado="pendiente"), request.user, "actividad__funcionario__delegacion").count(),
             "equipo": resumen_equipo(equipo, periodo, hoy) if periodo else None,
             "reclamos_periodo": Reconocimiento.objects.filter(periodo=periodo, tipo="reclamo", estado="vigente", funcionario__in=equipo).count() if periodo else 0,
         })
-        return render(request, "institucional/dashboard_supervisor.html", contexto)
+        return render(request, "institucional/panel_supervisor.html", contexto)
     actividades = Actividad.objects.none()
     desempeno = None
     if perfil is not None:
@@ -179,10 +204,10 @@ def mi_panel(request):
         "cartas_derivadas": Carta.objects.filter(derivada_a=perfil).exclude(estado__in=("respondida", "archivada")).order_by("plazo_respuesta")[:5] if perfil else [],
         "mis_ausencias": Ausencia.objects.filter(funcionario=perfil, estado="vigente").order_by("-fecha_inicio")[:3] if perfil else [],
     })
-    return render(request, "institucional/dashboard_administrativo.html", contexto)
+    return render(request, "institucional/panel_administrativo.html", contexto)
 
 
-@solo_administracion
+@solo_administrador
 def panel(request):
     """Dashboard del Administrador: vista global, mantenedores y transacciones."""
     base = settings.PHPMYADMIN_URL
@@ -217,14 +242,16 @@ def panel(request):
     return render(request, "institucional/panel.html", contexto)
 
 
-@solo_administracion
+@solo_administrador
 def cuentas(request):
     return redirect("institucional:usuarios")
 
 
-@solo_administracion
+@solo_administrador
 def usuarios(request):
-    queryset = User.objects.prefetch_related("groups").select_related("perfil_sgr", "perfil_sgr__delegacion").order_by("username")
+    queryset = User.objects.prefetch_related("groups").select_related("perfil_sgr", "perfil_sgr__delegacion").annotate(
+        clave_temporal=Exists(EstadoClave.objects.filter(usuario=OuterRef("pk"), debe_cambiar_clave=True)),
+    ).order_by("username")
     busqueda = texto_busqueda(request)
     grupos = list(Group.objects.order_by("name").values_list("name", flat=True))
     grupo = parametro_permitido(request, "grupo", grupos)
@@ -241,7 +268,7 @@ def usuarios(request):
     })
 
 
-@solo_administracion
+@solo_administrador
 def usuario_crear(request):
     form = UsuarioForm(request.POST or None)
     if request.method == "POST" and form.is_valid():
@@ -253,7 +280,7 @@ def usuario_crear(request):
     })
 
 
-@solo_administracion
+@solo_administrador
 def usuario_editar(request, pk):
     usuario = get_object_or_404(User, pk=pk)
     form = UsuarioForm(request.POST or None, usuario=usuario)
@@ -267,7 +294,7 @@ def usuario_editar(request, pk):
     })
 
 
-@solo_administracion
+@solo_administrador
 def usuario_eliminar(request, pk):
     usuario = get_object_or_404(User, pk=pk)
     if usuario == request.user:
@@ -286,16 +313,20 @@ def usuario_eliminar(request, pk):
     return render(request, "institucional/usuarios/eliminar.html", {"cuenta": usuario, "pagina_activa": "usuarios"})
 
 
-@solo_administracion
+@solo_administrador
 def grupos(request):
     busqueda = texto_busqueda(request)
     queryset = Group.objects.annotate(total_usuarios=Count("user", distinct=True), total_permisos=Count("permissions", distinct=True)).order_by("name")
     if busqueda:
         queryset = queryset.filter(name__icontains=busqueda)
-    return render(request, "institucional/grupos/listado.html", {"grupos": queryset, "busqueda": busqueda, "base": GRUPOS_SGR, "pagina_activa": "grupos"})
+    perfiles, matriz = matriz_permisos()
+    return render(request, "institucional/grupos/listado.html", {
+        "grupos": queryset, "busqueda": busqueda, "base": GRUPOS_SGR, "pagina_activa": "grupos",
+        "perfiles": [(nombre, DESCRIPCION_PERFILES.get(nombre, "")) for nombre in perfiles], "matriz": matriz,
+    })
 
 
-@solo_administracion
+@solo_administrador
 def grupo_crear(request):
     form = GrupoForm(request.POST or None)
     if request.method == "POST" and form.is_valid():
@@ -305,7 +336,7 @@ def grupo_crear(request):
     return render(request, "institucional/grupos/formulario.html", {"form": form, "titulo": "Crear grupo", "pagina_activa": "grupos"})
 
 
-@solo_administracion
+@solo_administrador
 def grupo_editar(request, pk):
     grupo = get_object_or_404(Group, pk=pk)
     form = GrupoForm(request.POST or None, instance=grupo)
@@ -319,7 +350,7 @@ def grupo_editar(request, pk):
     })
 
 
-@solo_administracion
+@solo_administrador
 def grupo_eliminar(request, pk):
     grupo = get_object_or_404(Group, pk=pk)
     if grupo.name in GRUPOS_SGR:
@@ -333,7 +364,7 @@ def grupo_eliminar(request, pk):
     return render(request, "institucional/grupos/eliminar.html", {"grupo": grupo, "pagina_activa": "grupos"})
 
 
-@solo_administracion
+@solo_administrador
 def cargos(request):
     """Cargos de la matriz: perfil que les corresponde, sigla del código y metas del trimestre vigente."""
     periodo = Periodo.objects.filter(estado="abierto").order_by("-fecha_inicio").first()
@@ -348,7 +379,7 @@ def cargos(request):
     return render(request, "institucional/cargos/listado.html", {"filas": filas, "periodo": periodo, "pagina_activa": "cargos"})
 
 
-@solo_administracion
+@solo_administrador
 def cargo_editar(request, pk):
     cargo = get_object_or_404(Cargo, pk=pk)
     form = CargoForm(request.POST or None, instance=cargo)
@@ -361,7 +392,7 @@ def cargo_editar(request, pk):
     })
 
 
-@solo_administracion
+@solo_administrador
 def unidades(request):
     busqueda = texto_busqueda(request)
     queryset = UnidadMunicipal.objects.all()
@@ -370,12 +401,12 @@ def unidades(request):
     return render(request, "institucional/unidades/listado.html", {"unidades": queryset, "busqueda": busqueda, "pagina_activa": "unidades"})
 
 
-@solo_administracion
+@solo_administrador
 def unidad_crear(request):
     return _unidad_formulario(request, UnidadMunicipal(), "Crear unidad municipal")
 
 
-@solo_administracion
+@solo_administrador
 def unidad_editar(request, pk):
     unidad = get_object_or_404(UnidadMunicipal, pk=pk)
     return _unidad_formulario(request, unidad, f"Editar {unidad.nombre}")
@@ -394,7 +425,7 @@ def _unidad_formulario(request, unidad, titulo):
 
 def verificar_acceso(request):
     """Subconsulta de Nginx (auth_request) que protege la ruta de phpMyAdmin."""
-    return HttpResponse(status=204 if es_administracion(request.user) else 401)
+    return HttpResponse(status=204 if es_administrador(request.user) else 401)
 
 
 def acceso_denegado(request, exception=None):

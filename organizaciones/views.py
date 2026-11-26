@@ -5,10 +5,18 @@ from django.db.models import Count, Q
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
 
-from laserena.permisos import con_permiso, parametro_permitido, texto_busqueda
+from laserena.filtros import parametro_permitido, texto_busqueda
+from laserena.permisos import con_permiso
 
 from .forms import OrganizacionForm
 from .models import TERRITORIOS, OrganizacionComunitaria
+
+
+def _territorios():
+	from institucional.models import Territorio
+
+	opciones = list(Territorio.objects.filter(activo=True).order_by("nombre").values_list("codigo", "nombre"))
+	return opciones or list(TERRITORIOS)
 
 POR_PAGINA = 25
 
@@ -18,7 +26,8 @@ def listado(request):
 	organizaciones = OrganizacionComunitaria.objects.all()
 	busqueda = texto_busqueda(request)
 	estado = parametro_permitido(request, "estado", dict(OrganizacionComunitaria.ESTADOS))
-	territorio = parametro_permitido(request, "territorio", dict(TERRITORIOS))
+	territorios = _territorios()
+	territorio = parametro_permitido(request, "territorio", dict(territorios))
 	tipo = parametro_permitido(request, "tipo", dict(OrganizacionComunitaria.TIPOS))
 	if busqueda:
 		filtro = Q(nombre__icontains=busqueda) | Q(domicilio__icontains=busqueda)
@@ -42,7 +51,7 @@ def listado(request):
 		"territorio_activo": territorio,
 		"tipo_activo": tipo,
 		"estados": OrganizacionComunitaria.ESTADOS,
-		"territorios": TERRITORIOS,
+		"territorios": territorios,
 		"tipos": OrganizacionComunitaria.TIPOS,
 		"parametros": parametros.urlencode(),
 		"total": pagina.paginator.count,

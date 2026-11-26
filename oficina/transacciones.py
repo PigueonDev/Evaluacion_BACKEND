@@ -30,14 +30,14 @@ def _dias_ausente(funcionario, periodo, excluir_pk=None):
 def _metas_del_funcionario(funcionario, periodo):
 	"""Metas personales del período; si solo hay metas del cargo, crea la meta personal equivalente.
 
-	Solo se ajustan las metas de conteo: un porcentaje del tubo o la atención de una emergencia
-	no dependen de los días disponibles.
+	Se ajustan el conteo, la tasa del tubo y la emergencia. «Otra gestión» no puntúa y no se toca.
 	"""
-	personales = list(Meta.objects.select_for_update().filter(periodo=periodo, funcionario=funcionario, item__tipo_medicion="conteo"))
+	ajustables = ("conteo", "tasa_tubo", "emergencia")
+	personales = list(Meta.objects.select_for_update().filter(periodo=periodo, funcionario=funcionario, item__tipo_medicion__in=ajustables))
 	items_personales = {meta.item_id for meta in personales}
 	creadas = []
 	for meta_cargo in Meta.objects.filter(
-		periodo=periodo, cargo=funcionario.cargo, funcionario__isnull=True, item__tipo_medicion="conteo",
+		periodo=periodo, cargo=funcionario.cargo, funcionario__isnull=True, item__tipo_medicion__in=ajustables,
 	).exclude(item_id__in=items_personales):
 		creadas.append(Meta.objects.create(periodo=periodo, item=meta_cargo.item, funcionario=funcionario, objetivo=meta_cargo.objetivo, ponderador=meta_cargo.ponderador))
 	return [(meta, False) for meta in personales] + [(meta, True) for meta in creadas]

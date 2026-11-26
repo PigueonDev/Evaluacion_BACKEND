@@ -1,3 +1,5 @@
+import shutil
+import tempfile
 import uuid
 from datetime import date, timedelta
 from unittest import mock
@@ -5,13 +7,12 @@ from unittest import mock
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
 from django.db import IntegrityError, transaction
-from django.test import TestCase
+from django.test import TestCase, override_settings
 from django.urls import reverse
 from django.utils import timezone
 
-from institucional.cuentas import asignar_grupo
 from institucional.models import Cargo, Delegacion, Funcionario
-from laserena.permisos import GRUPO_ADMINISTRADOR, GRUPO_ADMINISTRATIVO, GRUPO_SUPERVISOR
+from laserena.permisos import GRUPO_ADMINISTRADOR, GRUPO_ADMINISTRATIVO, GRUPO_SUPERVISOR, asignar_grupo
 
 from .models import Actividad, Caso, Compromiso, Gestion, ItemMedicion, Meta, Periodo, Servicio
 
@@ -81,6 +82,8 @@ class ReglasSgrTest(TestCase):
 			item=self.item,
 			descripcion="Actividad validada",
 			accion="Acción de prueba",
+			solicitante="Vecino solicitante",
+			telefono="+56 9 1111 2222",
 			estado="validada",
 		)
 		self.assertEqual(meta.avance_aprobado, 1)
@@ -89,12 +92,13 @@ class ReglasSgrTest(TestCase):
 
 class PanelesPrivadosTest(TestCase):
 	PANELES = (
-		"servicios:dashboard",
+		"servicios:panel_municipal",
 		"servicios:actividades",
 		"servicios:casos",
 		"servicios:agenda",
 		"servicios:consulta",
 		"servicios:aprobaciones",
+		"servicios:evidencias",
 		"institucional:panel",
 	)
 	MENU = ("servicios:actividades", "servicios:consulta", "servicios:aprobaciones", "organizaciones:listado", "institucional:usuarios", "institucional:grupos")
@@ -208,14 +212,14 @@ class MantenedoresCristhopherTest(TestCase):
 			"item": str(self.item.pk),
 			"descripcion": "Visita territorial de demostración",
 			"accion": "Orientación a la junta de vecinos",
+			"solicitante": "Junta de vecinos Los Aromos",
 			"contacto": "Junta de vecinos",
 			"telefono": "+56 9 1111 2222",
 			"tareas-TOTAL_FORMS": "4",
 			"tareas-INITIAL_FORMS": "0",
 			"tareas-MIN_NUM_FORMS": "0",
 			"tareas-MAX_NUM_FORMS": "1000",
-			"tareas-0-tipo": "sillas",
-			"tareas-0-descripcion": "20 sillas",
+			"tareas-0-descripcion": "Gestión de sillas",
 		}
 		datos.update(extra)
 		return datos
@@ -452,6 +456,7 @@ class MantenedoresCristhopherTest(TestCase):
 		self.assertContains(inicio, reverse("servicios:actividades"))
 		self.assertNotContains(inicio, reverse("servicios:resumen_agenda"))
 		self.assertNotContains(inicio, reverse("servicios:consulta"))
+		self.assertNotContains(inicio, reverse("servicios:evidencias"))
 		self.assertEqual(self.client.get(reverse("servicios:resumen_agenda")).status_code, 403)
 		self.assertEqual(self.client.get(reverse("servicios:consulta")).status_code, 403)
 		self.assertEqual(self.client.get(reverse("institucional:panel")).status_code, 403)
@@ -475,6 +480,7 @@ class MantenedoresCristhopherTest(TestCase):
 		self.assertContains(menu, "Cerrar sesión")
 		self.assertContains(menu, reverse("institucional:salir"))
 		self.assertContains(menu, reverse("servicios:aprobaciones"))
+		self.assertContains(menu, reverse("servicios:evidencias"))
 		self.assertContains(menu, reverse("servicios:consulta"))
 		self.assertNotContains(menu, reverse("servicios:actividades"))
 		salida = self.client.post(reverse("institucional:salir"))
@@ -491,12 +497,12 @@ class MantenedoresCristhopherTest(TestCase):
 			"servicios:actividad_nueva",
 			"servicios:casos",
 			"servicios:caso_nuevo",
-			"servicios:agenda",
 			"servicios:compromiso_nuevo",
-			"servicios:dashboard",
+			"servicios:panel_municipal",
 			"institucional:panel",
 		):
 			self.assertEqual(self.client.get(reverse(nombre)).status_code, 403, nombre)
+		self.assertEqual(self.client.get(reverse("servicios:agenda")).status_code, 200)
 		self.assertEqual(self.client.post(reverse("servicios:actividad_nueva"), self._datos_actividad()).status_code, 403)
 		self.assertEqual(self.client.get("/admin/").status_code, 404)
 		menu = self.client.get(reverse("institucional:inicio"))
@@ -524,20 +530,20 @@ class TransaccionRegistrarActividadTest(TestCase):
 		self.item = ItemMedicion.objects.create(codigo="TX-001", nombre="Ítem tx")
 		self.periodo = Periodo.objects.create(nombre="Período tx", fecha_inicio=date(2026, 1, 1), fecha_termino=date(2026, 12, 31))
 
-	def _actividad(self, fecha=HOY_PRUEBAS, tareas=("sillas", "colacion")):
+	def _actividad(self, fecha=HOY_PRUEBAS, tareas=("Gestión de sillas", "Gestión de colación")):
 		from .models import TareaPreparatoria
 		from .transacciones import registrar_actividad
 
-		actividad = Actividad(periodo=self.periodo, item=self.item, fecha=fecha, descripcion="Celebración vecinal", accion="Coordinar")
-		return registrar_actividad(actividad, [TareaPreparatoria(tipo=tipo) for tipo in tareas], self.funcionario, self.user)
+		actividad = Actividad(periodo=self.periodo, item=self.item, fecha=fecha, descripcion="Celebración vecinal", accion="Coordinar", solicitante="Vecino solicitante", telefono="+56 9 1111 2222")
+		return registrar_actividad(actividad, [TareaPreparatoria(tipo="otra", descripcion=texto) for texto in tareas], self.funcionario, self.user)
 
 	def _datos(self, fecha="2026-06-17", **extra):
 		datos = {
 			"fecha": fecha, "periodo": str(self.periodo.pk), "item": str(self.item.pk),
-			"descripcion": "Día del niño", "accion": "Coordinación", "contacto": "JJVV", "telefono": "+56 9 1234 5678",
+			"descripcion": "Día del niño", "accion": "Coordinación", "solicitante": "Vecino solicitante", "contacto": "JJVV", "telefono": "+56 9 1234 5678",
 			"tareas-TOTAL_FORMS": "4", "tareas-INITIAL_FORMS": "0", "tareas-MIN_NUM_FORMS": "0", "tareas-MAX_NUM_FORMS": "1000",
-			"tareas-0-tipo": "regalos", "tareas-0-descripcion": "50 regalos",
-			"tareas-1-tipo": "local", "tareas-1-descripcion": "Sede vecinal",
+			"tareas-0-descripcion": "Gestión de regalos",
+			"tareas-1-descripcion": "Reserva de la sede vecinal",
 		}
 		datos.update(extra)
 		return datos
@@ -548,24 +554,125 @@ class TransaccionRegistrarActividadTest(TestCase):
 		actividad = Actividad.objects.get()
 		self.assertContains(respuesta, "2 tareas preparatorias")
 		self.assertEqual(actividad.tareas.count(), 2)
+		self.assertEqual(
+			set(actividad.tareas.values_list("tipo", "descripcion")),
+			{("otra", "Gestión de regalos"), ("otra", "Reserva de la sede vecinal")},
+		)
 		self.assertEqual(actividad.estado, "pendiente")
 		from .models import Auditoria
 		self.assertTrue(Auditoria.objects.filter(accion="registrar_actividad", identificador=str(actividad.codigo_evidencia)).exists())
 
 	def test_sin_tareas_no_se_guarda_nada(self):
 		self.client.force_login(self.user)
-		datos = self._datos(**{"tareas-0-tipo": "", "tareas-0-descripcion": "", "tareas-1-tipo": "", "tareas-1-descripcion": ""})
+		datos = self._datos(**{"tareas-0-descripcion": "", "tareas-1-descripcion": ""})
 		respuesta = self.client.post(reverse("servicios:actividad_nueva"), datos)
 		self.assertContains(respuesta, "al menos una tarea")
 		self.assertEqual(Actividad.objects.count(), 0)
+
+	def test_la_tarea_es_solo_texto_sin_desplegable(self):
+		self.client.force_login(self.user)
+		pagina = self.client.get(reverse("servicios:actividad_nueva"))
+		self.assertContains(pagina, "Gestión de sillas")
+		self.assertNotContains(pagina, "tareas-0-tipo")
+		self.assertNotContains(pagina, "Otra gestión")
+		self.assertNotContains(pagina, "Solicitar sillas y mesas")
+		self.assertNotContains(pagina, "Solicitar colación")
+
+		sin_texto = self.client.post(reverse("servicios:actividad_nueva"), self._datos(**{
+			"tareas-0-descripcion": "   ",
+			"tareas-1-descripcion": "",
+		}))
+		self.assertContains(sin_texto, "Escribe la tarea")
+		self.assertEqual(Actividad.objects.count(), 0)
+
+	def test_el_catalogo_antiguo_queda_en_el_texto(self):
+		import importlib
+
+		from django.apps import apps
+
+		from .models import TareaPreparatoria
+
+		migracion = importlib.import_module("servicios.migrations.0007_tarea_texto_libre")
+		pasar_catalogo_a_texto = migracion.pasar_catalogo_a_texto
+		texto_libre_desde_catalogo = migracion.texto_libre_desde_catalogo
+
+		self.assertEqual(texto_libre_desde_catalogo("sillas", "20 sillas"), "Solicitar sillas y mesas: 20 sillas")
+		self.assertEqual(texto_libre_desde_catalogo("sillas", ""), "Solicitar sillas y mesas")
+		self.assertEqual(texto_libre_desde_catalogo("sillas", "Solicitar sillas y mesas"), "Solicitar sillas y mesas")
+		self.assertEqual(texto_libre_desde_catalogo("difusion", "Afiches"), "Difusión e invitaciones: Afiches")
+		self.assertEqual(texto_libre_desde_catalogo("otra", "Gestión de sillas"), "Gestión de sillas")
+		self.assertEqual(texto_libre_desde_catalogo("otra", ""), "Otra gestión")
+
+		actividad = self._actividad(tareas=("Gestión de sillas",))
+		TareaPreparatoria.objects.create(actividad=actividad, tipo="colacion", descripcion="Colación para 40 personas")
+		TareaPreparatoria.objects.create(actividad=actividad, tipo="local", descripcion="")
+		TareaPreparatoria.objects.create(actividad=actividad, tipo="animacion", descripcion="Grupo folclórico")
+		pasar_catalogo_a_texto(apps, None)
+		self.assertEqual(Actividad.objects.count(), 1)
+		self.assertEqual(
+			set(actividad.tareas.values_list("tipo", "descripcion")),
+			{
+				("otra", "Gestión de sillas"),
+				("otra", "Solicitar colación: Colación para 40 personas"),
+				("otra", "Reservar local o espacio"),
+				("otra", "Contratar animadores o artistas: Grupo folclórico"),
+			},
+		)
+
+	def test_solicitante_se_comparte_con_el_tubo_y_el_caso(self):
+		from .models import Caso, Compromiso, Gestion
+
+		self.client.force_login(self.user)
+		compromiso = Compromiso.objects.create(
+			delegacion=self.centro, responsable=self.funcionario, origen="Vecinal", solicitante="Junta Los Aromos",
+			territorio="Centro", descripcion="Luminaria", fecha_comprometida=HOY_PRUEBAS,
+		)
+		respuesta = self.client.post(
+			reverse("servicios:actividad_nueva"),
+			self._datos(compromiso=str(compromiso.pk), solicitante=""),
+			follow=True,
+		)
+		actividad = Actividad.objects.get()
+		self.assertEqual(actividad.solicitante, "Junta Los Aromos")
+		self.assertContains(respuesta, "Junta Los Aromos")
+		self.assertContains(self.client.get(reverse("servicios:actividades")), "Junta Los Aromos")
+		detalle_tubo = self.client.get(reverse("servicios:compromiso_detalle", args=[compromiso.pk]))
+		self.assertContains(detalle_tubo, "Solicitante")
+		self.assertContains(detalle_tubo, "Junta Los Aromos")
+
+		distinto = self.client.post(
+			reverse("servicios:actividad_nueva"),
+			self._datos(descripcion="Otra actividad", compromiso=str(compromiso.pk), solicitante="Otra persona"),
+		)
+		self.assertContains(distinto, "ingreso al tubo")
+		self.assertEqual(Actividad.objects.count(), 1)
+
+		caso = Caso.objects.create(identificacion="C-SOL", nombre="Persona atendida", delegacion=self.centro)
+		Gestion.objects.create(caso=caso, numero=1, descripcion="Primera gestión", actividad=actividad)
+		caso.refresh_from_db()
+		self.assertEqual(caso.solicitante, "Junta Los Aromos")
+		self.assertContains(self.client.get(reverse("servicios:caso_detalle", args=[caso.pk])), "Junta Los Aromos")
+		self.assertContains(self.client.get(reverse("servicios:casos")), "Junta Los Aromos")
+
+		compromiso.solicitante = "Junta Nueva"
+		compromiso.save()
+		actividad.refresh_from_db()
+		caso.refresh_from_db()
+		self.assertEqual(actividad.solicitante, "Junta Nueva")
+		self.assertEqual(caso.solicitante, "Junta Nueva")
 
 	def test_error_en_una_tarea_revierte_toda_la_transaccion(self):
 		from .models import TareaPreparatoria
 		from .transacciones import registrar_actividad
 
-		actividad = Actividad(periodo=self.periodo, item=self.item, fecha=HOY_PRUEBAS, descripcion="X", accion="Y")
+		actividad = Actividad(periodo=self.periodo, item=self.item, fecha=HOY_PRUEBAS, descripcion="X", accion="Y", solicitante="Vecino solicitante")
 		with self.assertRaises(ValidationError):
-			registrar_actividad(actividad, [TareaPreparatoria(tipo="sillas"), TareaPreparatoria(tipo="no-existe")], self.funcionario, self.user)
+			registrar_actividad(
+				actividad,
+				[TareaPreparatoria(tipo="otra", descripcion="Gestión de sillas"), TareaPreparatoria(tipo="no-existe", descripcion="Texto")],
+				self.funcionario,
+				self.user,
+			)
 		self.assertEqual(Actividad.objects.count(), 0)
 		self.assertEqual(TareaPreparatoria.objects.count(), 0)
 
@@ -592,7 +699,7 @@ class TransaccionRegistrarActividadTest(TestCase):
 		from .transacciones import revisar_actividad
 
 		meta = Meta.objects.create(periodo=self.periodo, item=self.item, funcionario=self.funcionario, objetivo=1, ponderador=100)
-		actividad = self._actividad(tareas=("sillas",))
+		actividad = self._actividad(tareas=("Gestión de sillas",))
 		with self.assertRaises(ValidationError):
 			revisar_actividad(actividad, "rechazar", self.supervisor, "")
 		revisar_actividad(actividad, "rechazar", self.supervisor, "Sin respaldo")
@@ -601,7 +708,7 @@ class TransaccionRegistrarActividadTest(TestCase):
 	def test_tope_de_120_por_item(self):
 		meta = Meta.objects.create(periodo=self.periodo, item=self.item, funcionario=self.funcionario, objetivo=2, ponderador=100)
 		for dia in (15, 16, 17):
-			actividad = self._actividad(fecha=date(2026, 6, dia), tareas=("sillas",))
+			actividad = self._actividad(fecha=date(2026, 6, dia), tareas=("Gestión de sillas",))
 			actividad.tareas.update(realizada=True)
 			Actividad.objects.filter(pk=actividad.pk).update(estado="validada")
 		self.assertEqual(meta.avance_aprobado, 3)
@@ -609,11 +716,11 @@ class TransaccionRegistrarActividadTest(TestCase):
 
 	def test_maximo_siete_actividades_por_dia(self):
 		for _ in range(7):
-			self._actividad(tareas=("sillas",))
+			self._actividad(tareas=("Gestión de sillas",))
 		with self.assertRaisesMessage(ValidationError, "máximo diario"):
-			self._actividad(tareas=("sillas",))
+			self._actividad(tareas=("Gestión de sillas",))
 		Actividad.objects.filter(pk=Actividad.objects.first().pk).update(estado="anulada")
-		self._actividad(tareas=("sillas",))
+		self._actividad(tareas=("Gestión de sillas",))
 		self.assertEqual(Actividad.objects.exclude(estado="anulada").filter(fecha=HOY_PRUEBAS).count(), 7)
 
 	def test_solo_dias_habiles_de_la_semana_en_curso(self):
@@ -635,7 +742,7 @@ class TransaccionRegistrarActividadTest(TestCase):
 	def test_semana_cerrada_bloquea_tareas_edicion_y_aprobacion(self):
 		from .transacciones import marcar_tarea, revisar_actividad
 
-		actividad = self._actividad(tareas=("sillas",))
+		actividad = self._actividad(tareas=("Gestión de sillas",))
 		fijar_hoy(self, date(2026, 6, 22))
 		with self.assertRaisesMessage(ValidationError, "bloqueada"):
 			marcar_tarea(actividad.tareas.first(), True, self.user)
@@ -648,7 +755,7 @@ class TransaccionRegistrarActividadTest(TestCase):
 		self.assertRedirects(self.client.get(reverse("servicios:actividad_editar", args=[actividad.pk])), reverse("servicios:actividad_detalle", args=[actividad.pk]))
 
 	def test_supervisor_aprueba_solo_su_delegacion_y_administrativo_no_aprueba(self):
-		actividad = self._actividad(tareas=("sillas",))
+		actividad = self._actividad(tareas=("Gestión de sillas",))
 		actividad.tareas.update(realizada=True)
 		self.client.force_login(self.user)
 		self.assertEqual(self.client.post(reverse("servicios:actividad_revisar", args=[actividad.pk]), {"decision": "aprobar"}).status_code, 403)
@@ -660,3 +767,259 @@ class TransaccionRegistrarActividadTest(TestCase):
 		actividad.refresh_from_db()
 		self.assertEqual(actividad.estado, "validada")
 		self.assertEqual(actividad.revisada_por, self.supervisor)
+
+
+def imagen_prueba(nombre="captura.png", formato="PNG"):
+	from io import BytesIO
+
+	from PIL import Image
+	from django.core.files.uploadedfile import SimpleUploadedFile
+
+	buffer = BytesIO()
+	Image.new("RGB", (12, 8), (30, 90, 160)).save(buffer, format=formato)
+	tipos = {"PNG": "image/png", "JPEG": "image/jpeg", "WEBP": "image/webp", "GIF": "image/gif"}
+	return SimpleUploadedFile(nombre, buffer.getvalue(), content_type=tipos[formato])
+
+
+class EvidenciasTest(TestCase):
+	"""El funcionario adjunta la captura de una tarea hecha y el delegado la aprueba o la rechaza."""
+
+	def setUp(self):
+		fijar_hoy(self)
+		directorio = tempfile.mkdtemp()
+		self.addCleanup(shutil.rmtree, directorio, True)
+		ajuste = override_settings(MEDIA_ROOT=directorio, MEDIA_X_ACCEL=False)
+		ajuste.enable()
+		self.addCleanup(ajuste.disable)
+		modelo = get_user_model()
+		self.centro = Delegacion.objects.create(nombre="Centro ev", slug="centro-ev", territorio="Centro", enfoque="Demo")
+		self.norte = Delegacion.objects.create(nombre="Norte ev", slug="norte-ev", territorio="Norte", enfoque="Demo")
+		self.cargo = Cargo.objects.create(nombre="Gestor ev")
+		self.user = con_grupo(modelo.objects.create_user(username="fun-ev", password="x"), GRUPO_ADMINISTRATIVO)
+		self.funcionario = Funcionario.objects.create(usuario=self.user, identificador="EV-1", nombre_completo="Ana Evidencia", delegacion=self.centro, cargo=self.cargo)
+		self.companero_user = con_grupo(modelo.objects.create_user(username="fun-ev-2", password="x"), GRUPO_ADMINISTRATIVO)
+		Funcionario.objects.create(usuario=self.companero_user, identificador="EV-2", nombre_completo="Bruno Evidencia", delegacion=self.centro, cargo=self.cargo)
+		self.supervisor = con_grupo(modelo.objects.create_user(username="sup-ev", password="x"), GRUPO_SUPERVISOR)
+		Funcionario.objects.create(usuario=self.supervisor, identificador="EV-S", nombre_completo="Delegada Centro", delegacion=self.centro, cargo=self.cargo)
+		self.supervisor_norte = con_grupo(modelo.objects.create_user(username="sup-ev-n", password="x"), GRUPO_SUPERVISOR)
+		Funcionario.objects.create(usuario=self.supervisor_norte, identificador="EV-N", nombre_completo="Delegado Norte", delegacion=self.norte, cargo=self.cargo)
+		self.admin = con_grupo(modelo.objects.create_user(username="admin-ev", password="x"), GRUPO_ADMINISTRADOR)
+		self.item = ItemMedicion.objects.create(codigo="EV-001", nombre="Ítem evidencia")
+		self.periodo = Periodo.objects.create(nombre="Período evidencia", fecha_inicio=date(2026, 1, 1), fecha_termino=date(2026, 12, 31))
+
+	def _actividad(self, tareas=("Gestión de sillas",)):
+		from .models import TareaPreparatoria
+		from .transacciones import registrar_actividad
+
+		actividad = Actividad(
+			periodo=self.periodo, item=self.item, fecha=HOY_PRUEBAS, descripcion="Celebración vecinal",
+			accion="Coordinar", solicitante="Junta Los Aromos", telefono="+56 9 1111 2222",
+		)
+		return registrar_actividad(actividad, [TareaPreparatoria(tipo="otra", descripcion=texto) for texto in tareas], self.funcionario, self.user)
+
+	def _tarea_lista(self, actividad, texto="Gestión de sillas"):
+		tarea = actividad.tareas.get(descripcion=texto)
+		tarea.realizada = True
+		tarea.save(update_fields=["realizada"])
+		return tarea
+
+	def _cargar(self, actividad, tarea, archivo=None, usuario=None):
+		cliente = self.client
+		if usuario is not None:
+			cliente = self.client_class()
+			cliente.force_login(usuario)
+		else:
+			cliente.force_login(self.user)
+		return cliente.post(
+			reverse("servicios:actividad_detalle", args=[actividad.pk]),
+			{"texto_tarea": tarea.descripcion, "archivo": archivo or imagen_prueba()},
+		)
+
+	def test_funcionario_adjunta_la_captura_de_la_tarea_hecha(self):
+		actividad = self._actividad()
+		tarea = self._tarea_lista(actividad)
+		self.client.force_login(self.user)
+		detalle = self.client.get(reverse("servicios:actividad_detalle", args=[actividad.pk]))
+		self.assertContains(detalle, "Adjuntar captura")
+		self.assertContains(detalle, "Junta Los Aromos")
+		self.assertContains(detalle, "Gestión de sillas")
+		self.assertContains(detalle, 'name="texto_tarea"')
+		self.assertContains(detalle, 'value="Gestión de sillas"')
+		self.assertNotContains(detalle, "Elige la tarea")
+		self.assertNotContains(detalle, "<select")
+		for nombre, formato in (("captura.png", "PNG"), ("captura.jpg", "JPEG"), ("captura.webp", "WEBP")):
+			if formato != "PNG":
+				actividad = self._actividad(tareas=(f"Tarea {formato}",))
+				tarea = self._tarea_lista(actividad, f"Tarea {formato}")
+			respuesta = self._cargar(actividad, tarea, imagen_prueba(nombre, formato))
+			self.assertRedirects(respuesta, reverse("servicios:actividad_detalle", args=[actividad.pk]))
+			evidencia = actividad.evidencias.get()
+			self.assertEqual(evidencia.estado, "pendiente")
+			self.assertEqual(evidencia.texto_tarea, tarea.descripcion)
+			self.assertEqual(evidencia.actividad_id, actividad.pk)
+			self.assertEqual(evidencia.autor, self.user)
+			pagina = self.client.get(reverse("servicios:actividad_detalle", args=[actividad.pk]))
+			self.assertContains(pagina, tarea.descripcion)
+			self.assertContains(pagina, "Pendiente")
+			self.assertContains(pagina, evidencia.archivo.url)
+
+	def test_la_captura_usa_el_texto_escrito_o_uno_libre(self):
+		actividad = self._actividad(tareas=("Gestión de sillas", "Gestión de colación"))
+		self._tarea_lista(actividad)
+		self.client.force_login(self.user)
+		pagina = self.client.get(reverse("servicios:actividad_detalle", args=[actividad.pk]))
+		self.assertNotContains(pagina, "Elige la tarea")
+		self.assertNotContains(pagina, "<select")
+		self.assertContains(pagina, 'name="texto_tarea"')
+		libre = self.client.post(
+			reverse("servicios:actividad_detalle", args=[actividad.pk]),
+			{"texto_tarea": "Registro fotográfico del patio", "archivo": imagen_prueba("libre.png")},
+		)
+		self.assertRedirects(libre, reverse("servicios:actividad_detalle", args=[actividad.pk]))
+		suelta = actividad.evidencias.get(texto_tarea="Registro fotográfico del patio")
+		self.assertIsNone(suelta.tarea_id)
+		escrita = self.client.post(
+			reverse("servicios:actividad_detalle", args=[actividad.pk]),
+			{"texto_tarea": "gestión de sillas", "archivo": imagen_prueba("sillas.png")},
+		)
+		self.assertRedirects(escrita, reverse("servicios:actividad_detalle", args=[actividad.pk]))
+		vinculada = actividad.evidencias.get(texto_tarea="Gestión de sillas")
+		self.assertEqual(vinculada.tarea.descripcion, "Gestión de sillas")
+
+	def test_rechaza_pdf_imagen_falsa_y_mas_de_5_mb(self):
+		from django.core.files.uploadedfile import SimpleUploadedFile
+
+		from .models import validar_imagen_evidencia
+
+		actividad = self._actividad()
+		tarea = self._tarea_lista(actividad)
+		self.client.force_login(self.user)
+		url = reverse("servicios:actividad_detalle", args=[actividad.pk])
+		for archivo in (
+			SimpleUploadedFile("acta.pdf", b"%PDF-1.4"),
+			SimpleUploadedFile("falso.png", b"esto no es una imagen"),
+			imagen_prueba("captura.png", "GIF"),
+		):
+			respuesta = self.client.post(url, {"texto_tarea": tarea.descripcion, "archivo": archivo})
+			self.assertEqual(respuesta.status_code, 200, archivo.name)
+			self.assertEqual(actividad.evidencias.count(), 0)
+		grande = SimpleUploadedFile("grande.png", b"x")
+		grande.size = 5 * 1024 * 1024 + 1
+		with self.assertRaisesMessage(ValidationError, "5 MB"):
+			validar_imagen_evidencia(grande)
+
+	def test_solo_la_tarea_realizada_y_una_pendiente(self):
+		actividad = self._actividad(tareas=("Gestión de sillas", "Gestión de colación"))
+		pendiente = actividad.tareas.get(descripcion="Gestión de colación")
+		hecha = self._tarea_lista(actividad)
+		self.client.force_login(self.user)
+		respuesta = self.client.post(
+			reverse("servicios:actividad_detalle", args=[actividad.pk]),
+			{"texto_tarea": pendiente.descripcion, "archivo": imagen_prueba()},
+		)
+		self.assertEqual(respuesta.status_code, 200)
+		self.assertEqual(actividad.evidencias.count(), 0)
+		self._cargar(actividad, hecha)
+		otra = self._cargar(actividad, hecha, imagen_prueba("otra.png"))
+		self.assertEqual(otra.status_code, 200)
+		self.assertContains(otra, "pendiente de revisión")
+		self.assertEqual(actividad.evidencias.count(), 1)
+
+	def test_no_carga_la_actividad_de_otro_ni_una_anulada(self):
+		actividad = self._actividad()
+		tarea = self._tarea_lista(actividad)
+		companero = self._cargar(actividad, tarea, usuario=self.companero_user)
+		self.assertEqual(companero.status_code, 403)
+		self.client.force_login(self.companero_user)
+		vista = self.client.get(reverse("servicios:actividad_detalle", args=[actividad.pk]))
+		self.assertEqual(vista.status_code, 200)
+		self.assertNotContains(vista, "Enviar captura")
+		self.client.force_login(self.supervisor)
+		self.assertEqual(self.client.post(reverse("servicios:actividad_detalle", args=[actividad.pk]), {"texto_tarea": tarea.descripcion}).status_code, 403)
+		actividad.estado = "anulada"
+		actividad.save(update_fields=["estado"])
+		self.assertEqual(self._cargar(actividad, tarea).status_code, 403)
+		self.assertEqual(actividad.evidencias.count(), 0)
+
+	def test_delegado_aprueba_y_el_rechazo_muestra_el_motivo(self):
+		from .models import Evidencia, Validacion
+
+		actividad = self._actividad()
+		tarea = self._tarea_lista(actividad)
+		self._cargar(actividad, tarea)
+		evidencia = Evidencia.objects.get()
+		tarea.descripcion = "Texto cambiado después"
+		tarea.save(update_fields=["descripcion"])
+		evidencia.refresh_from_db()
+		self.assertEqual(evidencia.texto_tarea, "Gestión de sillas")
+
+		self.client.force_login(self.user)
+		self.assertEqual(self.client.get(reverse("servicios:evidencias")).status_code, 403)
+		self.assertEqual(self.client.post(reverse("servicios:evidencia_revisar", args=[evidencia.pk]), {"decision": "aprobar"}).status_code, 403)
+
+		self.client.force_login(self.supervisor_norte)
+		self.assertEqual(self.client.get(reverse("servicios:evidencias")).status_code, 200)
+		self.assertNotContains(self.client.get(reverse("servicios:evidencias")), "Gestión de sillas")
+		self.assertEqual(self.client.post(reverse("servicios:evidencia_revisar", args=[evidencia.pk]), {"decision": "aprobar"}).status_code, 404)
+
+		self.client.force_login(self.supervisor)
+		listado = self.client.get(reverse("servicios:evidencias"))
+		self.assertContains(listado, "Gestión de sillas")
+		self.assertContains(listado, "Celebración vecinal")
+		self.assertContains(listado, "Junta Los Aromos")
+		self.assertContains(listado, evidencia.archivo.url)
+		self.assertContains(self.client.get(reverse("institucional:mi_panel")), "Revisar evidencias")
+		sin_motivo = self.client.post(reverse("servicios:evidencia_revisar", args=[evidencia.pk]), {"decision": "rechazar", "motivo": "   "}, follow=True)
+		self.assertContains(sin_motivo, "motivo breve")
+		evidencia.refresh_from_db()
+		self.assertEqual(evidencia.estado, "pendiente")
+
+		self.client.post(reverse("servicios:evidencia_revisar", args=[evidencia.pk]), {"decision": "rechazar", "motivo": "La captura no muestra las sillas."})
+		evidencia.refresh_from_db()
+		self.assertEqual(evidencia.estado, "rechazada")
+		self.assertEqual(evidencia.observacion, "La captura no muestra las sillas.")
+		self.assertEqual(Validacion.objects.get().decision, "rechazada")
+		self.assertEqual(Validacion.objects.get().verificador, self.supervisor)
+
+		self.client.force_login(self.user)
+		detalle = self.client.get(reverse("servicios:actividad_detalle", args=[actividad.pk]))
+		self.assertContains(detalle, "La captura no muestra las sillas.")
+		self.assertContains(detalle, "Rechazada")
+		self.assertContains(detalle, "Junta Los Aromos")
+		self._cargar(actividad, tarea, imagen_prueba("nueva.png"))
+		self.assertEqual(actividad.evidencias.filter(estado="pendiente").count(), 1)
+
+		nueva = actividad.evidencias.get(estado="pendiente")
+		self.client.force_login(self.supervisor)
+		self.client.post(reverse("servicios:evidencia_revisar", args=[nueva.pk]), {"decision": "aprobar"})
+		nueva.refresh_from_db()
+		self.assertEqual(nueva.estado, "aprobada")
+		self.assertEqual(Validacion.objects.filter(decision="aprobada").count(), 1)
+		consulta = self.client.get(reverse("servicios:consulta_actividad", args=[actividad.pk]))
+		self.assertContains(consulta, "Gestión de sillas")
+		self.assertContains(consulta, nueva.archivo.url)
+		self.assertContains(consulta, "La captura no muestra las sillas.")
+		actividad.refresh_from_db()
+		self.assertEqual(actividad.estado, "pendiente")
+		self.assertEqual(actividad.solicitante, "Junta Los Aromos")
+
+	def test_la_captura_se_ve_desde_media_y_el_administrador_tambien_actua(self):
+		from .models import Evidencia
+
+		actividad = self._actividad()
+		tarea = self._tarea_lista(actividad)
+		self.client.force_login(self.admin)
+		self.assertEqual(self._cargar(actividad, tarea, usuario=self.admin).status_code, 302)
+		evidencia = Evidencia.objects.get()
+		self.assertEqual(self.client_class().get(evidencia.archivo.url).status_code, 302)
+		self.client.force_login(self.user)
+		with self.settings(MEDIA_X_ACCEL=False):
+			respuesta = self.client.get(evidencia.archivo.url)
+		self.assertEqual(respuesta.status_code, 200)
+		self.assertIn("inline", respuesta["Content-Disposition"])
+		self.assertEqual(respuesta["Content-Type"], "image/png")
+		self.assertTrue(b"".join(respuesta.streaming_content).startswith(b"\x89PNG"))
+		self.client.force_login(self.admin)
+		self.client.post(reverse("servicios:evidencia_revisar", args=[evidencia.pk]), {"decision": "aprobar"})
+		evidencia.refresh_from_db()
+		self.assertEqual(evidencia.estado, "aprobada")

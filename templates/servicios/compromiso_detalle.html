@@ -9,6 +9,8 @@
 <section class="container py-5">
     <article class="tarjeta-info mb-4">
         <dl class="ficha-datos">
+            <div><dt>Código</dt><dd><code>{{ compromiso.codigo|default:"—" }}</code></dd></div>
+            <div><dt>Solicitante</dt><dd>{{ compromiso.solicitante }}{% if compromiso.rut %} · {{ compromiso.rut }}{% endif %}{% if compromiso.telefono %} · {{ compromiso.telefono }}{% endif %}</dd></div>
             <div><dt>Fecha de solicitud</dt><dd>{{ compromiso.fecha_solicitud|date:"d/m/Y" }} · {{ compromiso.get_ambito_display }}</dd></div>
             <div><dt>Fecha comprometida</dt><dd>{{ compromiso.fecha_comprometida|date:"d/m/Y" }}</dd></div>
             <div><dt>Delegación</dt><dd>{{ compromiso.delegacion.nombre }}</dd></div>
@@ -26,15 +28,16 @@
             {% if compromiso.observacion %}<div><dt>Observación</dt><dd>{{ compromiso.observacion }}</dd></div>{% endif %}
         </dl>
         <div class="d-flex flex-wrap gap-2">
-            {% if es_supervisor %}
-            <a class="btn btn-outline-secondary" href="{% url 'servicios:resumen_agenda' %}">Volver al resumen</a>
-            {% else %}
-            <a class="btn btn-outline-secondary" href="{% url 'servicios:agenda' %}">Volver a la agenda</a>
+            <a class="btn btn-outline-secondary" href="{% url 'servicios:agenda' %}">Volver al tubo</a>
+            {% if es_supervisor or es_administrador %}<a class="btn btn-outline-secondary" href="{% url 'servicios:resumen_agenda' %}">Resumen</a>{% endif %}
+            {% if puede_modificar %}
             {% if compromiso.activo %}<a class="btn btn-primary" href="{% url 'servicios:compromiso_editar' compromiso.pk %}">Editar</a>{% endif %}
             <form method="post" action="{% url 'servicios:compromiso_desactivar' compromiso.pk %}">
                 {% csrf_token %}
                 <button class="btn btn-outline-danger" type="submit">{% if compromiso.activo %}Desactivar{% else %}Volver a publicar{% endif %}</button>
             </form>
+            {% elif compromiso.estado == 'realizado' %}
+            <span class="text-secondary align-self-center">Realizado: no se modifica.</span>
             {% endif %}
         </div>
     </article>
