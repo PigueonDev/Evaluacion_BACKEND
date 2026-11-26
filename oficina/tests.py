@@ -7,9 +7,8 @@ from django.core.exceptions import ValidationError
 from django.test import TestCase
 from django.urls import reverse
 
-from institucional.cuentas import asignar_grupo
 from institucional.models import Cargo, Delegacion, Funcionario
-from laserena.permisos import GRUPO_ADMINISTRADOR, GRUPO_ADMINISTRATIVO, GRUPO_SUPERVISOR
+from laserena.permisos import GRUPO_ADMINISTRADOR, GRUPO_ADMINISTRATIVO, GRUPO_SUPERVISOR, asignar_grupo
 from laserena.rut import normalizar_rut
 from servicios.models import Auditoria, ItemMedicion, Meta, Periodo
 

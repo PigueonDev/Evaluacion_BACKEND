@@ -6,14 +6,13 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
 
 from institucional.models import Delegacion
+from laserena.filtros import parametro_permitido, texto_busqueda
 from laserena.permisos import (
 	GRUPO_ADMINISTRATIVO,
 	acotar_ambito,
 	con_permiso,
 	grupo_usuario,
-	parametro_permitido,
 	perfil_funcionario,
-	texto_busqueda,
 )
 from laserena.rut import normalizar_rut
 

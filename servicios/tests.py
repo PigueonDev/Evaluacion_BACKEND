@@ -9,9 +9,8 @@ from django.test import TestCase
 from django.urls import reverse
 from django.utils import timezone
 
-from institucional.cuentas import asignar_grupo
 from institucional.models import Cargo, Delegacion, Funcionario
-from laserena.permisos import GRUPO_ADMINISTRADOR, GRUPO_ADMINISTRATIVO, GRUPO_SUPERVISOR
+from laserena.permisos import GRUPO_ADMINISTRADOR, GRUPO_ADMINISTRATIVO, GRUPO_SUPERVISOR, asignar_grupo
 
 from .models import Actividad, Caso, Compromiso, Gestion, ItemMedicion, Meta, Periodo, Servicio
 
@@ -89,7 +88,7 @@ class ReglasSgrTest(TestCase):
 
 class PanelesPrivadosTest(TestCase):
 	PANELES = (
-		"servicios:dashboard",
+		"servicios:panel_municipal",
 		"servicios:actividades",
 		"servicios:casos",
 		"servicios:agenda",
@@ -493,7 +492,7 @@ class MantenedoresCristhopherTest(TestCase):
 			"servicios:caso_nuevo",
 			"servicios:agenda",
 			"servicios:compromiso_nuevo",
-			"servicios:dashboard",
+			"servicios:panel_municipal",
 			"institucional:panel",
 		):
 			self.assertEqual(self.client.get(reverse(nombre)).status_code, 403, nombre)

@@ -24,7 +24,7 @@
     <a href="#linea-directa"><svg><use href="#i-mail"/></svg><span>Línea Directa Municipal</span></a>
     <a href="#admision"><svg><use href="#i-briefcase"/></svg><span>Admisión Laboral</span></a>
     <a href="#juzgados"><svg><use href="#i-calendar"/></svg><span>Calendario Juzgados</span></a>
-    <a href="#concejo"><svg><use href="#i-video"/></svg><span>Concejo Online</span></a>
+    <a href="#concejo"><svg><use href="#i-video"/></svg><span>Concejo en línea</span></a>
     <a href="#patrocinio"><svg><use href="#i-hand"/></svg><span>Solicitud de Patrocinio</span></a>
     <a href="#whatsapp" class="acceso-whatsapp"><svg><use href="#i-whatsapp"/></svg><span>Consulta por WhatsApp</span></a>
 </section>
@@ -72,7 +72,7 @@
             <span class="antetitulo">Gestión territorial</span>
             <h2>Delegaciones municipales</h2>
         </div>
-        {% if es_administracion %}<a class="enlace-flecha" href="{% url 'servicios:dashboard' %}">Ver panel de gestión <svg class="icono"><use href="#i-arrow"/></svg></a>{% endif %}
+        {% if es_administrador %}<a class="enlace-flecha" href="{% url 'servicios:panel_municipal' %}">Ver panel de gestión <svg class="icono"><use href="#i-arrow"/></svg></a>{% endif %}
     </div>
     <div class="row g-4">
         {% for delegacion in delegaciones %}

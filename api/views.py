@@ -12,7 +12,20 @@ from rest_framework.response import Response
 from rest_framework_simplejwt.views import TokenBlacklistView, TokenObtainPairView, TokenRefreshView, TokenVerifyView
 
 from institucional.models import Delegacion
-from laserena.permisos import GRUPO_ADMINISTRATIVO, grupo_usuario, parametro_permitido, perfil_de_ambito, perfil_funcionario, texto_busqueda
+from laserena.filtros import parametro_permitido, texto_busqueda
+from laserena.permisos import (
+    GRUPO_ADMINISTRATIVO,
+    EsAdministradorOSoloLectura,
+    EsPersonalSGR,
+    PermisoActividad,
+    PermisoCarta,
+    PermisoRevision,
+    PermisoTarea,
+    es_administrador,
+    grupo_usuario,
+    perfil_de_ambito,
+    perfil_funcionario,
+)
 from oficina.models import Carta
 from oficina.views import _cartas_visibles
 from servicios.models import Actividad, TareaPreparatoria
@@ -23,15 +36,6 @@ from servicios.views import _actividades_ambito
 from .errores import cuerpo_error
 from .exportar import TIPO_EXCEL, TIPO_PDF, exportar
 from .paginacion import Paginacion
-from .permisos import (
-    EsAdministradorOSoloLectura,
-    EsPersonalSGR,
-    PermisoActividad,
-    PermisoCarta,
-    PermisoRevision,
-    PermisoTarea,
-    es_perfil_administrador,
-)
 from .serializers import (
     ActividadAdminSerializer,
     ActividadEdicionSerializer,
@@ -117,14 +121,14 @@ class _ConLimiteDeIntentos:
 
 @extend_schema(
     tags=["Autenticación JWT"], auth=[],
-    summary="Obtener access y refresh token",
-    description="Entrega un **access token** (15 min) y un **refresh token** (8 h) a una cuenta activa del SGR. Copia `access` en **Authorize**.",
+    summary="Obtener el token de acceso y el de renovación",
+    description="Entrega un **token de acceso** (`access`, 15 min) y un **token de renovación** (`refresh`, 8 h) a una cuenta activa del SGR. Los nombres `username`, `password`, `access` y `refresh` son los del estándar JWT de SimpleJWT. Copia el valor de `access` en el botón **Authorize** (Autorizar) de Swagger.",
     examples=[
         OpenApiExample("Credenciales", value={"username": "admin.demo", "password": "Serena-demo-2026"}, request_only=True),
         OpenApiExample("Tokens emitidos", value=EJEMPLO_TOKEN, response_only=True, status_codes=["200"]),
     ],
     responses={200: TokenRespuestaSerializer, 400: ERROR_400, 401: OpenApiResponse(ErrorSerializer, description="Usuario o contraseña incorrectos, o cuenta sin perfil SGR.", examples=[
-        OpenApiExample("Credenciales inválidas", value={"error": {"codigo": 401, "tipo": "no_autenticado", "mensaje": "No se encontró una cuenta de usuario activa para las credenciales dadas"}}),
+        OpenApiExample("Credenciales inválidas", value={"error": {"codigo": 401, "tipo": "no_autenticado", "mensaje": "Usuario o contraseña incorrectos, o la cuenta no tiene un perfil activo del SGR."}}),
     ]), 429: OpenApiResponse(ErrorSerializer, description="Demasiados intentos desde la misma IP.")},
 )
 class ObtenerTokenView(_ConLimiteDeIntentos, TokenObtainPairView):
@@ -133,9 +137,9 @@ class ObtenerTokenView(_ConLimiteDeIntentos, TokenObtainPairView):
 
 @extend_schema(
     tags=["Autenticación JWT"], auth=[],
-    summary="Renovar el access token",
-    description="Recibe el refresh token y entrega un access nuevo **y un refresh nuevo**: el anterior queda en la lista negra (rotación).",
-    responses={200: OpenApiResponse(description="Nuevo access y refresh."), 400: ERROR_400, 401: ERROR_401},
+    summary="Renovar el token de acceso",
+    description="Recibe el token de renovación (`refresh`) y entrega un token de acceso nuevo **y un token de renovación nuevo**: el anterior queda en la lista negra (rotación).",
+    responses={200: OpenApiResponse(description="Nuevo token de acceso y nuevo token de renovación."), 400: ERROR_400, 401: ERROR_401},
 )
 class RenovarTokenView(_ConLimiteDeIntentos, TokenRefreshView):
     pass
@@ -147,9 +151,9 @@ class VerificarTokenView(_ConLimiteDeIntentos, TokenVerifyView):
     pass
 
 
-@extend_schema(tags=["Autenticación JWT"], auth=[], summary="Cerrar sesión (revocar refresh token)",
-               description="Agrega el refresh token a la lista negra: ya no sirve para pedir access tokens nuevos.",
-               responses={200: OpenApiResponse(description="Refresh token revocado."), 401: ERROR_401})
+@extend_schema(tags=["Autenticación JWT"], auth=[], summary="Cerrar sesión (revocar el token de renovación)",
+               description="Agrega el token de renovación a la lista negra: ya no sirve para pedir tokens de acceso nuevos.",
+               responses={200: OpenApiResponse(description="Token de renovación revocado."), 401: ERROR_401})
 class RevocarTokenView(_ConLimiteDeIntentos, TokenBlacklistView):
     pass
 
@@ -159,7 +163,7 @@ class RevocarTokenView(_ConLimiteDeIntentos, TokenBlacklistView):
 @permission_classes([EsPersonalSGR])
 def perfil_actual(request):
     perfil = perfil_funcionario(request.user)
-    es_admin = es_perfil_administrador(request.user)
+    es_admin = es_administrador(request.user)
     return Response({
         "usuario": request.user.get_username(),
         "nombre": perfil.nombre_completo if perfil else request.user.get_full_name(),
@@ -174,15 +178,15 @@ def perfil_actual(request):
 # --- Mantenedor 1: usuarios ---------------------------------------------------------------------------
 
 EJEMPLO_USUARIO = {
-    "username": "territorial.norte", "first_name": "Paula", "last_name": "Rojas", "email": "paula.rojas@laserena.cl",
-    "perfil": "Administrativo", "is_active": True, "identificador": "F-210", "delegacion": 1, "cargo": 5, "codigo_area": "COM2",
+    "usuario": "territorial.norte", "nombres": "Paula", "apellidos": "Rojas", "correo": "paula.rojas@laserena.cl",
+    "perfil": "Administrativo", "activo": True, "identificador": "F-210", "delegacion": 1, "cargo": 5, "codigo_area": "COM2",
     "clave": "Territorio-Norte-2026", "clave_confirmacion": "Territorio-Norte-2026",
 }
 
 
 def _usuarios_visibles(user):
     usuarios = User.objects.select_related("perfil_sgr__delegacion", "perfil_sgr__cargo").prefetch_related("groups").order_by("username")
-    if es_perfil_administrador(user):
+    if es_administrador(user):
         return usuarios
     perfil = perfil_de_ambito(user)
     if perfil is None:
@@ -191,7 +195,7 @@ def _usuarios_visibles(user):
 
 
 def _serializer_usuario(request):
-    return UsuarioAdminSerializer if es_perfil_administrador(request.user) else UsuarioPublicoSerializer
+    return UsuarioAdminSerializer if es_administrador(request.user) else UsuarioPublicoSerializer
 
 
 @extend_schema(
@@ -291,7 +295,7 @@ def cartas_para_exportar(request):
 
 
 def _serializer_carta(request):
-    return CartaAdminSerializer if es_perfil_administrador(request.user) else CartaUsuarioSerializer
+    return CartaAdminSerializer if es_administrador(request.user) else CartaUsuarioSerializer
 
 
 def _contexto_carta(request):
@@ -322,7 +326,7 @@ PARAMETROS_CARTAS = [
     request=CartaAdminSerializer,
     examples=[
         OpenApiExample("Nueva carta", value=EJEMPLO_CARTA, request_only=True),
-        OpenApiExample("Carta creada", value={"id": 12, "folio": "OP-2026-0012", **EJEMPLO_CARTA, "estado_display": "Ingresada", "vencida": False}, response_only=True, status_codes=["201"]),
+        OpenApiExample("Carta creada", value={"id": 12, "folio": "OP-2026-0012", **EJEMPLO_CARTA, "estado_texto": "Ingresada", "vencida": False}, response_only=True, status_codes=["201"]),
     ],
     responses={201: CartaAdminSerializer, **ERRORES_ESCRITURA},
 )
@@ -380,7 +384,7 @@ def carta_detalle(request, pk):
 @api_view(["GET"])
 @permission_classes([PermisoCarta])
 def cartas_exportar(request, formato):
-    return exportar("cartas", formato, cartas_para_exportar(request), request.user, es_perfil_administrador(request.user))
+    return exportar("cartas", formato, cartas_para_exportar(request), request.user, es_administrador(request.user))
 
 
 # --- Transacción: registrar actividad ---------------------------------------------------------------------
@@ -407,12 +411,12 @@ def actividades_para_exportar(request):
 
 
 def _serializer_actividad(request):
-    return ActividadAdminSerializer if es_perfil_administrador(request.user) else ActividadUsuarioSerializer
+    return ActividadAdminSerializer if es_administrador(request.user) else ActividadUsuarioSerializer
 
 
 def _actividad_propia(request, actividad):
     """El Administrativo solo modifica sus propias actividades; el Administrador, cualquiera."""
-    if es_perfil_administrador(request.user):
+    if es_administrador(request.user):
         return True
     return actividad.funcionario_id == getattr(perfil_funcionario(request.user), "pk", None)
 
@@ -433,7 +437,7 @@ PARAMETROS_ACTIVIDADES = [
 )
 @extend_schema(
     methods=["POST"], tags=["Actividades"], summary="Registrar actividad (transacción)",
-    description="Guarda la actividad, sus tareas preparatorias y la auditoría en una sola transacción (`transaction.atomic` + `select_for_update`). "
+    description="Guarda la actividad, sus tareas preparatorias y la auditoría en una sola transacción atómica, que bloquea la ficha del funcionario para que dos registros simultáneos no superen el cupo diario. "
                 "Reglas: día hábil de la semana en curso, sin fechas futuras, máximo 7 actividades por día, período abierto, ítem del cargo. "
                 "Si una regla falla no se guarda nada. Lo registra el Administrativo (para sí mismo) o el Administrador (indicando `funcionario`).",
     request=ActividadEntradaSerializer,
@@ -448,7 +452,7 @@ def actividades_lista(request):
         return _paginar(request, actividades, _serializer_actividad(request))
 
     contexto = {"request": request}
-    if not es_perfil_administrador(request.user):
+    if not es_administrador(request.user):
         perfil = perfil_funcionario(request.user)
         if perfil is None:
             return Response(cuerpo_error(400, "Tu cuenta no tiene ficha de funcionario: no puede registrar actividades."), status=status.HTTP_400_BAD_REQUEST)
@@ -545,7 +549,7 @@ def actividad_revision(request, pk):
 @api_view(["GET"])
 @permission_classes([PermisoActividad])
 def actividades_exportar(request, formato):
-    return exportar("actividades", formato, actividades_para_exportar(request), request.user, es_perfil_administrador(request.user))
+    return exportar("actividades", formato, actividades_para_exportar(request), request.user, es_administrador(request.user))
 
 
 @extend_schema(exclude=True)

@@ -12,6 +12,7 @@ from django.core.exceptions import ValidationError as DjangoValidationError
 from drf_spectacular.utils import extend_schema_field
 from rest_framework import serializers
 from rest_framework.serializers import as_serializer_error
+from rest_framework.settings import api_settings
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 
 from institucional.forms import UsuarioForm
@@ -86,8 +87,8 @@ class TokenSGRSerializer(TokenObtainPairSerializer):
 
 
 class TokenRespuestaSerializer(serializers.Serializer):
-    access = serializers.CharField(help_text="Access token JWT (15 minutos). Se envía como `Authorization: Bearer <access>`.")
-    refresh = serializers.CharField(help_text="Refresh token (8 horas). Solo sirve para pedir un access nuevo en /api/token/refresh/.")
+    access = serializers.CharField(help_text="Token de acceso JWT (15 minutos). Se envía en la cabecera `Authorization: Bearer <access>`.")
+    refresh = serializers.CharField(help_text="Token de renovación (8 horas). Solo sirve para pedir un token de acceso nuevo en /api/token/renovar/.")
     perfil = serializers.CharField(help_text="Perfil SGR de la cuenta: Administrador, Supervisor o Administrativo.")
 
 
@@ -116,12 +117,19 @@ class FuncionarioAdminSerializer(serializers.ModelSerializer):
 class UsuarioAdminSerializer(serializers.ModelSerializer):
     """Perfil Administrador: todos los datos de la cuenta, salvo la contraseña (que nunca sale de la base)."""
 
+    usuario = serializers.CharField(source="username", read_only=True)
+    nombres = serializers.CharField(source="first_name", read_only=True)
+    apellidos = serializers.CharField(source="last_name", read_only=True)
+    correo = serializers.EmailField(source="email", read_only=True)
     perfil = serializers.SerializerMethodField(help_text="Grupo SGR de la cuenta.")
+    activo = serializers.BooleanField(source="is_active", read_only=True)
+    ultimo_acceso = serializers.DateTimeField(source="last_login", read_only=True, allow_null=True)
+    fecha_creacion = serializers.DateTimeField(source="date_joined", read_only=True)
     funcionario = FuncionarioAdminSerializer(source="perfil_sgr", read_only=True, allow_null=True)
 
     class Meta:
         model = User
-        fields = ["id", "username", "first_name", "last_name", "email", "perfil", "is_active", "last_login", "date_joined", "funcionario"]
+        fields = ["id", "usuario", "nombres", "apellidos", "correo", "perfil", "activo", "ultimo_acceso", "fecha_creacion", "funcionario"]
 
     @extend_schema_field(serializers.CharField(allow_null=True))
     def get_perfil(self, obj):
@@ -150,15 +158,20 @@ class UsuarioPublicoSerializer(serializers.ModelSerializer):
         return grupo_usuario(obj)
 
 
+# Campo de la API (en español) → campo del formulario web y del modelo User de Django.
+CAMPOS_FORMULARIO_USUARIO = {"usuario": "username", "nombres": "first_name", "apellidos": "last_name", "correo": "email", "activo": "is_active"}
+CAMPOS_API_USUARIO = {**{v: k for k, v in CAMPOS_FORMULARIO_USUARIO.items()}, "grupo": "perfil"}
+
+
 class UsuarioEntradaSerializer(serializers.Serializer):
     """Datos para crear o editar una cuenta. Usa las mismas validaciones del mantenedor web (UsuarioForm)."""
 
-    username = serializers.CharField(max_length=150)
-    first_name = serializers.CharField(max_length=150)
-    last_name = serializers.CharField(max_length=150, required=False, allow_blank=True, default="")
-    email = serializers.EmailField(help_text="Se usa para recuperar la contraseña.")
+    usuario = serializers.CharField(max_length=150, help_text="Nombre de usuario para iniciar sesión.")
+    nombres = serializers.CharField(max_length=150)
+    apellidos = serializers.CharField(max_length=150, required=False, allow_blank=True, default="")
+    correo = serializers.EmailField(help_text="Se usa para recuperar la contraseña.")
     perfil = serializers.ChoiceField(choices=GRUPOS_SGR)
-    is_active = serializers.BooleanField(required=False, default=True)
+    activo = serializers.BooleanField(required=False, default=True)
     identificador = serializers.CharField(max_length=30, required=False, allow_blank=True, default="", help_text="Obligatorio para Supervisor y Administrativo.")
     delegacion = serializers.PrimaryKeyRelatedField(queryset=Delegacion.objects.filter(activa=True), required=False, allow_null=True, default=None)
     cargo = serializers.PrimaryKeyRelatedField(queryset=Cargo.objects.filter(activo=True), required=False, allow_null=True, default=None)
@@ -172,18 +185,18 @@ class UsuarioEntradaSerializer(serializers.Serializer):
     def validate(self, attrs):
         grupo = Group.objects.filter(name=attrs["perfil"]).first()
         datos = {
-            **{campo: attrs.get(campo) for campo in ("username", "first_name", "last_name", "email", "identificador", "codigo_area", "clave", "clave_confirmacion")},
+            **{campo_formulario: attrs.get(campo) for campo, campo_formulario in CAMPOS_FORMULARIO_USUARIO.items()},
+            **{campo: attrs.get(campo) for campo in ("identificador", "codigo_area", "clave", "clave_confirmacion")},
             "grupo": grupo.pk if grupo else None,
-            "is_active": attrs.get("is_active", True),
             "delegacion": attrs["delegacion"].pk if attrs.get("delegacion") else None,
             "cargo": attrs["cargo"].pk if attrs.get("cargo") else None,
         }
         formulario = UsuarioForm(data=datos, usuario=self.instance)
         formulario.solicitante = self.context["request"].user
         if not formulario.is_valid():
-            errores = {("perfil" if campo == "grupo" else campo): mensajes for campo, mensajes in formulario.errors.items()}
+            errores = {CAMPOS_API_USUARIO.get(campo, campo): mensajes for campo, mensajes in formulario.errors.items()}
             if "__all__" in errores:
-                errores["non_field_errors"] = errores.pop("__all__")
+                errores[api_settings.NON_FIELD_ERRORS_KEY] = errores.pop("__all__")
             raise serializers.ValidationError(errores)
         self._formulario = formulario
         return attrs
@@ -208,8 +221,8 @@ class CartaAdminSerializer(ValidacionModeloMixin, serializers.ModelSerializer):
     encargado_seguimiento = serializers.PrimaryKeyRelatedField(queryset=UnidadMunicipal.objects.filter(activa=True), required=False, allow_null=True)
     delegacion_nombre = serializers.CharField(source="delegacion.nombre", read_only=True)
     derivada_a_nombre = serializers.CharField(source="derivada_a.nombre_completo", read_only=True, default=None)
-    estado_display = serializers.CharField(source="get_estado_display", read_only=True)
-    resolucion_display = serializers.CharField(source="get_resolucion_display", read_only=True)
+    estado_texto = serializers.CharField(source="get_estado_display", read_only=True)
+    resolucion_texto = serializers.CharField(source="get_resolucion_display", read_only=True)
     vencida = serializers.BooleanField(read_only=True)
     registrada_por = serializers.CharField(source="registrada_por.username", read_only=True)
 
@@ -218,8 +231,8 @@ class CartaAdminSerializer(ValidacionModeloMixin, serializers.ModelSerializer):
         fields = [
             "id", "folio", "numero_oficina_partes", "fecha_ingreso", "destinatario", "tipo", "remitente", "contacto_remitente",
             "asunto", "detalle", "fecha_actividad", "delegacion", "delegacion_nombre", "organizacion", "encargado_seguimiento",
-            "pronunciamiento", "derivada_a", "derivada_a_nombre", "derivada_a_unidad", "estado", "estado_display", "resolucion",
-            "resolucion_display", "plazo_respuesta", "respuesta", "fecha_respuesta", "vencida", "registrada_por", "creada_en", "actualizada_en",
+            "pronunciamiento", "derivada_a", "derivada_a_nombre", "derivada_a_unidad", "estado", "estado_texto", "resolucion",
+            "resolucion_texto", "plazo_respuesta", "respuesta", "fecha_respuesta", "vencida", "registrada_por", "creada_en", "actualizada_en",
         ]
         read_only_fields = ["folio", "creada_en", "actualizada_en"]
         extra_kwargs = {"contacto_remitente": {"help_text": "Dato sensible: teléfono o correo personal del remitente."}}
@@ -256,11 +269,11 @@ class CartaSeguimientoSerializer(ValidacionModeloMixin, serializers.ModelSeriali
 
 
 class TareaSerializer(serializers.ModelSerializer):
-    tipo_display = serializers.CharField(source="get_tipo_display", read_only=True)
+    tipo_texto = serializers.CharField(source="get_tipo_display", read_only=True)
 
     class Meta:
         model = TareaPreparatoria
-        fields = ["id", "tipo", "tipo_display", "descripcion", "realizada", "realizada_en"]
+        fields = ["id", "tipo", "tipo_texto", "descripcion", "realizada", "realizada_en"]
         read_only_fields = ["realizada", "realizada_en"]
 
 
@@ -287,7 +300,7 @@ class ActividadUsuarioSerializer(serializers.ModelSerializer):
     periodo_nombre = serializers.CharField(source="periodo.nombre", read_only=True)
     item_nombre = serializers.CharField(source="item.nombre", read_only=True)
     derivado_a_nombre = serializers.CharField(source="derivado_a.nombre", read_only=True, default=None)
-    estado_display = serializers.CharField(source="get_estado_display", read_only=True)
+    estado_texto = serializers.CharField(source="get_estado_display", read_only=True)
     tareas = TareaSerializer(many=True, read_only=True)
     tareas_completas = serializers.BooleanField(read_only=True)
     revisada_por = serializers.CharField(source="revisada_por.get_full_name", read_only=True, default=None)
@@ -297,7 +310,7 @@ class ActividadUsuarioSerializer(serializers.ModelSerializer):
         fields = [
             "id", "codigo_verificador", "codigo_evidencia", "funcionario", "funcionario_nombre", "delegacion", "periodo", "periodo_nombre",
             "item", "item_nombre", "servicio", "compromiso", "fecha", "descripcion", "accion", "derivado_a", "derivado_a_nombre",
-            "estado", "estado_display", "tareas", "tareas_completas", "revisada_por", "revisada_en", "observacion_revision", "creada_en",
+            "estado", "estado_texto", "tareas", "tareas_completas", "revisada_por", "revisada_en", "observacion_revision", "creada_en",
         ]
         read_only_fields = fields
 

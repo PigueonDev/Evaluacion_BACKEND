@@ -8,9 +8,8 @@ from django.core.management import call_command
 from django.test import TestCase
 from django.urls import reverse
 
-from institucional.cuentas import asignar_grupo
 from institucional.models import Cargo, Delegacion, Funcionario, UnidadMunicipal
-from laserena.permisos import GRUPO_ADMINISTRADOR, GRUPO_ADMINISTRATIVO, GRUPO_SUPERVISOR
+from laserena.permisos import GRUPO_ADMINISTRADOR, GRUPO_ADMINISTRATIVO, GRUPO_SUPERVISOR, asignar_grupo
 from oficina.models import Reconocimiento
 
 from .desempeno import alerta_rrhh, resumen_equipo, resumen_funcionario

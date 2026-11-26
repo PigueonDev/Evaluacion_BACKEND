@@ -28,6 +28,8 @@ INSTALLED_APPS = [
     "oficina",
     "organizaciones",
     "rest_framework",
+    # Se instala la app base de SimpleJWT solo para cargar sus traducciones al español.
+    "rest_framework_simplejwt",
     "rest_framework_simplejwt.token_blacklist",
     "drf_spectacular",
     "drf_spectacular_sidecar",
@@ -89,7 +91,9 @@ AUTH_PASSWORD_VALIDATORS = [
     {"NAME": "django.contrib.auth.password_validation.NumericPasswordValidator"},
 ]
 
+# Todo el sistema en español: los textos propios ya lo están y Django, DRF y SimpleJWT traen sus traducciones.
 LANGUAGE_CODE = "es-cl"
+LANGUAGES = [("es-cl", "Español (Chile)")]
 TIME_ZONE = "America/Santiago"
 USE_I18N = True
 USE_TZ = True
@@ -159,7 +163,7 @@ if os.getenv("HTTPS", "False").lower() == "true":
     SECURE_HSTS_SECONDS = 30 * 24 * 60 * 60
 
 # --- API REST (Django REST Framework + SimpleJWT + drf-spectacular) ---------------
-# Todo endpoint exige un access token válido salvo que la vista diga lo contrario.
+# Todo endpoint exige un token de acceso válido salvo que la vista diga lo contrario.
 REST_FRAMEWORK = {
     "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
     "DEFAULT_AUTHENTICATION_CLASSES": ("rest_framework_simplejwt.authentication.JWTAuthentication",),
@@ -183,6 +187,7 @@ REST_FRAMEWORK = {
     # Nginx agrega la IP real al final de X-Forwarded-For; así un cliente no evade el límite falsificando esa cabecera.
     "NUM_PROXIES": int(os.getenv("API_NUM_PROXIES", "1")),
     "UNICODE_JSON": True,
+    "NON_FIELD_ERRORS_KEY": "errores_generales",
 }
 
 SIMPLE_JWT = {
@@ -194,7 +199,7 @@ SIMPLE_JWT = {
     "ALGORITHM": "HS256",
     "SIGNING_KEY": os.getenv("JWT_SIGNING_KEY") or SECRET_KEY,
     "AUTH_HEADER_TYPES": ("Bearer",),
-    "USER_AUTHENTICATION_RULE": "api.permisos.puede_usar_api",
+    "USER_AUTHENTICATION_RULE": "laserena.permisos.puede_usar_api",
     "TOKEN_OBTAIN_SERIALIZER": "api.serializers.TokenSGRSerializer",
 }
 
@@ -202,16 +207,19 @@ SPECTACULAR_SETTINGS = {
     "TITLE": "API SGR · Municipalidad de La Serena",
     "DESCRIPTION": (
         "API RESTful del Sistema de Gestión de Resultados (SGR) de las delegaciones municipales.\n\n"
-        "1. Obtén el token en `POST /api/token/` con tu usuario y contraseña del SGR.\n"
-        "2. Pulsa **Authorize** y pega el valor de `access` (sin escribir «Bearer»).\n"
-        "3. El access token dura 15 minutos; renuévalo en `POST /api/token/refresh/`.\n\n"
+        "1. Obtén los tokens en `POST /api/token/` con tu usuario (`username`) y contraseña (`password`) del SGR.\n"
+        "2. Pulsa el botón **Authorize** (Autorizar) y pega el valor de `access` (sin escribir «Bearer»).\n"
+        "3. El token de acceso dura 15 minutos; renuévalo con el token de renovación (`refresh`) en `POST /api/token/renovar/`.\n\n"
         "El perfil **Administrador** recibe todos los campos. Los perfiles **Supervisor** y **Administrativo** "
         "(perfil Usuario) solo reciben campos públicos y operacionales de su delegación: nunca contraseñas, "
-        "correos, teléfonos ni contactos personales."
+        "correos, teléfonos ni contactos personales.\n\n"
+        "Los errores siempre vuelven en JSON: `{\"error\": {\"codigo\", \"tipo\", \"mensaje\", \"detalle\"}}`. "
+        "Los listados vienen paginados con `total`, `siguiente`, `anterior` y `resultados`."
     ),
     "VERSION": "1.0.0",
     "CONTACT": {"name": "Cristhopher Rubio y Rodrigo Álvarez · INACAP La Serena"},
     "SERVE_INCLUDE_SCHEMA": False,
+    "PREPROCESSING_HOOKS": ["api.esquema.ocultar_rutas_anteriores"],
     "SCHEMA_PATH_PREFIX": r"/api/",
     "COMPONENT_SPLIT_REQUEST": True,
     "SWAGGER_UI_DIST": "SIDECAR",

@@ -6,3 +6,11 @@ class BearerAuthScheme(SimpleJWTScheme):
 
     name = "BearerAuth"
     priority = 1
+
+
+def ocultar_rutas_anteriores(endpoints, **kwargs):
+    """Hook de drf-spectacular: Swagger muestra solo las rutas en español."""
+    from .urls import RUTAS_ANTERIORES
+
+    anteriores = {f"/api/{ruta}" for ruta in RUTAS_ANTERIORES}
+    return [endpoint for endpoint in endpoints if endpoint[0] not in anteriores]

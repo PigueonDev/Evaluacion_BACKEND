@@ -11,9 +11,8 @@ from rest_framework.test import APIClient
 from rest_framework.throttling import ScopedRateThrottle
 from rest_framework_simplejwt.tokens import AccessToken, RefreshToken
 
-from institucional.cuentas import asignar_grupo
 from institucional.models import Cargo, Delegacion, Funcionario
-from laserena.permisos import GRUPO_ADMINISTRADOR, GRUPO_ADMINISTRATIVO, GRUPO_SUPERVISOR
+from laserena.permisos import GRUPO_ADMINISTRADOR, GRUPO_ADMINISTRATIVO, GRUPO_SUPERVISOR, asignar_grupo
 from oficina.models import Carta
 from servicios.models import Actividad, Auditoria, ItemMedicion, Periodo, TareaPreparatoria
 from servicios.tests import HOY_PRUEBAS, fijar_hoy
@@ -104,21 +103,21 @@ class JWTTest(BaseAPI):
 
     def test_refresh_rota_y_el_anterior_queda_en_lista_negra(self):
         tokens = self.client.post("/api/token/", {"username": "delegada", "password": CLAVE}, format="json").json()
-        renovado = self.client.post("/api/token/refresh/", {"refresh": tokens["refresh"]}, format="json")
+        renovado = self.client.post("/api/token/renovar/", {"refresh": tokens["refresh"]}, format="json")
         self.assertEqual(renovado.status_code, 200)
         self.assertIn("access", renovado.json())
         self.assertNotEqual(renovado.json()["refresh"], tokens["refresh"])
-        self.assertError(self.client.post("/api/token/refresh/", {"refresh": tokens["refresh"]}, format="json"), 401)
+        self.assertError(self.client.post("/api/token/renovar/", {"refresh": tokens["refresh"]}, format="json"), 401)
 
     def test_cerrar_sesion_revoca_el_refresh(self):
         refresh = self.client.post("/api/token/", {"username": "funcionaria", "password": CLAVE}, format="json").json()["refresh"]
-        self.assertEqual(self.client.post("/api/token/blacklist/", {"refresh": refresh}, format="json").status_code, 200)
-        self.assertError(self.client.post("/api/token/refresh/", {"refresh": refresh}, format="json"), 401)
+        self.assertEqual(self.client.post("/api/token/revocar/", {"refresh": refresh}, format="json").status_code, 200)
+        self.assertError(self.client.post("/api/token/renovar/", {"refresh": refresh}, format="json"), 401)
 
     def test_verificar_token(self):
         access = str(RefreshToken.for_user(self.admin).access_token)
-        self.assertEqual(self.client.post("/api/token/verify/", {"token": access}, format="json").status_code, 200)
-        self.assertError(self.client.post("/api/token/verify/", {"token": access + "x"}, format="json"), 401)
+        self.assertEqual(self.client.post("/api/token/verificar/", {"token": access}, format="json").status_code, 200)
+        self.assertError(self.client.post("/api/token/verificar/", {"token": access + "x"}, format="json"), 401)
 
     def test_limita_los_intentos_de_obtener_token(self):
         with mock.patch.object(ScopedRateThrottle, "THROTTLE_RATES", {"token": "3/min"}):
@@ -135,11 +134,11 @@ class JWTTest(BaseAPI):
 
 class DocumentacionYErroresTest(BaseAPI):
     def test_esquema_openapi_documenta_jwt_y_endpoints(self):
-        respuesta = self.client.get("/api/schema/", HTTP_ACCEPT="application/vnd.oai.openapi+json")
+        respuesta = self.client.get("/api/esquema/", HTTP_ACCEPT="application/vnd.oai.openapi+json")
         self.assertEqual(respuesta.status_code, 200)
         esquema = respuesta.json()
         self.assertEqual(esquema["components"]["securitySchemes"]["BearerAuth"]["scheme"], "bearer")
-        for ruta in ("/api/token/", "/api/token/refresh/", "/api/usuarios/{id}/", "/api/cartas/{id}/", "/api/actividades/", "/api/cartas/exportar/{formato}/"):
+        for ruta in ("/api/token/", "/api/token/renovar/", "/api/usuarios/{id}/", "/api/cartas/{id}/", "/api/actividades/", "/api/cartas/exportar/{formato}/"):
             self.assertIn(ruta, esquema["paths"])
         self.assertEqual(set(esquema["paths"]["/api/cartas/{id}/"]), {"get", "put", "delete"})
         self.assertFalse(esquema["paths"]["/api/token/"]["post"].get("security"))
@@ -195,8 +194,8 @@ class CartasAPITest(BaseAPI):
         self.assertEqual(carta["registrada_por"], "admin")
 
         listado = self.client.get("/api/cartas/", {"q": "poda"}).json()
-        self.assertEqual(listado["count"], 1)
-        self.assertEqual(listado["results"][0]["folio"], "OP-2026-0001")
+        self.assertEqual(listado["total"], 1)
+        self.assertEqual(listado["resultados"][0]["folio"], "OP-2026-0001")
         self.assertEqual(self.client.get(f"/api/cartas/{carta['id']}/").status_code, 200)
 
         editada = self.client.put(f"/api/cartas/{carta['id']}/", self.datos(estado="derivada", derivada_a=self.funcionario.pk), format="json")
@@ -228,11 +227,11 @@ class CartasAPITest(BaseAPI):
         carta = Carta.objects.get()
         self.assertEqual(carta.delegacion, self.centro)
         self.assertEqual(carta.contacto_remitente, "+56 9 1111 2222")
-        self.assertNotIn("contacto_remitente", self.client.get("/api/cartas/").json()["results"][0])
+        self.assertNotIn("contacto_remitente", self.client.get("/api/cartas/").json()["resultados"][0])
 
         self.autenticar(self.supervisor_norte)
         self.assertError(self.client.get(f"/api/cartas/{carta.pk}/"), 404)
-        self.assertEqual(self.client.get("/api/cartas/").json()["count"], 0)
+        self.assertEqual(self.client.get("/api/cartas/").json()["total"], 0)
 
     def test_administrativo_solo_da_seguimiento_a_sus_cartas(self):
         propia = Carta.objects.create(fecha_ingreso=date(2026, 6, 10), remitente="A", asunto="Uno", delegacion=self.centro, estado="derivada", derivada_a=self.funcionario, registrada_por=self.admin)
@@ -250,7 +249,7 @@ class CartasAPITest(BaseAPI):
 
 class UsuariosAPITest(BaseAPI):
     def datos(self, **extra):
-        datos = {"username": "paula", "first_name": "Paula", "last_name": "Rojas", "email": "paula@laserena.cl", "perfil": GRUPO_ADMINISTRATIVO,
+        datos = {"usuario": "paula", "nombres": "Paula", "apellidos": "Rojas", "correo": "paula@laserena.cl", "perfil": GRUPO_ADMINISTRATIVO,
                  "identificador": "F-9", "delegacion": self.norte.pk, "cargo": self.cargo.pk, "clave": "Territorio-Norte-2026", "clave_confirmacion": "Territorio-Norte-2026"}
         datos.update(extra)
         return datos
@@ -268,7 +267,7 @@ class UsuariosAPITest(BaseAPI):
         token = self.client.post("/api/token/", {"username": "paula", "password": "Territorio-Norte-2026"}, format="json")
         self.assertEqual(token.status_code, 200)
 
-        editada = self.client.put(f"/api/usuarios/{usuario['id']}/", self.datos(first_name="Paulina", clave="", clave_confirmacion=""), format="json")
+        editada = self.client.put(f"/api/usuarios/{usuario['id']}/", self.datos(nombres="Paulina", clave="", clave_confirmacion=""), format="json")
         self.assertEqual(editada.status_code, 200, editada.content)
         self.assertEqual(editada.json()["funcionario"]["nombre_completo"], "Paulina Rojas")
         self.assertTrue(get_user_model().objects.get(username="paula").check_password("Territorio-Norte-2026"))
@@ -282,15 +281,15 @@ class UsuariosAPITest(BaseAPI):
         self.assertIn("clave", cuerpo["detalle"])
         cuerpo = self.assertError(self.client.post("/api/usuarios/", self.datos(perfil=GRUPO_SUPERVISOR), format="json"), 400)
         self.assertIn("perfil", cuerpo["detalle"])
-        cuerpo = self.assertError(self.client.post("/api/usuarios/", self.datos(username="FUNCIONARIA"), format="json"), 400)
-        self.assertIn("username", cuerpo["detalle"])
+        cuerpo = self.assertError(self.client.post("/api/usuarios/", self.datos(usuario="FUNCIONARIA"), format="json"), 400)
+        self.assertIn("usuario", cuerpo["detalle"])
         self.assertError(self.client.delete(f"/api/usuarios/{self.admin.pk}/"), 400)
 
     def test_perfil_usuario_solo_ve_campos_publicos_de_su_delegacion(self):
         self.autenticar(self.supervisor)
         listado = self.client.get("/api/usuarios/").json()
-        self.assertEqual({u["nombre"] for u in listado["results"]}, {"Delegada Centro", "Ana Funcionaria", "Bruno Funcionario"})
-        for usuario in listado["results"]:
+        self.assertEqual({u["nombre"] for u in listado["resultados"]}, {"Delegada Centro", "Ana Funcionaria", "Bruno Funcionario"})
+        for usuario in listado["resultados"]:
             self.assertEqual(set(usuario), {"id", "nombre", "perfil", "cargo", "delegacion"})
         self.assertNotIn("privado@gmail.com", self.client.get(f"/api/usuarios/{self.administrativo.pk}/").content.decode())
         self.assertError(self.client.get(f"/api/usuarios/{self.admin.pk}/"), 404)
@@ -305,7 +304,8 @@ class UsuariosAPITest(BaseAPI):
     def test_admin_ve_todos_los_campos(self):
         self.autenticar(self.admin)
         detalle = self.client.get(f"/api/usuarios/{self.administrativo.pk}/").json()
-        self.assertEqual(detalle["email"], "ana.privado@gmail.com")
+        self.assertEqual(detalle["correo"], "ana.privado@gmail.com")
+        self.assertEqual(set(detalle), {"id", "usuario", "nombres", "apellidos", "correo", "perfil", "activo", "ultimo_acceso", "fecha_creacion", "funcionario"})
         self.assertEqual(detalle["funcionario"]["identificador"], "F-1")
         self.assertNotIn("password", detalle)
 
@@ -485,3 +485,61 @@ class ExportacionesTest(BaseAPI):
         self.assertEqual(respuesta["Content-Type"], "application/pdf")
         self.client.logout()
         self.assertEqual(self.client.get(reverse("oficina:cartas_exportar", args=["pdf"])).status_code, 302)
+
+
+class APIEnEspanolTest(BaseAPI):
+    def test_rutas_en_espanol_y_rutas_anteriores_compatibles(self):
+        esquema = self.client.get("/api/esquema/", HTTP_ACCEPT="application/vnd.oai.openapi+json").json()
+        for ruta in ("/api/token/renovar/", "/api/token/verificar/", "/api/token/revocar/"):
+            self.assertIn(ruta, esquema["paths"])
+        for ruta in ("/api/token/refresh/", "/api/token/verify/", "/api/token/blacklist/", "/api/schema/"):
+            self.assertNotIn(ruta, esquema["paths"])
+        refresh = self.client.post("/api/token/", {"username": "admin", "password": CLAVE}, format="json").json()["refresh"]
+        self.assertEqual(self.client.post("/api/token/refresh/", {"refresh": refresh}, format="json").status_code, 200)
+        self.assertEqual(self.client.get("/api/schema/", HTTP_ACCEPT="application/vnd.oai.openapi+json").status_code, 200)
+
+    def test_mensajes_de_django_drf_y_simplejwt_en_espanol(self):
+        cuerpo = self.assertError(self.client.get("/api/cartas/"), 401)
+        self.assertEqual(cuerpo["mensaje"], "Las credenciales de autenticación no se proveyeron.")
+        self.client.credentials(HTTP_AUTHORIZATION="Bearer no-es-un-jwt")
+        cuerpo = self.assertError(self.client.get("/api/cartas/"), 401)
+        self.assertNotIn("Given token", cuerpo["mensaje"])
+        self.assertIn("token", cuerpo["mensaje"].lower())
+        self.client.credentials()
+        cuerpo = self.assertError(self.client.post("/api/token/", {"username": "admin", "password": "otra"}, format="json"), 401)
+        self.assertNotIn("No active account", cuerpo["mensaje"])
+        cuerpo = self.assertError(self.client.post("/api/token/renovar/", {"refresh": "x"}, format="json"), 401)
+        self.assertIn("inválido", cuerpo["mensaje"])
+        refresh = self.client.post("/api/token/", {"username": "admin", "password": CLAVE}, format="json").json()["refresh"]
+        self.client.post("/api/token/revocar/", {"refresh": refresh}, format="json")
+        cuerpo = self.assertError(self.client.post("/api/token/renovar/", {"refresh": refresh}, format="json"), 401)
+        self.assertEqual(cuerpo["mensaje"], "El token es inválido, venció o fue revocado.")
+        with mock.patch.object(ScopedRateThrottle, "THROTTLE_RATES", {"token": "1/min"}):
+            cache.clear()
+            self.client.post("/api/token/", {"username": "admin", "password": "mala"}, format="json")
+            cuerpo = self.assertError(self.client.post("/api/token/", {"username": "admin", "password": "mala"}, format="json"), 429)
+        self.assertRegex(cuerpo["mensaje"], r"^Demasiadas solicitudes\. Intenta nuevamente en \d+ segundos\.$")
+        self.autenticar(self.admin)
+        cuerpo = self.assertError(self.client.post("/api/cartas/", {}, format="json"), 400)
+        self.assertEqual(cuerpo["detalle"]["remitente"], ["Este campo es requerido."])
+
+    def test_listados_paginados_con_claves_en_espanol(self):
+        self.autenticar(self.admin)
+        listado = self.client.get("/api/usuarios/", {"tamano": 2}).json()
+        self.assertEqual(set(listado), {"total", "siguiente", "anterior", "resultados"})
+        self.assertEqual(listado["total"], 5)
+        self.assertIn("pagina=2", listado["siguiente"])
+        self.assertIsNone(listado["anterior"])
+
+    def test_textos_de_opciones_y_errores_generales_en_espanol(self):
+        self.autenticar(self.admin)
+        carta = self.client.post("/api/cartas/", {"remitente": "JJVV", "asunto": "Poda", "delegacion": self.centro.pk, "fecha_ingreso": "2026-06-10"}, format="json").json()
+        self.assertEqual(carta["estado_texto"], "Ingresada")
+        self.assertIn("resolucion_texto", carta)
+        self.assertFalse([clave for clave in carta if clave.endswith("_display")])
+        cuerpo = self.assertError(self.client.post("/api/usuarios/", {
+            "usuario": "nuevo", "nombres": "Nuevo", "correo": "nuevo@laserena.cl", "perfil": GRUPO_ADMINISTRATIVO,
+            "identificador": "F-77", "delegacion": self.norte.pk, "cargo": self.cargo.pk, "clave": "Territorio-Norte-2026", "clave_confirmacion": "Otra-clave-2026",
+        }, format="json"), 400)
+        self.assertNotIn("non_field_errors", cuerpo["detalle"])
+        self.assertTrue(set(cuerpo["detalle"]) <= {"errores_generales", "clave_confirmacion", "clave"}, cuerpo["detalle"])

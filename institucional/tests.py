@@ -15,9 +15,8 @@ from django.core.management import call_command
 from django.test import TestCase, override_settings
 from django.urls import reverse
 
-from laserena.permisos import GRUPO_ADMINISTRADOR, GRUPO_ADMINISTRATIVO, GRUPO_SUPERVISOR, grupo_usuario
+from laserena.permisos import GRUPO_ADMINISTRADOR, GRUPO_ADMINISTRATIVO, GRUPO_SUPERVISOR, asignar_grupo, grupo_usuario
 
-from .cuentas import asignar_grupo
 from .models import Cargo, Delegacion, Funcionario
 
 CLAVE = "Serena-demo-2026"
@@ -44,13 +43,13 @@ class AccesoFuncionariosTest(TestCase):
 		for nombre in ("institucional:inicio", "institucional:autoridades", "servicios:catalogo"):
 			self.assertContains(self.client.get(reverse(nombre)), reverse("institucional:acceso"))
 
-	def test_login_lleva_al_dashboard_de_cada_perfil(self):
+	def test_inicio_de_sesion_lleva_al_panel_de_cada_perfil(self):
 		crear_usuario("sup", GRUPO_SUPERVISOR, self.centro, self.cargo)
 		crear_usuario("fun", GRUPO_ADMINISTRATIVO, self.centro, self.cargo)
 		esperado = {
 			"admin-demo": "institucional/panel.html",
-			"sup": "institucional/dashboard_supervisor.html",
-			"fun": "institucional/dashboard_administrativo.html",
+			"sup": "institucional/panel_supervisor.html",
+			"fun": "institucional/panel_administrativo.html",
 		}
 		for username, plantilla in esperado.items():
 			respuesta = self.client.post(reverse("institucional:acceso"), {"username": username, "password": CLAVE}, follow=True)

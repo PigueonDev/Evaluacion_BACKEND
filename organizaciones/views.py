@@ -5,7 +5,8 @@ from django.db.models import Count, Q
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
 
-from laserena.permisos import con_permiso, parametro_permitido, texto_busqueda
+from laserena.filtros import parametro_permitido, texto_busqueda
+from laserena.permisos import con_permiso
 
 from .forms import OrganizacionForm
 from .models import TERRITORIOS, OrganizacionComunitaria

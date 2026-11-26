@@ -7,8 +7,7 @@ from django.core.management import call_command
 from django.test import TestCase
 from django.urls import reverse
 
-from institucional.cuentas import asignar_grupo
-from laserena.permisos import GRUPO_ADMINISTRADOR, GRUPO_ADMINISTRATIVO, GRUPO_SUPERVISOR
+from laserena.permisos import GRUPO_ADMINISTRADOR, GRUPO_ADMINISTRATIVO, GRUPO_SUPERVISOR, asignar_grupo
 
 from .models import OrganizacionComunitaria, normalizar_territorio
 

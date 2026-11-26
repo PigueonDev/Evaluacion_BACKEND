@@ -33,12 +33,14 @@ def validar_tamano_evidencia(archivo):
 class Servicio(models.Model):
 	slug = models.SlugField(max_length=120, unique=True)
 	nombre = models.CharField(max_length=160)
-	categoria = models.CharField(max_length=80)
+	categoria = models.CharField("categoría", max_length=80)
 	unidad = models.CharField(max_length=160)
-	descripcion = models.TextField()
+	descripcion = models.TextField("descripción")
 	activo = models.BooleanField(default=True)
 
 	class Meta:
+		verbose_name = "servicio"
+		verbose_name_plural = "servicios"
 		ordering = ["nombre"]
 
 	def __str__(self):
@@ -52,14 +54,16 @@ class ItemMedicion(models.Model):
 		("emergencia", "Emergencia: cumple si atendió al menos una"),
 		("sin_puntaje", "Otra gestión: se registra, no puntúa"),
 	]
-	codigo = models.CharField(max_length=30, unique=True)
+	codigo = models.CharField("código", max_length=30, unique=True)
 	nombre = models.CharField(max_length=160)
-	descripcion = models.TextField(blank=True)
+	descripcion = models.TextField("descripción", blank=True)
 	unidad = models.CharField(max_length=40, default="cantidad")
 	tipo_medicion = models.CharField("tipo de medición", max_length=20, choices=TIPOS_MEDICION, default="conteo")
 	activo = models.BooleanField(default=True)
 
 	class Meta:
+		verbose_name = "ítem de medición"
+		verbose_name_plural = "ítems de medición"
 		ordering = ["codigo"]
 
 	def __str__(self):
@@ -69,18 +73,20 @@ class ItemMedicion(models.Model):
 class Periodo(models.Model):
 	ESTADOS = [("abierto", "Abierto"), ("cerrado", "Cerrado")]
 	nombre = models.CharField(max_length=120, unique=True)
-	fecha_inicio = models.DateField()
-	fecha_termino = models.DateField()
+	fecha_inicio = models.DateField("fecha de inicio")
+	fecha_termino = models.DateField("fecha de término")
 	estado = models.CharField(max_length=20, choices=ESTADOS, default="abierto")
-	tope_cumplimiento = models.DecimalField(max_digits=5, decimal_places=2, default=150)
-	tope_item = models.DecimalField(max_digits=5, decimal_places=2, default=120)
-	umbral_colectivo = models.DecimalField(max_digits=5, decimal_places=2, default=80)
-	umbral_ambar = models.DecimalField(max_digits=5, decimal_places=2, default=60)
+	tope_cumplimiento = models.DecimalField("tope de cumplimiento", max_digits=5, decimal_places=2, default=150)
+	tope_item = models.DecimalField("tope por ítem", max_digits=5, decimal_places=2, default=120)
+	umbral_colectivo = models.DecimalField("umbral colectivo", max_digits=5, decimal_places=2, default=80)
+	umbral_ambar = models.DecimalField("umbral naranjo", max_digits=5, decimal_places=2, default=60)
 	bono_felicitacion = models.DecimalField("puntos por felicitación", max_digits=5, decimal_places=2, default=10)
 	maximo_felicitaciones = models.PositiveSmallIntegerField("felicitaciones que suman como máximo", default=3)
 	descuento_reclamo = models.DecimalField("puntos que descuenta cada reclamo", max_digits=5, decimal_places=2, default=20)
 
 	class Meta:
+		verbose_name = "período"
+		verbose_name_plural = "períodos"
 		ordering = ["-fecha_inicio"]
 
 	def clean(self):
@@ -122,13 +128,17 @@ class Periodo(models.Model):
 
 
 class Meta(models.Model):
-	periodo = models.ForeignKey(Periodo, on_delete=models.PROTECT, related_name="metas")
-	item = models.ForeignKey(ItemMedicion, on_delete=models.PROTECT, related_name="metas")
+	periodo = models.ForeignKey(Periodo, on_delete=models.PROTECT, related_name="metas", verbose_name="período")
+	item = models.ForeignKey(ItemMedicion, on_delete=models.PROTECT, related_name="metas", verbose_name="ítem de medición")
 	cargo = models.ForeignKey("institucional.Cargo", on_delete=models.PROTECT, null=True, blank=True, related_name="metas")
 	funcionario = models.ForeignKey("institucional.Funcionario", on_delete=models.PROTECT, null=True, blank=True, related_name="metas")
 	objetivo = models.DecimalField(max_digits=10, decimal_places=2)
 	ponderador = models.DecimalField(max_digits=5, decimal_places=2)
-	version = models.PositiveIntegerField(default=1)
+	version = models.PositiveIntegerField("versión", default=1)
+
+	class Meta:
+		verbose_name = "meta"
+		verbose_name_plural = "metas"
 
 	def clean(self):
 		if self.objetivo <= 0:
@@ -188,28 +198,30 @@ class ActividadQuerySet(models.QuerySet):
 
 class Actividad(models.Model):
 	ESTADOS = [("pendiente", "Pendiente"), ("validada", "Aprobada"), ("rechazada", "Rechazada"), ("anulada", "Anulada")]
-	codigo_evidencia = models.UUIDField(default=uuid.uuid4, unique=True, editable=False)
+	codigo_evidencia = models.UUIDField("código de evidencia", default=uuid.uuid4, unique=True, editable=False)
 	funcionario = models.ForeignKey("institucional.Funcionario", on_delete=models.PROTECT, related_name="actividades")
-	periodo = models.ForeignKey(Periodo, on_delete=models.PROTECT, related_name="actividades")
-	item = models.ForeignKey(ItemMedicion, on_delete=models.PROTECT, related_name="actividades")
+	periodo = models.ForeignKey(Periodo, on_delete=models.PROTECT, related_name="actividades", verbose_name="período")
+	item = models.ForeignKey(ItemMedicion, on_delete=models.PROTECT, related_name="actividades", verbose_name="ítem de medición")
 	servicio = models.ForeignKey(Servicio, on_delete=models.PROTECT, null=True, blank=True, related_name="actividades")
 	compromiso = models.ForeignKey("Compromiso", on_delete=models.SET_NULL, null=True, blank=True, related_name="actividades")
 	codigo_verificador = models.CharField("código verificador", max_length=30, unique=True, null=True, blank=True, editable=False)
 	fecha = models.DateField(default=timezone.now)
-	descripcion = models.TextField()
-	accion = models.TextField()
+	descripcion = models.TextField("descripción")
+	accion = models.TextField("acción")
 	contacto = models.CharField(max_length=160, blank=True)
-	telefono = models.CharField(max_length=30, blank=True)
+	telefono = models.CharField("teléfono", max_length=30, blank=True)
 	derivado_a = models.ForeignKey("institucional.UnidadMunicipal", on_delete=models.SET_NULL, null=True, blank=True, related_name="actividades_derivadas", verbose_name="derivado a")
 	estado = models.CharField(max_length=20, choices=ESTADOS, default="pendiente")
-	creada_en = models.DateTimeField(auto_now_add=True)
-	revisada_por = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name="actividades_revisadas")
-	revisada_en = models.DateTimeField(null=True, blank=True)
-	observacion_revision = models.TextField(blank=True)
+	creada_en = models.DateTimeField("registrada el", auto_now_add=True)
+	revisada_por = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name="actividades_revisadas", verbose_name="revisada por")
+	revisada_en = models.DateTimeField("revisada el", null=True, blank=True)
+	observacion_revision = models.TextField("observación de la revisión", blank=True)
 
 	objects = ActividadQuerySet.as_manager()
 
 	class Meta:
+		verbose_name = "actividad"
+		verbose_name_plural = "actividades"
 		ordering = ["-fecha", "-creada_en"]
 		permissions = [("aprobar_actividad", "Puede aprobar o rechazar actividades")]
 
@@ -304,7 +316,7 @@ class TareaPreparatoria(models.Model):
 	]
 	actividad = models.ForeignKey(Actividad, on_delete=models.CASCADE, related_name="tareas")
 	tipo = models.CharField(max_length=20, choices=TIPOS)
-	descripcion = models.CharField(max_length=200, blank=True)
+	descripcion = models.CharField("descripción", max_length=200, blank=True)
 	realizada = models.BooleanField(default=False)
 	realizada_en = models.DateTimeField(null=True, blank=True)
 
@@ -365,7 +377,7 @@ PLAZOS_ATENCION_SOCIAL = (
 
 
 class Caso(models.Model):
-	identificacion = models.CharField(max_length=30, unique=True)
+	identificacion = models.CharField("identificación", max_length=30, unique=True)
 	nombre = models.CharField(max_length=160)
 	delegacion = models.ForeignKey("institucional.Delegacion", on_delete=models.PROTECT, related_name="casos")
 	tipo_atencion = models.CharField("tipo de atención", max_length=30, choices=TIPOS_ATENCION_SOCIAL, blank=True)
@@ -379,7 +391,7 @@ class Caso(models.Model):
 	fecha_entrega_informe = models.DateField("fecha de entrega del informe", null=True, blank=True)
 	fecha_entrega_beneficio = models.DateField("fecha de entrega del beneficio", null=True, blank=True)
 	devoluciones_informe = models.PositiveSmallIntegerField("devoluciones del informe", default=0)
-	observacion = models.TextField(blank=True)
+	observacion = models.TextField("observación", blank=True)
 	activo = models.BooleanField(default=True)
 	creado_en = models.DateTimeField(auto_now_add=True)
 
@@ -450,9 +462,9 @@ class Caso(models.Model):
 class Gestion(models.Model):
 	caso = models.ForeignKey(Caso, on_delete=models.CASCADE, related_name="gestiones")
 	actividad = models.OneToOneField(Actividad, on_delete=models.PROTECT, null=True, blank=True, related_name="gestion")
-	numero = models.PositiveSmallIntegerField()
+	numero = models.PositiveSmallIntegerField("número")
 	fecha = models.DateField(default=timezone.now)
-	descripcion = models.TextField()
+	descripcion = models.TextField("descripción")
 	activa = models.BooleanField(default=True)
 
 	class Meta:
@@ -494,8 +506,12 @@ class Evidencia(models.Model):
 	)
 	autor = models.ForeignKey(User, on_delete=models.PROTECT, related_name="evidencias_cargadas")
 	estado = models.CharField(max_length=20, choices=ESTADOS, default="pendiente")
-	observacion = models.TextField(blank=True)
+	observacion = models.TextField("observación", blank=True)
 	cargada_en = models.DateTimeField(auto_now_add=True)
+
+	class Meta:
+		verbose_name = "evidencia"
+		verbose_name_plural = "evidencias"
 
 	def __str__(self):
 		return f"Evidencia de {self.actividad.codigo_evidencia}"
@@ -505,9 +521,13 @@ class Validacion(models.Model):
 	DECISIONES = [("aprobada", "Aprobada"), ("rechazada", "Rechazada"), ("correccion", "Solicita corrección")]
 	evidencia = models.ForeignKey(Evidencia, on_delete=models.CASCADE, related_name="validaciones")
 	verificador = models.ForeignKey(User, on_delete=models.PROTECT, related_name="validaciones_realizadas")
-	decision = models.CharField(max_length=20, choices=DECISIONES)
-	observacion = models.TextField(blank=True)
+	decision = models.CharField("decisión", max_length=20, choices=DECISIONES)
+	observacion = models.TextField("observación", blank=True)
 	fecha = models.DateTimeField(auto_now_add=True)
+
+	class Meta:
+		verbose_name = "validación"
+		verbose_name_plural = "validaciones"
 
 
 class Compromiso(models.Model):
@@ -523,14 +543,16 @@ class Compromiso(models.Model):
 	solicitante = models.CharField(max_length=160)
 	territorio = models.CharField(max_length=160)
 	area_apoyo = models.ForeignKey("institucional.UnidadMunicipal", on_delete=models.SET_NULL, null=True, blank=True, related_name="compromisos_apoyados", verbose_name="área de apoyo")
-	descripcion = models.TextField()
+	descripcion = models.TextField("descripción")
 	fecha_comprometida = models.DateField()
 	estado = models.CharField(max_length=20, choices=ESTADOS, default="ingresado")
-	observacion = models.TextField(blank=True)
+	observacion = models.TextField("observación", blank=True)
 	activo = models.BooleanField(default=True)
 	creado_en = models.DateTimeField(auto_now_add=True)
 
 	class Meta:
+		verbose_name = "compromiso"
+		verbose_name_plural = "compromisos"
 		ordering = ["fecha_comprometida", "creado_en"]
 
 	@property
@@ -577,24 +599,28 @@ class Compromiso(models.Model):
 
 class HistorialCompromiso(models.Model):
 	compromiso = models.ForeignKey(Compromiso, on_delete=models.CASCADE, related_name="historial")
-	estado_anterior = models.CharField(max_length=20, blank=True)
-	estado_nuevo = models.CharField(max_length=20)
+	estado_anterior = models.CharField("estado anterior", max_length=20, blank=True)
+	estado_nuevo = models.CharField("estado nuevo", max_length=20)
 	autor = models.ForeignKey(User, on_delete=models.PROTECT)
-	observacion = models.TextField(blank=True)
+	observacion = models.TextField("observación", blank=True)
 	fecha = models.DateTimeField(auto_now_add=True)
 
 	class Meta:
+		verbose_name = "historial de compromiso"
+		verbose_name_plural = "historiales de compromiso"
 		ordering = ["fecha"]
 
 
 class Auditoria(models.Model):
 	usuario = models.ForeignKey(User, on_delete=models.PROTECT)
-	accion = models.CharField(max_length=80)
+	accion = models.CharField("acción", max_length=80)
 	entidad = models.CharField(max_length=120)
 	identificador = models.CharField(max_length=80)
-	valor_anterior = models.JSONField(null=True, blank=True)
-	valor_nuevo = models.JSONField(null=True, blank=True)
+	valor_anterior = models.JSONField("valor anterior", null=True, blank=True)
+	valor_nuevo = models.JSONField("valor nuevo", null=True, blank=True)
 	fecha = models.DateTimeField(auto_now_add=True)
 
 	class Meta:
+		verbose_name = "registro de auditoría"
+		verbose_name_plural = "registros de auditoría"
 		ordering = ["-fecha"]
