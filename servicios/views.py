@@ -13,6 +13,8 @@ from institucional.models import Cargo, Delegacion, Funcionario
 from laserena.filtros import parametro_permitido, texto_busqueda
 from laserena.permisos import (
     acotar_ambito,
+    con_permiso,
+    es_administrador,
     perfil_de_ambito,
     perfil_funcionario,
     solo_administrador,
@@ -22,10 +24,10 @@ from laserena.permisos import (
 )
 
 from .desempeno import resumen_equipo
-from .forms import ActividadForm, CasoForm, CompromisoForm, GestionForm, RevisionForm, TareaFormSet
-from .models import CODIGO_VERIFICADOR, DIAS_COMPROMISO_PROXIMO, MAXIMO_GESTIONES_POR_CASO, Actividad, Caso, Compromiso, Gestion, HistorialCompromiso, ItemMedicion, Meta, Periodo, Servicio, TareaPreparatoria
+from .forms import ActividadForm, CasoForm, CompromisoForm, EvidenciaForm, GestionForm, RevisionEvidenciaForm, RevisionForm, TareaFormSet
+from .models import CODIGO_VERIFICADOR, DIAS_COMPROMISO_PROXIMO, MAXIMO_GESTIONES_POR_CASO, Actividad, Caso, Compromiso, Evidencia, Gestion, HistorialCompromiso, ItemMedicion, Meta, Periodo, Servicio, TareaPreparatoria
 from .reglas import MAXIMO_ACTIVIDADES_POR_DIA, fin_semana_laboral, inicio_semana, semana_abierta
-from .transacciones import actualizar_actividad, marcar_tarea, registrar_actividad, revisar_actividad, tareas_desde_formset
+from .transacciones import actualizar_actividad, cargar_evidencia, marcar_tarea, registrar_actividad, revisar_actividad, revisar_evidencia, tareas_desde_formset
 
 
 def catalogo(request):
@@ -64,6 +66,23 @@ def _delegacion_usuario(user):
 def _actividades_ambito(user):
     queryset = Actividad.objects.select_related("funcionario", "funcionario__delegacion", "funcionario__cargo", "item", "periodo", "compromiso")
     return acotar_ambito(queryset, user, "funcionario__delegacion")
+
+
+def _evidencias_ambito(user):
+    queryset = Evidencia.objects.select_related(
+        "actividad", "actividad__funcionario", "actividad__funcionario__delegacion", "actividad__item", "tarea", "autor",
+    )
+    return acotar_ambito(queryset, user, "actividad__funcionario__delegacion")
+
+
+def _puede_cargar_evidencia(user, actividad):
+    """El funcionario adjunta la captura de su propia actividad. El Administrador, de cualquiera."""
+    if not user.has_perm("servicios.add_evidencia") or actividad.estado == "anulada":
+        return False
+    if es_administrador(user):
+        return True
+    perfil = perfil_funcionario(user)
+    return perfil is not None and actividad.funcionario_id == perfil.pk
 
 
 def _compromisos_ambito(user, solo_activos=True):
@@ -182,13 +201,30 @@ def actividad_nueva(request):
 
 @solo_administrativo
 def actividad_detalle(request, pk):
-    actividad = get_object_or_404(_actividades_ambito(request.user).prefetch_related("tareas"), pk=pk)
+    actividad = get_object_or_404(_actividades_ambito(request.user).prefetch_related("tareas", "evidencias"), pk=pk)
+    puede_cargar = _puede_cargar_evidencia(request.user, actividad)
+    if request.method == "POST":
+        if not puede_cargar:
+            return render(request, "institucional/denegado.html", status=403)
+        formulario = EvidenciaForm(request.POST, request.FILES, actividad=actividad)
+        if formulario.is_valid():
+            try:
+                cargar_evidencia(actividad, formulario.cleaned_data["tarea"], formulario.cleaned_data["archivo"], request.user)
+            except ValidationError as error:
+                formulario.add_error(None, error)
+            else:
+                messages.success(request, "Captura enviada. Queda pendiente de revisión del delegado.")
+                return redirect("servicios:actividad_detalle", pk=actividad.pk)
+    else:
+        formulario = EvidenciaForm(actividad=actividad) if puede_cargar else None
     return render(
         request,
         "servicios/actividad_detalle.html",
         {
             "actividad": actividad,
             "tareas": actividad.tareas.all(),
+            "evidencias": actividad.evidencias.all(),
+            "formulario_evidencia": formulario,
             "editable": actividad.estado == "pendiente" and semana_abierta(actividad.fecha),
             "pagina_activa": "actividades",
         },
@@ -255,6 +291,47 @@ def tarea_marcar(request, pk, tarea_pk):
     else:
         messages.success(request, f"Tarea «{tarea}» {'realizada' if tarea.realizada else 'marcada como pendiente'}. Las tareas no suman al cumplimiento.")
     return redirect("servicios:actividad_detalle", pk=actividad.pk)
+
+
+@con_permiso("servicios.aprobar_evidencia")
+def evidencias(request):
+    queryset = _evidencias_ambito(request.user)
+    estado = parametro_permitido(request, "estado", [*dict(Evidencia.ESTADOS), "todas"]) or "pendiente"
+    if estado != "todas":
+        queryset = queryset.filter(estado=estado)
+    return render(
+        request,
+        "servicios/evidencias.html",
+        {
+            "evidencias": queryset,
+            "estado_activo": estado,
+            "estados": Evidencia.ESTADOS,
+            "pagina_activa": "evidencias",
+        },
+    )
+
+
+@con_permiso("servicios.aprobar_evidencia")
+@require_POST
+def evidencia_revisar(request, pk):
+    evidencia = get_object_or_404(_evidencias_ambito(request.user), pk=pk)
+    form = RevisionEvidenciaForm(request.POST)
+    if not form.is_valid():
+        if request.POST.get("decision") == "rechazar":
+            messages.warning(request, "Indica un motivo breve para rechazar la evidencia.")
+        else:
+            messages.warning(request, "Decisión no válida.")
+        return redirect("servicios:evidencias")
+    try:
+        revisar_evidencia(evidencia, form.cleaned_data["decision"], request.user, form.cleaned_data["motivo"])
+    except ValidationError as error:
+        messages.warning(request, " ".join(error.messages))
+    else:
+        if form.cleaned_data["decision"] == "aprobar":
+            messages.success(request, "Evidencia aprobada.")
+        else:
+            messages.success(request, "Evidencia rechazada. El funcionario verá el motivo.")
+    return redirect("servicios:evidencias")
 
 
 @solo_supervisor
@@ -702,9 +779,14 @@ def consulta(request):
 
 @solo_supervisor
 def consulta_actividad(request, pk):
-    actividad = get_object_or_404(_actividades_ambito(request.user), pk=pk)
+    actividad = get_object_or_404(_actividades_ambito(request.user).prefetch_related("evidencias"), pk=pk)
     return render(
         request,
         "servicios/consulta_detalle.html",
-        {"actividad": actividad, "consulta_query": request.GET.urlencode(), "pagina_activa": "consulta"},
+        {
+            "actividad": actividad,
+            "evidencias": actividad.evidencias.all(),
+            "consulta_query": request.GET.urlencode(),
+            "pagina_activa": "consulta",
+        },
     )

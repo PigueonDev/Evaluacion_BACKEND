@@ -23,6 +23,9 @@
             <div><dt>Acción</dt><dd>{{ actividad.accion }}</dd></div>
             <div><dt>Estado</dt><dd><span class="estado estado-{{ actividad.estado }}">{{ actividad.get_estado_display }}</span></dd></div>
         </dl>
+        <h2 class="h5 mt-4">Evidencias</h2>
+        <p class="text-secondary">Capturas que acreditan esta actividad y el texto de la tarea.</p>
+        {% include "servicios/includes/evidencias.html" with evidencias=evidencias %}
         <a class="btn btn-primary" href="{% url 'servicios:consulta' %}?{{ consulta_query }}">Volver a la consulta</a>
     </article>
 </section>

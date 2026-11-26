@@ -218,11 +218,21 @@ class SeguridadSitioTest(TestCase):
 		validate_password("Faro-Serena-2026!")
 
 	def test_evidencia_rechaza_extensiones_peligrosas(self):
+		from io import BytesIO
+
+		from PIL import Image
+
 		from servicios.models import Evidencia
 		campo = Evidencia._meta.get_field("archivo")
 		with self.assertRaises(ValidationError):
 			campo.run_validators(SimpleUploadedFile("ataque.php", b"<?php ?>"))
-		campo.run_validators(SimpleUploadedFile("acta.pdf", b"%PDF-1.4"))
+		with self.assertRaises(ValidationError):
+			campo.run_validators(SimpleUploadedFile("acta.pdf", b"%PDF-1.4"))
+		with self.assertRaises(ValidationError):
+			campo.run_validators(SimpleUploadedFile("falso.png", b"no es una imagen"))
+		buffer = BytesIO()
+		Image.new("RGB", (4, 4), "white").save(buffer, format="PNG")
+		campo.run_validators(SimpleUploadedFile("captura.png", buffer.getvalue()))
 
 
 class PerfilesYMantenedorUsuariosTest(TestCase):

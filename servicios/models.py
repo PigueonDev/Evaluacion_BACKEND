@@ -11,8 +11,10 @@ from django.utils import timezone
 
 User = get_user_model()
 
-EXTENSIONES_EVIDENCIA = ["pdf", "jpg", "jpeg", "png", "webp"]
+EXTENSIONES_EVIDENCIA = ["jpg", "jpeg", "png", "webp"]
+FORMATOS_IMAGEN_EVIDENCIA = {"JPEG", "PNG", "WEBP"}
 TAMANO_MAXIMO_EVIDENCIA = 5 * 1024 * 1024
+MOTIVO_RECHAZO_MAX = 280
 TELEFONO_ACTIVIDAD = re.compile(r"^\+?[0-9][0-9\s-]{7,18}$")
 CODIGO_VERIFICADOR = re.compile(r"^[A-Z0-9]{2,10}-\d{4}-\d{3,}$")
 MAXIMO_GESTIONES_POR_CASO = 3
@@ -28,6 +30,26 @@ TRANSICIONES_COMPROMISO = {
 def validar_tamano_evidencia(archivo):
 	if archivo.size > TAMANO_MAXIMO_EVIDENCIA:
 		raise ValidationError("La evidencia no puede superar los 5 MB.")
+
+
+def validar_imagen_evidencia(archivo):
+	"""Captura de pantalla: solo PNG, JPG o WebP, y que el contenido sea esa imagen."""
+	validar_tamano_evidencia(archivo)
+	from PIL import Image, UnidentifiedImageError
+
+	try:
+		if hasattr(archivo, "seek"):
+			archivo.seek(0)
+		imagen = Image.open(archivo)
+		imagen.load()
+		formato = (imagen.format or "").upper()
+	except (UnidentifiedImageError, OSError, ValueError):
+		raise ValidationError("El archivo no es una imagen PNG, JPG o WebP válida.")
+	finally:
+		if hasattr(archivo, "seek"):
+			archivo.seek(0)
+	if formato not in FORMATOS_IMAGEN_EVIDENCIA:
+		raise ValidationError("Solo se aceptan capturas en PNG, JPG o WebP.")
 
 
 class Servicio(models.Model):
@@ -560,27 +582,76 @@ class Gestion(models.Model):
 
 
 class Evidencia(models.Model):
-	ESTADOS = [("pendiente", "Pendiente"), ("aprobada", "Aprobada"), ("rechazada", "Rechazada"), ("correccion", "Solicita corrección")]
+	"""Captura del trabajo ya hecho. Acredita una actividad y el texto de una de sus tareas."""
+
+	ESTADOS = [("pendiente", "Pendiente"), ("aprobada", "Aprobada"), ("rechazada", "Rechazada")]
 	actividad = models.ForeignKey(Actividad, on_delete=models.CASCADE, related_name="evidencias")
+	tarea = models.ForeignKey(
+		TareaPreparatoria,
+		on_delete=models.SET_NULL,
+		null=True,
+		blank=True,
+		related_name="evidencias",
+		verbose_name="tarea que acredita",
+	)
+	texto_tarea = models.CharField(
+		"tarea que acredita",
+		max_length=280,
+		blank=True,
+		default="",
+		help_text="Texto de la tarea al momento de adjuntar la captura. No cambia si después se edita la tarea.",
+	)
 	archivo = models.FileField(
+		"captura",
 		upload_to="evidencias/%Y/%m/",
-		validators=[FileExtensionValidator(EXTENSIONES_EVIDENCIA), validar_tamano_evidencia],
+		validators=[FileExtensionValidator(EXTENSIONES_EVIDENCIA), validar_imagen_evidencia],
 	)
 	autor = models.ForeignKey(User, on_delete=models.PROTECT, related_name="evidencias_cargadas")
 	estado = models.CharField(max_length=20, choices=ESTADOS, default="pendiente")
-	observacion = models.TextField("observación", blank=True)
+	observacion = models.TextField("motivo del rechazo", blank=True)
 	cargada_en = models.DateTimeField(auto_now_add=True)
 
 	class Meta:
 		verbose_name = "evidencia"
 		verbose_name_plural = "evidencias"
+		ordering = ["-cargada_en"]
+		permissions = [("aprobar_evidencia", "Puede aprobar o rechazar evidencias")]
+
+	def clean(self):
+		errores = {}
+		if self.tarea_id and self.actividad_id and self.tarea.actividad_id != self.actividad_id:
+			errores["tarea"] = "La tarea debe pertenecer a la actividad."
+		if self.tarea_id and not (self.texto_tarea or "").strip():
+			self.texto_tarea = self.tarea.descripcion
+		self.texto_tarea = (self.texto_tarea or "").strip()
+		self.observacion = (self.observacion or "").strip()
+		if not self.pk:
+			if not self.tarea_id:
+				errores["tarea"] = "Elige la tarea que esta captura acredita."
+			elif not self.tarea.realizada:
+				errores["tarea"] = "Solo puedes adjuntar la captura de una tarea ya realizada."
+			if self.actividad_id and self.actividad.estado == "anulada":
+				errores["actividad"] = "No se adjunta evidencia a una actividad anulada."
+			if self.tarea_id and self.estado == "pendiente" and Evidencia.objects.filter(tarea_id=self.tarea_id, estado="pendiente").exists():
+				errores["tarea"] = "Esta tarea ya tiene una evidencia pendiente de revisión."
+		if not self.texto_tarea:
+			errores["__all__"] = "La evidencia debe indicar el texto de la tarea que acredita."
+		if self.estado == "rechazada":
+			if not self.observacion:
+				errores["observacion"] = "Indica un motivo breve del rechazo."
+			elif len(self.observacion) > MOTIVO_RECHAZO_MAX:
+				errores["observacion"] = "El motivo del rechazo no puede superar los 280 caracteres."
+		elif self.estado != "pendiente" and self.estado != "aprobada":
+			errores["estado"] = "El estado debe ser pendiente, aprobada o rechazada."
+		if errores:
+			raise ValidationError(errores)
 
 	def __str__(self):
-		return f"Evidencia de {self.actividad.codigo_evidencia}"
+		return f"Evidencia de {self.texto_tarea or self.actividad}"
 
 
 class Validacion(models.Model):
-	DECISIONES = [("aprobada", "Aprobada"), ("rechazada", "Rechazada"), ("correccion", "Solicita corrección")]
+	DECISIONES = [("aprobada", "Aprobada"), ("rechazada", "Rechazada")]
 	evidencia = models.ForeignKey(Evidencia, on_delete=models.CASCADE, related_name="validaciones")
 	verificador = models.ForeignKey(User, on_delete=models.PROTECT, related_name="validaciones_realizadas")
 	decision = models.CharField("decisión", max_length=20, choices=DECISIONES)

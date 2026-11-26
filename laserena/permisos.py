@@ -49,6 +49,7 @@ ACCION_POR_CODIGO = {codigo: accion for accion, codigo in ACCION_DJANGO.items()}
 # Acciones propias del SGR: se declaran en `Meta.permissions` de cada modelo.
 PERMISOS_ESPECIALES = {
     ("servicios.actividad", APROBAR): "servicios.aprobar_actividad",
+    ("servicios.evidencia", APROBAR): "servicios.aprobar_evidencia",
     ("organizaciones.organizacioncomunitaria", VERIFICAR): "organizaciones.verificar_organizacion",
     ("oficina.ausencia", ANULAR): "oficina.anular_ausencia",
 }
@@ -64,6 +65,7 @@ PERMISOS_POR_PERFIL = {
         "institucional.cargo": (VER,),
         "institucional.unidadmunicipal": (VER,),
         "servicios.actividad": (VER, APROBAR),
+        "servicios.evidencia": (VER, APROBAR),
         "servicios.tareapreparatoria": (VER,),
         "servicios.compromiso": (VER,),
         "servicios.meta": (VER,),
@@ -76,6 +78,7 @@ PERMISOS_POR_PERFIL = {
     },
     GRUPO_ADMINISTRATIVO: {
         "servicios.actividad": (VER, AGREGAR, MODIFICAR),
+        "servicios.evidencia": (VER, AGREGAR),
         "servicios.tareapreparatoria": (VER, AGREGAR, MODIFICAR),
         "servicios.caso": (VER, AGREGAR, MODIFICAR),
         "servicios.gestion": (AGREGAR, MODIFICAR),

@@ -1,0 +1,69 @@
+{% extends "base.html" %}
+
+{% block titulo %}Evidencias · SGR{% endblock %}
+
+{% block contenido %}
+{% include "includes/cabecera.html" with antetitulo="Supervisor · Delegado" titulo="Evidencias" bajada="Capturas del trabajo ya realizado. Aprueba o rechaza cada una. Si la rechazas, escribe un motivo breve: el funcionario lo verá en la actividad." %}
+
+<section class="container py-5">
+    <div class="d-flex flex-wrap gap-2 mb-4">
+        <a class="chip {% if estado_activo == 'pendiente' %}activo{% endif %}" href="?estado=pendiente">Pendientes</a>
+        <a class="chip {% if estado_activo == 'aprobada' %}activo{% endif %}" href="?estado=aprobada">Aprobadas</a>
+        <a class="chip {% if estado_activo == 'rechazada' %}activo{% endif %}" href="?estado=rechazada">Rechazadas</a>
+        <a class="chip {% if estado_activo == 'todas' %}activo{% endif %}" href="?estado=todas">Todas</a>
+    </div>
+    <div class="panel-tabla">
+        <div class="table-responsive">
+            <table class="table tabla-municipal align-middle mb-0">
+                <thead>
+                    <tr>
+                        <th>Captura</th>
+                        <th>Actividad y tarea</th>
+                        <th>Funcionario</th>
+                        <th>Estado</th>
+                        <th style="min-width:280px">Decisión</th>
+                    </tr>
+                </thead>
+                <tbody>
+                {% for evidencia in evidencias %}
+                <tr>
+                    <td>
+                        <a href="{{ evidencia.archivo.url }}">
+                            <img class="captura-evidencia" src="{{ evidencia.archivo.url }}" alt="Captura de {{ evidencia.texto_tarea }}">
+                        </a>
+                    </td>
+                    <td>
+                        <a href="{% url 'servicios:consulta_actividad' evidencia.actividad.pk %}">{{ evidencia.actividad.descripcion|truncatewords:12 }}</a>
+                        <div class="small text-secondary">Solicitante: {{ evidencia.actividad.solicitante|default:"Sin solicitante" }}</div>
+                        <div><strong>Tarea:</strong> {{ evidencia.texto_tarea }}</div>
+                        <div class="small text-secondary">{{ evidencia.cargada_en|date:"d/m/Y H:i" }}</div>
+                    </td>
+                    <td>{{ evidencia.actividad.funcionario.nombre_completo }}</td>
+                    <td>
+                        <span class="estado estado-{{ evidencia.estado }}">{{ evidencia.get_estado_display }}</span>
+                        {% if evidencia.estado == "rechazada" and evidencia.observacion %}
+                        <div class="small mt-1">{{ evidencia.observacion }}</div>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if evidencia.estado == "pendiente" %}
+                        <form method="post" action="{% url 'servicios:evidencia_revisar' evidencia.pk %}" class="d-flex flex-wrap gap-2 align-items-center">
+                            {% csrf_token %}
+                            <input class="form-control form-control-sm" name="motivo" maxlength="280" placeholder="Motivo (obligatorio al rechazar)" style="max-width:220px" aria-label="Motivo del rechazo">
+                            <button class="btn btn-success btn-sm" name="decision" value="aprobar" type="submit">Aprobar</button>
+                            <button class="btn btn-outline-danger btn-sm" name="decision" value="rechazar" type="submit">Rechazar</button>
+                        </form>
+                        {% else %}
+                        <span class="text-secondary small">Ya revisada</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="5" class="text-center text-secondary py-4">No hay evidencias en este estado.</td></tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</section>
+{% endblock %}
