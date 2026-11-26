@@ -10,7 +10,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap">
     <link rel="stylesheet" href="{% static 'css/bootstrap.min.css' %}">
-    <link rel="stylesheet" href="{% static 'css/estilos.css' %}?v=20261123">
+    <link rel="stylesheet" href="{% static 'css/estilos.css' %}?v=20261125">
 </head>
 <body class="d-flex flex-column min-vh-100">
     {% include "includes/iconos.html" %}
@@ -44,6 +44,12 @@
                         <li><a class="dropdown-item" href="{% url 'institucional:grupos' %}"><svg class="icono"><use href="#i-users"/></svg>Grupos y permisos</a></li>
                         <li><a class="dropdown-item" href="{% url 'servicios:resumen_matriz' %}"><svg class="icono"><use href="#i-chart"/></svg>Resumen de la matriz</a></li>
                         <li><a class="dropdown-item" href="{% url 'institucional:cargos' %}"><svg class="icono"><use href="#i-list"/></svg>Cargos y metas</a></li>
+                        <li><a class="dropdown-item" href="{% url 'institucional:delegaciones' %}"><svg class="icono"><use href="#i-building"/></svg>Delegaciones</a></li>
+                        <li><a class="dropdown-item" href="{% url 'institucional:territorios' %}"><svg class="icono"><use href="#i-pin"/></svg>Territorios</a></li>
+                        <li><a class="dropdown-item" href="{% url 'institucional:vecinos' %}"><svg class="icono"><use href="#i-users"/></svg>Vecinos</a></li>
+                        <li><a class="dropdown-item" href="{% url 'institucional:hitos' %}"><svg class="icono"><use href="#i-check"/></svg>Hitos</a></li>
+                        <li><a class="dropdown-item" href="{% url 'institucional:trimestres' %}"><svg class="icono"><use href="#i-calendar"/></svg>Trimestres y metas</a></li>
+                        <li><a class="dropdown-item" href="{% url 'institucional:tipos_atencion' %}"><svg class="icono"><use href="#i-list"/></svg>Tipos de atención</a></li>
                         <li><a class="dropdown-item" href="{% url 'institucional:unidades' %}"><svg class="icono"><use href="#i-building"/></svg>Unidades municipales</a></li>
                         <li><a class="dropdown-item" href="{{ phpmyadmin_url }}" target="_blank" rel="noopener"><svg class="icono"><use href="#i-database"/></svg>Abrir phpMyAdmin</a></li>
                         {% endif %}
@@ -97,7 +103,9 @@
                         {% endif %}
                         {% if es_administrativo %}
                         <li class="nav-item"><a class="nav-link {% if pagina_activa == 'casos' %}active{% endif %}" href="{% url 'servicios:casos' %}">Casos</a></li>
-                        <li class="nav-item"><a class="nav-link {% if pagina_activa == 'agenda' %}active{% endif %}" href="{% url 'servicios:agenda' %}">Agenda</a></li>
+                        {% endif %}
+                        {% if es_personal %}
+                        <li class="nav-item"><a class="nav-link {% if pagina_activa == 'agenda' %}active{% endif %}" href="{% url 'servicios:agenda' %}">Tubo</a></li>
                         {% endif %}
                         {% if es_supervisor or es_administrador %}
                         <li class="nav-item"><a class="nav-link {% if pagina_activa == 'aprobaciones' %}active{% endif %}" href="{% url 'servicios:aprobaciones' %}">Aprobaciones</a></li>
@@ -210,6 +218,7 @@
             </div>
         </div>
     </footer>
+    <script src="{% static 'js/sgr.js' %}"></script>
     <script src="{% static 'js/bootstrap.bundle.min.js' %}"></script>
 </body>
 </html>

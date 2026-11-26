@@ -1,0 +1,40 @@
+<div class="row g-4 mb-4">
+    <div class="col-lg-6">
+        <article class="panel-tabla h-100">
+            <div class="panel-tabla-encabezado"><h2 class="h5 mb-0">{{ titulo_carga }}</h2></div>
+            <div class="p-3">
+                {% if grafico_carga.vacio %}
+                <p class="text-secondary mb-0">Aún no hay datos para graficar la carga de trabajo.</p>
+                {% else %}
+                <svg class="grafico" viewBox="0 0 {{ grafico_carga.ancho }} {{ grafico_carga.alto }}" role="img" aria-label="{{ titulo_carga }}">
+                    <line x1="12" y1="{{ grafico_carga.base }}" x2="{{ grafico_carga.ancho|add:"-8" }}" y2="{{ grafico_carga.base }}" stroke="#dee2e6"/>
+                    {% for barra in grafico_carga.barras %}
+                    <rect x="{{ barra.x }}" y="{{ barra.y }}" width="{{ barra.w }}" height="{{ barra.h }}" rx="3" fill="#c0392b"></rect>
+                    <text x="{{ barra.tx }}" y="{{ barra.y|add:"-4" }}" text-anchor="middle" font-size="11" fill="#1f2933">{{ barra.valor }}</text>
+                    <text x="{{ barra.tx }}" y="{{ grafico_carga.alto|add:"-8" }}" text-anchor="middle" font-size="11" fill="#52606d">{{ barra.etiqueta }}</text>
+                    {% endfor %}
+                </svg>
+                {% endif %}
+            </div>
+        </article>
+    </div>
+    <div class="col-lg-6">
+        <article class="panel-tabla h-100">
+            <div class="panel-tabla-encabezado"><h2 class="h5 mb-0">{{ titulo_tendencia }}</h2></div>
+            <div class="p-3">
+                {% if grafico_tendencia.vacio %}
+                <p class="text-secondary mb-0">Aún no hay datos para graficar la tendencia.</p>
+                {% else %}
+                <svg class="grafico" viewBox="0 0 {{ grafico_tendencia.ancho }} {{ grafico_tendencia.alto }}" role="img" aria-label="{{ titulo_tendencia }}">
+                    <line x1="28" y1="{{ grafico_tendencia.base }}" x2="{{ grafico_tendencia.ancho|add:"-12" }}" y2="{{ grafico_tendencia.base }}" stroke="#dee2e6"/>
+                    <polyline points="{{ grafico_tendencia.puntos }}" fill="none" stroke="#c0392b" stroke-width="2.5"/>
+                    {% for marca in grafico_tendencia.marcas %}
+                    <circle cx="{{ marca.x }}" cy="{{ marca.y }}" r="3.5" fill="#8e1b1b"></circle>
+                    <text x="{{ marca.x }}" y="{{ grafico_tendencia.alto|add:"-8" }}" text-anchor="middle" font-size="11" fill="#52606d">{{ marca.etiqueta }}</text>
+                    {% endfor %}
+                </svg>
+                {% endif %}
+            </div>
+        </article>
+    </div>
+</div>

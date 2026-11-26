@@ -1,0 +1,19 @@
+{% for compromiso in compromisos %}
+<tr class="{% if compromiso.vencido %}fila-vencida{% endif %}">
+    <td class="text-nowrap"><code>{{ compromiso.codigo|default:"—" }}</code></td>
+    <td class="text-nowrap">{{ compromiso.fecha_comprometida|date:"d/m/Y" }}</td>
+    <td>
+        <a href="{% url 'servicios:compromiso_detalle' compromiso.pk %}">{{ compromiso.solicitante }}</a>
+        {% if compromiso.rut %}<div class="small text-secondary">{{ compromiso.rut }}</div>{% endif %}
+    </td>
+    <td>{{ compromiso.delegacion.nombre }}</td>
+    <td>{{ compromiso.responsable.nombre_completo }}</td>
+    <td class="text-secondary">{{ compromiso.descripcion|truncatewords:12 }}</td>
+    <td class="text-nowrap">
+        <span class="estado estado-{{ compromiso.estado }}">{{ compromiso.get_estado_display }}</span>
+        {% if compromiso.vencido %}<span class="estado estado-rechazada">Vencido</span>{% endif %}
+    </td>
+</tr>
+{% empty %}
+<tr><td colspan="7" class="text-secondary">No hay ingresos al tubo para este filtro.</td></tr>
+{% endfor %}

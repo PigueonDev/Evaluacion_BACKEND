@@ -1,5 +1,6 @@
 from django.conf import settings
 from django.core.exceptions import ValidationError
+from django.core.validators import FileExtensionValidator
 from django.db import models
 from django.utils import timezone
 
@@ -215,6 +216,13 @@ class Reconocimiento(models.Model):
 	ubicacion = models.CharField("ubicación", max_length=160, blank=True)
 	situacion = models.TextField("situación que felicita o reclama")
 	medio = models.CharField("medio escrito", max_length=20, choices=MEDIOS)
+	respaldo = models.FileField(
+		"respaldo formal del delegado",
+		upload_to="reconocimientos/%Y/%m/",
+		blank=True,
+		validators=[FileExtensionValidator(["pdf", "jpg", "jpeg", "png", "webp"])],
+		help_text="Documento o imagen que acredita la felicitación. Sin este archivo la felicitación no puntúa.",
+	)
 	estado = models.CharField("estado", max_length=20, choices=ESTADOS, default="vigente")
 	registrado_por = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="reconocimientos_registrados")
 	creado_en = models.DateTimeField(auto_now_add=True)
@@ -238,5 +246,7 @@ class Reconocimiento(models.Model):
 			errores["fecha"] = "La fecha no puede ser futura."
 		if not (self.situacion or "").strip():
 			errores["situacion"] = "Describe la situación."
+		if self.tipo == "felicitacion" and not self.respaldo:
+			errores["respaldo"] = "La felicitación solo es válida con el respaldo formal del delegado."
 		if errores:
 			raise ValidationError(errores)

@@ -9,7 +9,10 @@
 <section class="container py-5">
     <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
         <p class="mb-0 text-secondary">{% if periodo %}Metas del período <strong class="text-dark">{{ periodo.nombre }}</strong> ({{ periodo.fecha_inicio|date:"d/m/Y" }} al {{ periodo.fecha_termino|date:"d/m/Y" }}).{% else %}No hay un período abierto: ejecuta <code>python manage.py cargar_matriz</code>.{% endif %}</p>
-        <a class="btn btn-outline-primary" href="{% url 'institucional:unidades' %}">Unidades municipales</a>
+        <div class="d-flex gap-2">
+            <a class="btn btn-success" href="{% url 'institucional:cargo_crear' %}">Crear cargo</a>
+            <a class="btn btn-outline-primary" href="{% url 'institucional:trimestres' %}">Trimestres</a>
+        </div>
     </div>
     <div class="row g-4">
         {% for fila in filas %}
@@ -20,7 +23,10 @@
                         <h2 class="h5 mb-1">{{ fila.cargo.nombre }}{% if not fila.cargo.activo %} <span class="badge text-bg-secondary">inactivo</span>{% endif %}</h2>
                         <div class="small text-secondary">Perfil: <strong>{{ fila.cargo.perfil|default:"cualquiera" }}</strong>{% if fila.cargo.sigla %} · sigla {{ fila.cargo.sigla }}{% endif %} · {{ fila.cargo.total_funcionarios }} funcionario{{ fila.cargo.total_funcionarios|pluralize }}</div>
                     </div>
-                    <a class="btn btn-outline-secondary btn-sm" href="{% url 'institucional:cargo_editar' fila.cargo.pk %}">Editar</a>
+                    <div class="d-flex gap-2">
+                        <a class="btn btn-outline-secondary btn-sm" href="{% url 'institucional:cargo_editar' fila.cargo.pk %}">Editar</a>
+                        <a class="btn btn-outline-danger btn-sm" href="{% url 'institucional:cargo_eliminar' fila.cargo.pk %}">Eliminar</a>
+                    </div>
                 </div>
                 {% if fila.cargo.descripcion %}<p class="small mb-3">{{ fila.cargo.descripcion|truncatewords:40 }}</p>{% endif %}
                 {% if fila.metas %}

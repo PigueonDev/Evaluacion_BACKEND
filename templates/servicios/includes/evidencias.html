@@ -15,6 +15,15 @@
                 {% if evidencia.estado == "rechazada" and evidencia.observacion %}
                 <p class="mb-0"><strong>Motivo del rechazo:</strong> {{ evidencia.observacion }}</p>
                 {% endif %}
+                {% if evidencia.estado == "antecedentes" %}
+                <p class="mb-2"><strong>Antecedentes solicitados:</strong> {{ evidencia.observacion }}</p>
+                {% if editable %}
+                <form method="post" action="{% url 'servicios:evidencia_reenviar' evidencia.pk %}">
+                    {% csrf_token %}
+                    <button class="btn btn-outline-primary btn-sm" type="submit">Volver a enviar a revisión</button>
+                </form>
+                {% endif %}
+                {% endif %}
             </div>
         </div>
     </article>

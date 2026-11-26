@@ -74,6 +74,9 @@
             {% endif %}
         </form>
         {% endif %}
+        {% if actividad.estado == 'antecedentes' %}<div class="alert alert-warning">El delegado pidió más antecedentes{% if actividad.observacion_revision %}: {{ actividad.observacion_revision }}{% endif %}. Al guardar, la actividad vuelve a revisión.</div>{% endif %}
+        {% if actividad.estado == 'validada' %}<div class="alert alert-secondary">Registro aprobado: no se puede modificar.</div>{% endif %}
+        {% if not actividad.telefono %}<div class="alert alert-warning">Sin teléfono este registro no obtiene puntuación, aunque se apruebe.</div>{% endif %}
         {% if not editable and actividad.estado == 'pendiente' %}<div class="alert alert-secondary">La semana laboral de esta actividad cerró: queda bloqueada y no se traspasa.</div>{% endif %}
         <div class="d-flex flex-wrap gap-2">
             <a class="btn btn-outline-secondary" href="{% url 'servicios:actividades' %}">Volver al listado</a>

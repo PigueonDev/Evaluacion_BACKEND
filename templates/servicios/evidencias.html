@@ -10,6 +10,7 @@
         <a class="chip {% if estado_activo == 'pendiente' %}activo{% endif %}" href="?estado=pendiente">Pendientes</a>
         <a class="chip {% if estado_activo == 'aprobada' %}activo{% endif %}" href="?estado=aprobada">Aprobadas</a>
         <a class="chip {% if estado_activo == 'rechazada' %}activo{% endif %}" href="?estado=rechazada">Rechazadas</a>
+        <a class="chip {% if estado_activo == 'antecedentes' %}activo{% endif %}" href="?estado=antecedentes">Más antecedentes</a>
         <a class="chip {% if estado_activo == 'todas' %}activo{% endif %}" href="?estado=todas">Todas</a>
     </div>
     <div class="panel-tabla">
@@ -41,17 +42,18 @@
                     <td>{{ evidencia.actividad.funcionario.nombre_completo }}</td>
                     <td>
                         <span class="estado estado-{{ evidencia.estado }}">{{ evidencia.get_estado_display }}</span>
-                        {% if evidencia.estado == "rechazada" and evidencia.observacion %}
-                        <div class="small mt-1">{{ evidencia.observacion }}</div>
+                        {% if evidencia.estado == "rechazada" or evidencia.estado == "antecedentes" %}
+                        {% if evidencia.observacion %}<div class="small mt-1">{{ evidencia.observacion }}</div>{% endif %}
                         {% endif %}
                     </td>
                     <td>
-                        {% if evidencia.estado == "pendiente" %}
+                        {% if evidencia.estado == "pendiente" or evidencia.estado == "antecedentes" %}
                         <form method="post" action="{% url 'servicios:evidencia_revisar' evidencia.pk %}" class="d-flex flex-wrap gap-2 align-items-center">
                             {% csrf_token %}
-                            <input class="form-control form-control-sm" name="motivo" maxlength="280" placeholder="Motivo (obligatorio al rechazar)" style="max-width:220px" aria-label="Motivo del rechazo">
+                            <input class="form-control form-control-sm" name="motivo" maxlength="280" placeholder="Motivo si rechazas o pides antecedentes" style="max-width:220px" aria-label="Motivo">
                             <button class="btn btn-success btn-sm" name="decision" value="aprobar" type="submit">Aprobar</button>
                             <button class="btn btn-outline-danger btn-sm" name="decision" value="rechazar" type="submit">Rechazar</button>
+                            <button class="btn btn-outline-secondary btn-sm" name="decision" value="solicitar" type="submit">Pedir antecedentes</button>
                         </form>
                         {% else %}
                         <span class="text-secondary small">Ya revisada</span>

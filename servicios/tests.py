@@ -82,6 +82,8 @@ class ReglasSgrTest(TestCase):
 			item=self.item,
 			descripcion="Actividad validada",
 			accion="Acción de prueba",
+			solicitante="Vecino solicitante",
+			telefono="+56 9 1111 2222",
 			estado="validada",
 		)
 		self.assertEqual(meta.avance_aprobado, 1)
@@ -495,12 +497,12 @@ class MantenedoresCristhopherTest(TestCase):
 			"servicios:actividad_nueva",
 			"servicios:casos",
 			"servicios:caso_nuevo",
-			"servicios:agenda",
 			"servicios:compromiso_nuevo",
 			"servicios:panel_municipal",
 			"institucional:panel",
 		):
 			self.assertEqual(self.client.get(reverse(nombre)).status_code, 403, nombre)
+		self.assertEqual(self.client.get(reverse("servicios:agenda")).status_code, 200)
 		self.assertEqual(self.client.post(reverse("servicios:actividad_nueva"), self._datos_actividad()).status_code, 403)
 		self.assertEqual(self.client.get("/admin/").status_code, 404)
 		menu = self.client.get(reverse("institucional:inicio"))
@@ -532,7 +534,7 @@ class TransaccionRegistrarActividadTest(TestCase):
 		from .models import TareaPreparatoria
 		from .transacciones import registrar_actividad
 
-		actividad = Actividad(periodo=self.periodo, item=self.item, fecha=fecha, descripcion="Celebración vecinal", accion="Coordinar", solicitante="Vecino solicitante")
+		actividad = Actividad(periodo=self.periodo, item=self.item, fecha=fecha, descripcion="Celebración vecinal", accion="Coordinar", solicitante="Vecino solicitante", telefono="+56 9 1111 2222")
 		return registrar_actividad(actividad, [TareaPreparatoria(tipo="otra", descripcion=texto) for texto in tareas], self.funcionario, self.user)
 
 	def _datos(self, fecha="2026-06-17", **extra):
@@ -811,7 +813,7 @@ class EvidenciasTest(TestCase):
 
 		actividad = Actividad(
 			periodo=self.periodo, item=self.item, fecha=HOY_PRUEBAS, descripcion="Celebración vecinal",
-			accion="Coordinar", solicitante="Junta Los Aromos",
+			accion="Coordinar", solicitante="Junta Los Aromos", telefono="+56 9 1111 2222",
 		)
 		return registrar_actividad(actividad, [TareaPreparatoria(tipo="otra", descripcion=texto) for texto in tareas], self.funcionario, self.user)
 

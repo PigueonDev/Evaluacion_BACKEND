@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block titulo %}Metas del trimestre · SGR{% endblock %}
+{% block contenido %}
+{% url 'institucional:trimestres' as url_trimestres %}
+{% include "includes/cabecera.html" with antetitulo="Metas" titulo=periodo.nombre bajada="Cantidad exigida y ponderador propios de cada funcionario. No reemplaza el ajuste por ausencia." seccion="Trimestres" seccion_url=url_trimestres %}
+<section class="container py-5">
+    <div class="row g-4">
+        <div class="col-lg-5">
+            <article class="tarjeta-info">
+                <h2 class="h5">Fijar meta del funcionario</h2>
+                <p class="small text-secondary">El cargo Delegado no recibe meta de puntaje: sus actividades y solicitudes no contabilizan.</p>
+                <form method="post" novalidate>
+                    {% csrf_token %}
+                    {% include "servicios/includes/campos.html" %}
+                    <button class="btn btn-primary" type="submit">Guardar meta</button>
+                </form>
+            </article>
+        </div>
+        <div class="col-lg-7">
+            <div class="panel-tabla">
+                <div class="panel-tabla-encabezado"><h2 class="h5 mb-0">Metas personales del trimestre</h2></div>
+                <div class="table-responsive"><table class="table tabla-municipal align-middle mb-0">
+                    <thead><tr><th>Funcionario</th><th>Ítem</th><th class="text-end">Cantidad</th><th class="text-end">Ponderador</th></tr></thead>
+                    <tbody>
+                    {% for meta in personales %}
+                    <tr>
+                        <td>{{ meta.funcionario.nombre_completo }}<div class="small text-secondary">{{ meta.funcionario.cargo }}</div></td>
+                        <td>{{ meta.item.nombre }}</td>
+                        <td class="text-end">{{ meta.objetivo }}</td>
+                        <td class="text-end">{{ meta.ponderador }} %</td>
+                    </tr>
+                    {% empty %}<tr><td colspan="4" class="text-center text-secondary py-4">Todavía no hay metas distintas por funcionario. Se usan las del cargo.</td></tr>{% endfor %}
+                    </tbody>
+                </table></div>
+            </div>
+        </div>
+    </div>
+</section>
+{% endblock %}

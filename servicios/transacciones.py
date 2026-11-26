@@ -50,8 +50,12 @@ def registrar_actividad(actividad, tareas, funcionario, usuario, hoy=None):
 def actualizar_actividad(actividad, usuario, hoy=None):
 	anterior = Actividad.objects.select_for_update().get(pk=actividad.pk)
 	validar_semana_editable(anterior, hoy)
-	if anterior.estado != "pendiente":
-		raise ValidationError("Solo se modifica una actividad pendiente de aprobación.")
+	if anterior.estado == "validada":
+		raise ValidationError("Un registro aprobado no se modifica.")
+	if anterior.estado not in ("pendiente", "antecedentes"):
+		raise ValidationError("Solo se modifica una actividad pendiente o con solicitud de más antecedentes.")
+	if anterior.estado == "antecedentes":
+		actividad.estado = "pendiente"
 	validar_fecha_ingreso(actividad.fecha, hoy)
 	validar_cupo_diario(actividad.funcionario, actividad.fecha, excluir_pk=actividad.pk)
 	actividad.full_clean()
@@ -64,7 +68,9 @@ def actualizar_actividad(actividad, usuario, hoy=None):
 def marcar_tarea(tarea, realizada, usuario, hoy=None):
 	actividad = Actividad.objects.select_for_update().get(pk=tarea.actividad_id)
 	validar_semana_editable(actividad, hoy)
-	if actividad.estado != "pendiente":
+	if actividad.estado == "validada":
+		raise ValidationError("Un registro aprobado no se modifica.")
+	if actividad.estado not in ("pendiente", "antecedentes"):
 		raise ValidationError("La actividad ya fue revisada; sus tareas no cambian.")
 	tarea.realizada = realizada
 	tarea.realizada_en = timezone.now() if realizada else None
@@ -77,7 +83,9 @@ def revisar_actividad(actividad, decision, usuario, observacion="", hoy=None):
 	"""El Supervisor aprueba o rechaza. Solo se aprueba con todas las tareas realizadas."""
 	actividad = Actividad.objects.select_for_update().get(pk=actividad.pk)
 	validar_semana_editable(actividad, hoy)
-	if actividad.estado != "pendiente":
+	if actividad.estado == "validada":
+		raise ValidationError("Un registro aprobado no se modifica.")
+	if actividad.estado not in ("pendiente", "antecedentes"):
 		raise ValidationError("La actividad ya fue revisada.")
 	if decision == "aprobar":
 		if not actividad.tareas_completas:
@@ -87,6 +95,10 @@ def revisar_actividad(actividad, decision, usuario, observacion="", hoy=None):
 		if not observacion.strip():
 			raise ValidationError("Indica el motivo del rechazo.")
 		actividad.estado = "rechazada"
+	elif decision == "solicitar":
+		if not observacion.strip():
+			raise ValidationError("Indica qué antecedentes faltan.")
+		actividad.estado = "antecedentes"
 	else:
 		raise ValidationError("Decisión no válida.")
 	actividad.revisada_por = usuario
@@ -103,6 +115,8 @@ def cargar_evidencia(actividad, tarea, archivo, usuario):
 	tarea = TareaPreparatoria.objects.select_for_update().get(pk=tarea.pk, actividad=actividad)
 	if actividad.estado == "anulada":
 		raise ValidationError("No se adjunta evidencia a una actividad anulada.")
+	if actividad.estado == "validada":
+		raise ValidationError("Un registro aprobado no se modifica.")
 	if not tarea.realizada:
 		raise ValidationError("Solo puedes adjuntar la captura de una tarea ya realizada.")
 	if Evidencia.objects.filter(tarea=tarea, estado="pendiente").exists():
@@ -131,7 +145,9 @@ def cargar_evidencia(actividad, tarea, archivo, usuario):
 def revisar_evidencia(evidencia, decision, usuario, motivo=""):
 	"""El delegado aprueba o rechaza la captura. El rechazo exige un motivo breve."""
 	evidencia = Evidencia.objects.select_for_update().get(pk=evidencia.pk)
-	if evidencia.estado != "pendiente":
+	if evidencia.estado == "aprobada":
+		raise ValidationError("Un registro aprobado no se modifica.")
+	if evidencia.estado not in ("pendiente", "antecedentes"):
 		raise ValidationError("Esta evidencia ya fue revisada.")
 	motivo = (motivo or "").strip()
 	if decision == "aprobar":
@@ -143,6 +159,13 @@ def revisar_evidencia(evidencia, decision, usuario, motivo=""):
 		if len(motivo) > MOTIVO_RECHAZO_MAX:
 			raise ValidationError("El motivo del rechazo no puede superar los 280 caracteres.")
 		evidencia.estado = "rechazada"
+		evidencia.observacion = motivo
+	elif decision == "solicitar":
+		if not motivo:
+			raise ValidationError("Indica qué antecedentes faltan.")
+		if len(motivo) > MOTIVO_RECHAZO_MAX:
+			raise ValidationError("El motivo no puede superar los 280 caracteres.")
+		evidencia.estado = "antecedentes"
 		evidencia.observacion = motivo
 	else:
 		raise ValidationError("Decisión no válida.")

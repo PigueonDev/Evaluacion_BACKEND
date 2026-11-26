@@ -32,7 +32,9 @@ def _contar_reconocimientos(funcionario, periodo):
 	from oficina.models import Reconocimiento
 
 	vigentes = Reconocimiento.objects.filter(funcionario=funcionario, periodo=periodo, estado="vigente")
-	return vigentes.filter(tipo="felicitacion").count(), vigentes.filter(tipo="reclamo").count()
+	# Sin el archivo del delegado la felicitación no entra al bono.
+	felicitaciones = vigentes.filter(tipo="felicitacion").exclude(respaldo="").count()
+	return felicitaciones, vigentes.filter(tipo="reclamo").count()
 
 
 def alerta_rrhh(funcionario, periodo):

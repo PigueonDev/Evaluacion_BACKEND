@@ -182,6 +182,8 @@ class Meta(models.Model):
 		compromisos = Compromiso.objects.filter(
 			activo=True, fecha_comprometida__gte=self.periodo.fecha_inicio, fecha_comprometida__lte=self.periodo.fecha_termino,
 		)
+		# Las solicitudes cuyo responsable es el delegado no entran a la tasa del tubo.
+		compromisos = compromisos.exclude(responsable__cargo__nombre__iexact="Delegado")
 		return self._filtrar_responsable(compromisos, "responsable")
 
 	@property
@@ -201,7 +203,13 @@ class Meta(models.Model):
 			return 0
 		avance = self.avance_aprobado
 		if tipo == "emergencia":
-			return 100 if avance else 0
+			if avance:
+				return 100
+			# Una ausencia baja el objetivo bajo 1: la fracción no exigida queda cubierta.
+			exigencia = float(self.objetivo)
+			if exigencia < 1:
+				return min(100, (1 - exigencia) * 100)
+			return 0
 		return min((avance / float(self.objetivo)) * 100, float(self.periodo.tope_item))
 
 	@property
@@ -214,12 +222,27 @@ class Meta(models.Model):
 
 class ActividadQuerySet(models.QuerySet):
 	def puntuables(self):
-		"""Solo suma al cumplimiento lo aprobado por el Supervisor y con todas sus tareas realizadas."""
-		return self.filter(estado="validada").exclude(tareas__realizada=False)
+		"""Aprobado, con tareas hechas, nombre y teléfono, y cuyo funcionario no es el delegado.
+
+		Sin nombre o sin teléfono no hay puntaje. Las actividades del cargo Delegado no contabilizan.
+		"""
+		return (
+			self.filter(estado="validada")
+			.exclude(tareas__realizada=False)
+			.exclude(funcionario__cargo__nombre__iexact="Delegado")
+			.exclude(solicitante="")
+			.exclude(telefono="")
+		)
 
 
 class Actividad(models.Model):
-	ESTADOS = [("pendiente", "Pendiente"), ("validada", "Aprobada"), ("rechazada", "Rechazada"), ("anulada", "Anulada")]
+	ESTADOS = [
+		("pendiente", "Pendiente"),
+		("validada", "Aprobada"),
+		("rechazada", "Rechazada"),
+		("antecedentes", "Solicitud de más antecedentes"),
+		("anulada", "Anulada"),
+	]
 	codigo_evidencia = models.UUIDField("código de evidencia", default=uuid.uuid4, unique=True, editable=False)
 	funcionario = models.ForeignKey("institucional.Funcionario", on_delete=models.PROTECT, related_name="actividades")
 	periodo = models.ForeignKey(Periodo, on_delete=models.PROTECT, related_name="actividades", verbose_name="período")
@@ -276,6 +299,7 @@ class Actividad(models.Model):
 		if not (self.accion or "").strip():
 			errores["accion"] = "Indica la acción realizada."
 		telefono = (self.telefono or "").strip()
+		self.telefono = telefono
 		if telefono and not TELEFONO_ACTIVIDAD.match(telefono):
 			errores["telefono"] = "El teléfono debe contener entre 8 y 15 dígitos."
 		fecha = self.fecha.date() if isinstance(self.fecha, datetime) else self.fecha
@@ -318,6 +342,9 @@ class Actividad(models.Model):
 		super().save(*args, **kwargs)
 		if self.pk and self.solicitante:
 			Caso.objects.filter(gestiones__actividad_id=self.pk, solicitante="").update(solicitante=self.solicitante)
+			from .personas import recordar_persona
+
+			recordar_persona(self.funcionario.delegacion, self.solicitante, "", self.telefono)
 
 	@classmethod
 	def asignar_codigos_pendientes(cls):
@@ -424,6 +451,48 @@ FORMA_POR_SUBATENCION = {
 	"suf": "Aporte",
 	"sap": "Aporte",
 }
+class TipoAtencion(models.Model):
+	"""Tipo de atención social. El mantenedor reemplaza la lista fija."""
+
+	codigo = models.SlugField("código", max_length=40, unique=True)
+	nombre = models.CharField(max_length=120, unique=True)
+	activo = models.BooleanField(default=True)
+
+	class Meta:
+		verbose_name = "tipo de atención"
+		verbose_name_plural = "tipos de atención"
+		ordering = ["nombre"]
+
+	def __str__(self):
+		return self.nombre
+
+
+class SubtipoAtencion(models.Model):
+	tipo = models.ForeignKey(TipoAtencion, on_delete=models.PROTECT, related_name="subtipos")
+	codigo = models.SlugField("código", max_length=40)
+	nombre = models.CharField(max_length=120)
+	forma = models.CharField("forma de entrega", max_length=40, blank=True)
+	activo = models.BooleanField(default=True)
+
+	class Meta:
+		verbose_name = "subtipo de atención"
+		verbose_name_plural = "subtipos de atención"
+		ordering = ["tipo__nombre", "nombre"]
+		constraints = [
+			models.UniqueConstraint(fields=["tipo", "codigo"], name="subtipo_codigo_unico_por_tipo"),
+		]
+
+	def __str__(self):
+		return f"{self.tipo.nombre} · {self.nombre}"
+
+
+def _subtipo_corresponde(tipo_codigo, sub_codigo):
+	subtipo = SubtipoAtencion.objects.filter(codigo=sub_codigo).select_related("tipo").first()
+	if subtipo is not None:
+		return subtipo.tipo.codigo == tipo_codigo and subtipo.activo and subtipo.tipo.activo
+	return sub_codigo in SUBATENCIONES_POR_TIPO.get(tipo_codigo, ())
+
+
 # Plazos de las hojas de Gestor Social: (desde, hasta, días máximos, etiqueta).
 PLAZOS_ATENCION_SOCIAL = (
 	("fecha_ingreso", "fecha_programada_visita", 10, "Ingreso a visita programada"),
@@ -438,8 +507,8 @@ class Caso(models.Model):
 	identificacion = models.CharField("identificación", max_length=30, unique=True)
 	nombre = models.CharField(max_length=160)
 	delegacion = models.ForeignKey("institucional.Delegacion", on_delete=models.PROTECT, related_name="casos")
-	tipo_atencion = models.CharField("tipo de atención", max_length=30, choices=TIPOS_ATENCION_SOCIAL, blank=True)
-	sub_atencion = models.CharField("subatención", max_length=30, choices=SUBATENCIONES_SOCIALES, blank=True)
+	tipo_atencion = models.CharField("tipo de atención", max_length=40, blank=True)
+	sub_atencion = models.CharField("subatención", max_length=40, blank=True)
 	rut = models.CharField("RUT", max_length=12, blank=True)
 	telefono = models.CharField("teléfono", max_length=30, blank=True)
 	solicitante = models.CharField(
@@ -475,8 +544,23 @@ class Caso(models.Model):
 		"""Cada gestión vigente aporta una sola vez al informe del caso."""
 		return self.gestiones_vigentes.count()
 
+	def get_tipo_atencion_display(self):
+		tipo = TipoAtencion.objects.filter(codigo=self.tipo_atencion).first()
+		if tipo is not None:
+			return tipo.nombre
+		return dict(TIPOS_ATENCION_SOCIAL).get(self.tipo_atencion, self.tipo_atencion)
+
+	def get_sub_atencion_display(self):
+		subtipo = SubtipoAtencion.objects.filter(codigo=self.sub_atencion).first()
+		if subtipo is not None:
+			return subtipo.nombre
+		return dict(SUBATENCIONES_SOCIALES).get(self.sub_atencion, self.sub_atencion)
+
 	@property
 	def forma(self):
+		subtipo = SubtipoAtencion.objects.filter(codigo=self.sub_atencion).first()
+		if subtipo is not None and subtipo.forma:
+			return subtipo.forma
 		return FORMA_POR_SUBATENCION.get(self.sub_atencion, "")
 
 	def plazos(self):
@@ -499,7 +583,7 @@ class Caso(models.Model):
 		errores = {}
 		if self.sub_atencion and not self.tipo_atencion:
 			errores["tipo_atencion"] = "Indica el tipo de atención de la subatención."
-		elif self.sub_atencion and self.sub_atencion not in SUBATENCIONES_POR_TIPO.get(self.tipo_atencion, ()):
+		elif self.sub_atencion and not _subtipo_corresponde(self.tipo_atencion, self.sub_atencion):
 			errores["sub_atencion"] = "La subatención no corresponde al tipo de atención elegido."
 		if self.rut:
 			try:
@@ -521,6 +605,12 @@ class Caso(models.Model):
 			errores["requiere_visita"] = "Marca «requiere visita» si registras fechas de visita."
 		if errores:
 			raise ValidationError(errores)
+
+	def save(self, *args, **kwargs):
+		super().save(*args, **kwargs)
+		from .personas import recordar_persona
+
+		recordar_persona(self.delegacion, self.solicitante, self.rut, self.telefono)
 
 
 class Gestion(models.Model):
@@ -584,7 +674,12 @@ class Gestion(models.Model):
 class Evidencia(models.Model):
 	"""Captura del trabajo ya hecho. Acredita una actividad y el texto de una de sus tareas."""
 
-	ESTADOS = [("pendiente", "Pendiente"), ("aprobada", "Aprobada"), ("rechazada", "Rechazada")]
+	ESTADOS = [
+		("pendiente", "Pendiente"),
+		("aprobada", "Aprobada"),
+		("rechazada", "Rechazada"),
+		("antecedentes", "Solicitud de más antecedentes"),
+	]
 	actividad = models.ForeignKey(Actividad, on_delete=models.CASCADE, related_name="evidencias")
 	tarea = models.ForeignKey(
 		TareaPreparatoria,
@@ -636,13 +731,14 @@ class Evidencia(models.Model):
 				errores["tarea"] = "Esta tarea ya tiene una evidencia pendiente de revisión."
 		if not self.texto_tarea:
 			errores["__all__"] = "La evidencia debe indicar el texto de la tarea que acredita."
-		if self.estado == "rechazada":
+		if self.estado in ("rechazada", "antecedentes"):
+			etiqueta = "del rechazo" if self.estado == "rechazada" else "de la solicitud de antecedentes"
 			if not self.observacion:
-				errores["observacion"] = "Indica un motivo breve del rechazo."
+				errores["observacion"] = f"Indica un motivo breve {etiqueta}."
 			elif len(self.observacion) > MOTIVO_RECHAZO_MAX:
-				errores["observacion"] = "El motivo del rechazo no puede superar los 280 caracteres."
-		elif self.estado != "pendiente" and self.estado != "aprobada":
-			errores["estado"] = "El estado debe ser pendiente, aprobada o rechazada."
+				errores["observacion"] = "El motivo no puede superar los 280 caracteres."
+		elif self.estado not in ("pendiente", "aprobada"):
+			errores["estado"] = "El estado debe ser pendiente, aprobada, rechazada o solicitud de más antecedentes."
 		if errores:
 			raise ValidationError(errores)
 
@@ -651,7 +747,11 @@ class Evidencia(models.Model):
 
 
 class Validacion(models.Model):
-	DECISIONES = [("aprobada", "Aprobada"), ("rechazada", "Rechazada")]
+	DECISIONES = [
+		("aprobada", "Aprobada"),
+		("rechazada", "Rechazada"),
+		("antecedentes", "Solicitud de más antecedentes"),
+	]
 	evidencia = models.ForeignKey(Evidencia, on_delete=models.CASCADE, related_name="validaciones")
 	verificador = models.ForeignKey(User, on_delete=models.PROTECT, related_name="validaciones_realizadas")
 	decision = models.CharField("decisión", max_length=20, choices=DECISIONES)
@@ -668,12 +768,15 @@ class Compromiso(models.Model):
 
 	ESTADOS = [("ingresado", "Ingresado"), ("pendiente", "Pendiente"), ("proceso", "En proceso"), ("realizado", "Realizado")]
 	AMBITOS = [("interno", "Interno (INT)"), ("externo", "Externo (EXT)")]
+	codigo = models.CharField("código", max_length=20, unique=True, null=True, blank=True, editable=False)
 	delegacion = models.ForeignKey("institucional.Delegacion", on_delete=models.PROTECT, related_name="compromisos")
 	responsable = models.ForeignKey("institucional.Funcionario", on_delete=models.PROTECT, related_name="compromisos")
 	fecha_solicitud = models.DateField("fecha de solicitud", default=timezone.localdate)
 	ambito = models.CharField("interno o externo", max_length=10, choices=AMBITOS, default="externo")
 	origen = models.CharField(max_length=160)
 	solicitante = models.CharField(max_length=160)
+	rut = models.CharField("RUT", max_length=12, blank=True)
+	telefono = models.CharField("teléfono", max_length=30, blank=True)
 	territorio = models.CharField(max_length=160)
 	area_apoyo = models.ForeignKey("institucional.UnidadMunicipal", on_delete=models.SET_NULL, null=True, blank=True, related_name="compromisos_apoyados", verbose_name="área de apoyo")
 	descripcion = models.TextField("descripción")
@@ -719,13 +822,38 @@ class Compromiso(models.Model):
 			)
 		return self
 
+	def clean(self):
+		from laserena.rut import normalizar_rut
+
+		errores = {}
+		if self.rut:
+			try:
+				self.rut = normalizar_rut(self.rut)
+			except ValidationError as error:
+				errores["rut"] = error.messages
+		telefono = (self.telefono or "").strip()
+		self.telefono = telefono
+		if telefono and not TELEFONO_ACTIVIDAD.match(telefono):
+			errores["telefono"] = "El teléfono debe contener entre 8 y 15 dígitos."
+		if not (self.solicitante or "").strip():
+			errores["solicitante"] = "Indica el nombre del solicitante."
+		if errores:
+			raise ValidationError(errores)
+
 	def save(self, *args, **kwargs):
 		self.solicitante = (self.solicitante or "").strip()
 		super().save(*args, **kwargs)
+		if not self.codigo and self.pk:
+			anio = (self.fecha_solicitud or timezone.localdate()).year
+			self.codigo = f"TB-{anio}-{self.pk:04d}"
+			super().save(update_fields=["codigo"])
 		if not self.pk or not self.solicitante:
 			return
 		Actividad.objects.filter(compromiso_id=self.pk).exclude(solicitante=self.solicitante).update(solicitante=self.solicitante)
 		Caso.objects.filter(gestiones__actividad__compromiso_id=self.pk).exclude(solicitante=self.solicitante).update(solicitante=self.solicitante)
+		from .personas import recordar_persona
+
+		recordar_persona(self.delegacion, self.solicitante, self.rut, self.telefono)
 
 	@property
 	def fuera_de_plazo(self):

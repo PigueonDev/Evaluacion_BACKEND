@@ -151,8 +151,12 @@ class ReconocimientoForm(forms.ModelForm):
 
 	class Meta:
 		model = Reconocimiento
-		fields = ["tipo", "funcionario", "periodo", "fecha", "usuario_nombre", "contacto", "ubicacion", "situacion", "medio"]
-		widgets = {"fecha": forms.DateInput(), "situacion": forms.Textarea(attrs={"rows": 3})}
+		fields = ["tipo", "funcionario", "periodo", "fecha", "usuario_nombre", "contacto", "ubicacion", "situacion", "medio", "respaldo"]
+		widgets = {
+			"fecha": forms.DateInput(),
+			"situacion": forms.Textarea(attrs={"rows": 3}),
+			"respaldo": forms.ClearableFileInput(attrs={"class": "form-control", "accept": ".pdf,image/png,image/jpeg,image/webp"}),
+		}
 
 	def __init__(self, *args, usuario=None, **kwargs):
 		super().__init__(*args, **kwargs)
@@ -170,4 +174,6 @@ class ReconocimientoForm(forms.ModelForm):
 				self.initial.setdefault("periodo", periodo.pk)
 		self.fields["medio"].help_text = "La matriz solo acepta felicitaciones y reclamos por escrito."
 		self.fields["situacion"].help_text = "Los reclamos deben referirse a la atención del funcionario."
+		self.fields["respaldo"].required = False
+		self.fields["respaldo"].help_text = "Obligatorio en una felicitación: es el respaldo formal del delegado. PDF, JPG, PNG o WebP."
 		_estilar(self)

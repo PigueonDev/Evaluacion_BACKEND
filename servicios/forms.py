@@ -35,7 +35,7 @@ class ActividadForm(forms.ModelForm):
 		}
 		help_texts = {
 			"solicitante": "Nombre de quien solicita. Si eliges un ingreso al tubo y lo dejas vacío, se usa el solicitante de ese compromiso. Si escribes un nombre, debe ser el mismo.",
-			"telefono": "Opcional. Solo números, espacios o guiones.",
+			"telefono": "Opcional para guardar. Sin teléfono el registro aprobado no obtiene puntuación.",
 			"derivado_a": "Opcional. Unidad municipal o institución a la que se derivó a la persona.",
 			"compromiso": "Opcional. Asocia la actividad a un ingreso del tubo de trabajo de la misma delegación.",
 			"servicio": "Opcional.",
@@ -47,9 +47,9 @@ class ActividadForm(forms.ModelForm):
 			"servicio": forms.Select(attrs={"class": "form-select"}),
 			"descripcion": forms.Textarea(attrs={"class": "form-control", "rows": 3}),
 			"accion": forms.Textarea(attrs={"class": "form-control", "rows": 3}),
-			"solicitante": forms.TextInput(attrs={"class": "form-control", "placeholder": "Ej.: Junta de vecinos Los Aromos"}),
+			"solicitante": forms.TextInput(attrs={"class": "form-control", "placeholder": "Ej.: Junta de vecinos Los Aromos", "data-autocompletar": "solicitante", "autocomplete": "off"}),
 			"contacto": forms.TextInput(attrs={"class": "form-control"}),
-			"telefono": forms.TextInput(attrs={"class": "form-control", "inputmode": "tel"}),
+			"telefono": forms.TextInput(attrs={"class": "form-control", "inputmode": "tel", "data-autocompletar": "telefono", "autocomplete": "off"}),
 			"derivado_a": forms.Select(attrs={"class": "form-select"}),
 			"compromiso": forms.Select(attrs={"class": "form-select"}),
 		}
@@ -130,7 +130,10 @@ TareaFormSet = forms.formset_factory(TareaForm, formset=TareaFormSetBase, extra=
 
 
 class RevisionForm(forms.Form):
-	decision = forms.ChoiceField(choices=[("aprobar", "Aprobar"), ("rechazar", "Rechazar")], widget=forms.HiddenInput)
+	decision = forms.ChoiceField(
+		choices=[("aprobar", "Aprobar"), ("rechazar", "Rechazar"), ("solicitar", "Solicitar antecedentes")],
+		widget=forms.HiddenInput,
+	)
 	observacion = forms.CharField(
 		label="Observación",
 		required=False,
@@ -180,8 +183,8 @@ class EvidenciaForm(forms.ModelForm):
 
 class RevisionEvidenciaForm(forms.Form):
 	decision = forms.ChoiceField(
-		choices=[("aprobar", "Aprobar"), ("rechazar", "Rechazar")],
-		error_messages={"required": "Elige si apruebas o rechazas la evidencia.", "invalid_choice": "Decisión no válida."},
+		choices=[("aprobar", "Aprobar"), ("rechazar", "Rechazar"), ("solicitar", "Solicitar antecedentes")],
+		error_messages={"required": "Elige si apruebas, rechazas o pides más antecedentes.", "invalid_choice": "Decisión no válida."},
 	)
 	motivo = forms.CharField(
 		label="Motivo del rechazo",
@@ -194,8 +197,8 @@ class RevisionEvidenciaForm(forms.Form):
 		cleaned = super().clean()
 		motivo = (cleaned.get("motivo") or "").strip()
 		cleaned["motivo"] = motivo
-		if cleaned.get("decision") == "rechazar" and not motivo:
-			self.add_error("motivo", "Indica un motivo breve del rechazo.")
+		if cleaned.get("decision") in ("rechazar", "solicitar") and not motivo:
+			self.add_error("motivo", "Indica un motivo breve.")
 		return cleaned
 
 
@@ -226,9 +229,9 @@ class CasoForm(forms.ModelForm):
 		widgets = {
 			"identificacion": forms.TextInput(attrs={"class": "form-control"}),
 			"nombre": forms.TextInput(attrs={"class": "form-control"}),
-			"solicitante": forms.TextInput(attrs={"class": "form-control", "placeholder": "Ej.: Junta de vecinos Los Aromos"}),
-			"rut": forms.TextInput(attrs={"class": "form-control", "placeholder": "12.345.678-5"}),
-			"telefono": forms.TextInput(attrs={"class": "form-control", "inputmode": "tel"}),
+			"solicitante": forms.TextInput(attrs={"class": "form-control", "placeholder": "Ej.: Junta de vecinos Los Aromos", "data-autocompletar": "solicitante", "autocomplete": "off"}),
+			"rut": forms.TextInput(attrs={"class": "form-control", "placeholder": "12.345.678-5", "data-autocompletar": "rut", "autocomplete": "off"}),
+			"telefono": forms.TextInput(attrs={"class": "form-control", "inputmode": "tel", "data-autocompletar": "telefono", "autocomplete": "off"}),
 			"delegacion": forms.Select(attrs={"class": "form-select"}),
 			"tipo_atencion": forms.Select(attrs={"class": "form-select"}),
 			"sub_atencion": forms.Select(attrs={"class": "form-select"}),
@@ -249,11 +252,23 @@ class CasoForm(forms.ModelForm):
 		for nombre in ("fecha_ingreso", "fecha_programada_visita", "fecha_visita", "fecha_entrega_informe", "fecha_entrega_beneficio"):
 			self.fields[nombre].input_formats = ["%Y-%m-%d"]
 		self.fields["fecha_ingreso"].required = False
-		etiquetas = dict(SUBATENCIONES_SOCIALES)
-		self.fields["sub_atencion"].choices = [("", "Sin subatención")] + [
-			(etiqueta_tipo, [(codigo, etiquetas[codigo]) for codigo in SUBATENCIONES_POR_TIPO[tipo]])
-			for tipo, etiqueta_tipo in TIPOS_ATENCION_SOCIAL
-		]
+		from .models import SubtipoAtencion, TipoAtencion
+
+		tipos = list(TipoAtencion.objects.filter(activo=True).prefetch_related("subtipos"))
+		if tipos:
+			self.fields["tipo_atencion"].choices = [("", "Sin tipo")] + [(tipo.codigo, tipo.nombre) for tipo in tipos]
+			grupos = []
+			for tipo in tipos:
+				opciones = [(sub.codigo, sub.nombre) for sub in tipo.subtipos.all() if sub.activo]
+				if opciones:
+					grupos.append((tipo.nombre, opciones))
+			self.fields["sub_atencion"].choices = [("", "Sin subatención")] + grupos
+		else:
+			etiquetas = dict(SUBATENCIONES_SOCIALES)
+			self.fields["sub_atencion"].choices = [("", "Sin subatención")] + [
+				(etiqueta_tipo, [(codigo, etiquetas[codigo]) for codigo in SUBATENCIONES_POR_TIPO[tipo]])
+				for tipo, etiqueta_tipo in TIPOS_ATENCION_SOCIAL
+			]
 		if delegacion is not None:
 			self.fields["delegacion"].queryset = Delegacion.objects.filter(pk=delegacion.pk, activa=True)
 			self.fields["delegacion"].initial = delegacion
@@ -356,7 +371,7 @@ class CompromisoForm(forms.ModelForm):
 	class Meta:
 		model = Compromiso
 		fields = [
-			"delegacion", "fecha_solicitud", "ambito", "origen", "solicitante", "territorio", "descripcion", "responsable",
+			"delegacion", "fecha_solicitud", "ambito", "origen", "solicitante", "rut", "telefono", "territorio", "descripcion", "responsable",
 			"area_apoyo", "fecha_comprometida", "observacion", "estado",
 		]
 		labels = {
@@ -366,6 +381,8 @@ class CompromisoForm(forms.ModelForm):
 			"responsable": "Responsable",
 			"origen": "Origen",
 			"solicitante": "Solicitante",
+			"rut": "RUT",
+			"telefono": "Teléfono",
 			"territorio": "Territorio o sector",
 			"area_apoyo": "Área o persona de apoyo",
 			"descripcion": "Descripción",
@@ -380,7 +397,9 @@ class CompromisoForm(forms.ModelForm):
 			"responsable": forms.Select(attrs={"class": "form-select"}),
 			"area_apoyo": forms.Select(attrs={"class": "form-select"}),
 			"origen": forms.TextInput(attrs={"class": "form-control"}),
-			"solicitante": forms.TextInput(attrs={"class": "form-control"}),
+			"solicitante": forms.TextInput(attrs={"class": "form-control", "data-autocompletar": "solicitante", "autocomplete": "off"}),
+			"rut": forms.TextInput(attrs={"class": "form-control", "placeholder": "12.345.678-5", "data-autocompletar": "rut", "autocomplete": "off"}),
+			"telefono": forms.TextInput(attrs={"class": "form-control", "inputmode": "tel", "data-autocompletar": "telefono", "autocomplete": "off"}),
 			"territorio": forms.TextInput(attrs={"class": "form-control", "list": "sectores-delegacion"}),
 			"descripcion": forms.Textarea(attrs={"class": "form-control", "rows": 3}),
 			"fecha_comprometida": forms.DateInput(attrs={"type": "date", "class": "form-control"}, format="%Y-%m-%d"),
@@ -396,6 +415,8 @@ class CompromisoForm(forms.ModelForm):
 		self.fields["fecha_solicitud"].required = False
 		self.fields["ambito"].required = False
 		self.fields["observacion"].required = False
+		self.fields["rut"].required = False
+		self.fields["telefono"].required = False
 		self.fields["area_apoyo"].queryset = UnidadMunicipal.objects.filter(activa=True)
 		self.fields["area_apoyo"].required = False
 		self.fields["area_apoyo"].empty_label = "Sin apoyo de otra unidad"

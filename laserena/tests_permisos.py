@@ -61,7 +61,7 @@ ACCESO_WEB = {
     "/servicios/actividades/exportar/excel/": (200, 403, 200, 302),
     "/servicios/casos/": (200, 403, 200, 302),
     "/servicios/casos/nuevo/": (200, 403, 200, 302),
-    "/servicios/agenda/": (200, 403, 200, 302),
+    "/servicios/agenda/": (200, 200, 200, 302),
     "/servicios/agenda/nueva/": (200, 403, 200, 302),
     "/servicios/aprobaciones/": (200, 200, 403, 302),
     "/servicios/evidencias/": (200, 200, 403, 302),
