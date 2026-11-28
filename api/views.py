@@ -146,14 +146,14 @@ class RenovarTokenView(_ConLimiteDeIntentos, TokenRefreshView):
 
 
 @extend_schema(tags=["Autenticación JWT"], auth=[], summary="Verificar un token", description="Responde 200 si el token es válido y no ha vencido; 401 si no lo es.",
-               responses={200: OpenApiResponse(description="Token válido."), 401: ERROR_401})
+    responses={200: OpenApiResponse(description="Token válido."), 401: ERROR_401})
 class VerificarTokenView(_ConLimiteDeIntentos, TokenVerifyView):
     pass
 
 
 @extend_schema(tags=["Autenticación JWT"], auth=[], summary="Cerrar sesión (revocar el token de renovación)",
-               description="Agrega el token de renovación a la lista negra: ya no sirve para pedir tokens de acceso nuevos.",
-               responses={200: OpenApiResponse(description="Token de renovación revocado."), 401: ERROR_401})
+    description="Agrega el token de renovación a la lista negra: ya no sirve para pedir tokens de acceso nuevos.",
+    responses={200: OpenApiResponse(description="Token de renovación revocado."), 401: ERROR_401})
 class RevocarTokenView(_ConLimiteDeIntentos, TokenBlacklistView):
     pass
 
